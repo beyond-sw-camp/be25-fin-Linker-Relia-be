@@ -13,11 +13,11 @@
   </tr>
   
   <tr>
-    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="박선우" src="" /></td>
-    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="김예지" src="" /></td>   
-    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="이용호" src="" /></td>   
-    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="조하은" src="" /></td>  
-    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="한규진" src="" /></td>   
+    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="박선우" src="https://github.com/beyond-sw-camp/be25-fin-Linker-Norphan-be/blob/main/docs/images/%ED%8C%80%EC%9B%90/%EB%B0%95%EC%84%A0%EC%9A%B0.jpg" /></td>
+    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="김예지" src="https://github.com/beyond-sw-camp/be25-fin-Linker-Norphan-be/blob/main/docs/images/%ED%8C%80%EC%9B%90/%EA%B9%80%EC%98%88%EC%A7%80.jpg" /></td>   
+    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="이용호" src="https://github.com/beyond-sw-camp/be25-fin-Linker-Norphan-be/blob/main/docs/images/%ED%8C%80%EC%9B%90/%EC%9D%B4%EC%9A%A9%ED%98%B8.jpg" /></td>   
+    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="조하은" src="https://github.com/beyond-sw-camp/be25-fin-Linker-Norphan-be/blob/main/docs/images/%ED%8C%80%EC%9B%90/%EC%A1%B0%ED%95%98%EC%9D%80.jpg" /></td>  
+    <td align="center"><img width="150" height="210" style="object-fit: cover;" alt="한규진" src="https://github.com/beyond-sw-camp/be25-fin-Linker-Norphan-be/blob/main/docs/images/%ED%8C%80%EC%9B%90/%ED%95%9C%EA%B7%9C%EC%A7%84.jpg" /></td>   
   </tr>
 
   <tr>
@@ -80,6 +80,7 @@
 ---
 
 # 4.  ERD
+🔗[ ERD ](https://www.erdcloud.com/d/bT8LAgzBFbTcFFipj)
 
 <br/><br/><br/>
 

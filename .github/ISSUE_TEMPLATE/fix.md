@@ -1,8 +1,8 @@
 ---
-name: "🐞 Fix"
+name: "🐛 Fix"
 about: "버그 수정 및 오류 해결 (hotfix 포함)"
 title: "[Fix] "
-labels: ["🐞 Fix"]
+labels: ["🐛 Fix"]
 
 ---
 

@@ -5,6 +5,7 @@ import com.linker.relia.auth.dto.LoginResponse;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.util.CookieUtil;
 import com.linker.relia.infra.redis.AuthTokenRepository;
+import com.linker.relia.organization.repository.OrganizationRepository;
 import com.linker.relia.security.jwt.JwtUtil;
 import com.linker.relia.security.principal.PrincipalDetails;
 import jakarta.servlet.http.Cookie;
@@ -26,10 +27,15 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final JwtUtil jwtUtil;
     private final CookieUtil cookieUtil;
     private final AuthTokenRepository authTokenRepository;
+    private final OrganizationRepository organizationRepository;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
         PrincipalDetails principalDetails = (PrincipalDetails) authentication.getPrincipal();
+
+        String organizationName = organizationRepository.findById(principalDetails.getUser().getOrganizationId())
+                .map(organization -> organization.getOrganizationName())
+                .orElse(null);
 
         String accessToken = jwtUtil.createAccessToken(
                 principalDetails.getUsername(),
@@ -55,8 +61,8 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
         LoginResponse loginResponse = LoginResponse.builder()
                 .accessToken(accessToken)
                 .role(principalDetails.getUser().getUserRole().name())
-                .userName(principalDetails.getUsername())
-                .organizationName("더미 조직1")
+                .userName(principalDetails.getUser().getUserName())
+                .organizationName(organizationName)
                 .build();
 
         response.setStatus(HttpStatus.OK.value());

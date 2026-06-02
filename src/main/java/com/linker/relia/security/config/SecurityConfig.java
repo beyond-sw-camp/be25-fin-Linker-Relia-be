@@ -2,6 +2,7 @@ package com.linker.relia.security.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linker.relia.security.filter.JsonLoginFilter;
+import com.linker.relia.security.filter.JwtFilter;
 import com.linker.relia.security.handler.CustomAccessDeniedHandler;
 import com.linker.relia.security.handler.CustomAuthenticationEntryPoint;
 import com.linker.relia.security.handler.LoginFailureHandler;
@@ -29,6 +30,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity
 @EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
+    private final JwtFilter jwtFilter;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
     private final LoginSuccessHandler loginSuccessHandler;
@@ -45,7 +47,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/auth/login").permitAll()
+
                         .anyRequest().authenticated())
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAt(createJsonLoginFilter(authenticationManager), UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(customAuthenticationEntryPoint)

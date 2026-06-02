@@ -29,8 +29,8 @@ public class LoginFailureHandler implements AuthenticationFailureHandler {
             message = ErrorCode.INVALID_LOGIN_REQUEST.getMessage();
             errorCode = ErrorCode.INVALID_LOGIN_REQUEST;
         } else if (exception instanceof LockedException) {
-            message = ErrorCode.USER_INACTIVE.getMessage();
-            errorCode = ErrorCode.USER_INACTIVE;
+            message = ErrorCode.USER_RESIGNED.getMessage();
+            errorCode = ErrorCode.USER_RESIGNED;
         } else {
             message = ErrorCode.INVALID_LOGIN_CREDENTIALS.getMessage();
             errorCode = ErrorCode.INVALID_LOGIN_CREDENTIALS;

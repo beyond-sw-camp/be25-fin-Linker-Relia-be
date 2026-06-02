@@ -8,6 +8,8 @@ import com.linker.relia.infra.redis.AuthTokenRepository;
 import com.linker.relia.organization.repository.OrganizationRepository;
 import com.linker.relia.security.jwt.JwtUtil;
 import com.linker.relia.security.principal.PrincipalDetails;
+import com.linker.relia.user.domain.User;
+import com.linker.relia.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,8 +19,10 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
@@ -28,23 +32,28 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final CookieUtil cookieUtil;
     private final AuthTokenRepository authTokenRepository;
     private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
 
     @Override
+    @Transactional
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
         PrincipalDetails principalDetails = (PrincipalDetails) authentication.getPrincipal();
+        User user = principalDetails.getUser();
+        user.updateLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
 
-        String organizationName = organizationRepository.findById(principalDetails.getUser().getOrganizationId())
+        String organizationName = organizationRepository.findById(user.getOrganizationId())
                 .map(organization -> organization.getOrganizationName())
                 .orElse(null);
 
         String accessToken = jwtUtil.createAccessToken(
                 principalDetails.getUsername(),
-                principalDetails.getUser().getUserRole().name()
+                user.getUserRole().name()
         );
 
         String refreshToken = jwtUtil.createRefreshToken(
                 principalDetails.getUsername(),
-                principalDetails.getUser().getUserRole().name()
+                user.getUserRole().name()
         );
 
         String refreshTokenId = jwtUtil.getTokenId(refreshToken);
@@ -60,8 +69,8 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         LoginResponse loginResponse = LoginResponse.builder()
                 .accessToken(accessToken)
-                .role(principalDetails.getUser().getUserRole().name())
-                .userName(principalDetails.getUser().getUserName())
+                .role(user.getUserRole().name())
+                .userName(user.getUserName())
                 .organizationName(organizationName)
                 .build();
 

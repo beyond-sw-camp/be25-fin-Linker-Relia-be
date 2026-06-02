@@ -95,4 +95,8 @@ public class User {
     public boolean isActive() {
         return UserStatus.ACTIVE == userStatus;
     }
+
+    public void updateLastLoginAt(LocalDateTime lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
+    }
 }

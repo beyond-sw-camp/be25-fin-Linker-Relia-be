@@ -1,7 +1,7 @@
 package com.linker.relia.security.jwt;
 
+import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.exception.BusinessException;
-import com.linker.relia.common.exception.ErrorCode;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -100,7 +100,7 @@ public class JwtUtil {
         } catch (ExpiredJwtException exception) {
             return exception.getClaims();
         } catch (JwtException | IllegalArgumentException exception) {
-            throw new BusinessException(ErrorCode.USER_UNAUTHORIZED);
+            throw new BusinessException(AuthErrorCode.USER_UNAUTHORIZED);
         }
     }
 
@@ -108,7 +108,7 @@ public class JwtUtil {
         return switch (category) {
             case "AccessToken" -> jwtProperties.getAccessExpiredMs();
             case "RefreshToken" -> jwtProperties.getRefreshExpiredMs();
-            default -> throw new BusinessException(ErrorCode.USER_UNAUTHORIZED);
+            default -> throw new BusinessException(AuthErrorCode.USER_UNAUTHORIZED);
         };
     }
 }

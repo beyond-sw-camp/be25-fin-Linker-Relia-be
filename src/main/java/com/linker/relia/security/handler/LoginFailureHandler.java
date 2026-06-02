@@ -1,8 +1,10 @@
 package com.linker.relia.security.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.exception.ErrorCode;
+import com.linker.relia.user.exception.UserErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -26,14 +28,14 @@ public class LoginFailureHandler implements AuthenticationFailureHandler {
         ErrorCode errorCode;
         if (exception instanceof AuthenticationServiceException
                 && exception.getCause() instanceof IOException) {
-            message = ErrorCode.INVALID_LOGIN_REQUEST.getMessage();
-            errorCode = ErrorCode.INVALID_LOGIN_REQUEST;
+            message = AuthErrorCode.INVALID_LOGIN_REQUEST.getMessage();
+            errorCode = AuthErrorCode.INVALID_LOGIN_REQUEST;
         } else if (exception instanceof LockedException) {
-            message = ErrorCode.USER_RESIGNED.getMessage();
-            errorCode = ErrorCode.USER_RESIGNED;
+            message = UserErrorCode.USER_RESIGNED.getMessage();
+            errorCode = UserErrorCode.USER_RESIGNED;
         } else {
-            message = ErrorCode.INVALID_LOGIN_CREDENTIALS.getMessage();
-            errorCode = ErrorCode.INVALID_LOGIN_CREDENTIALS;
+            message = AuthErrorCode.INVALID_LOGIN_CREDENTIALS.getMessage();
+            errorCode = AuthErrorCode.INVALID_LOGIN_CREDENTIALS;
         }
 
         response.setStatus(errorCode.getStatus().value());

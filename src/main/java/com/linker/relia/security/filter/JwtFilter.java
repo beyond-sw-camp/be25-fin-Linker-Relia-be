@@ -1,7 +1,7 @@
 package com.linker.relia.security.filter;
 
+import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.exception.BusinessException;
-import com.linker.relia.common.exception.ErrorCode;
 import com.linker.relia.infra.redis.AuthTokenRepository;
 import com.linker.relia.security.handler.CustomAuthenticationEntryPoint;
 import com.linker.relia.security.jwt.JwtUtil;
@@ -45,17 +45,17 @@ public class JwtFilter extends OncePerRequestFilter {
             String accessToken = authorizationHeader.substring(7); // "Bearer " 이후의 토큰만 추출
 
             if (jwtUtil.isExpired(accessToken)) {
-                throw new BusinessException(ErrorCode.ACCESS_TOKEN_EXPIRED);
+                throw new BusinessException(AuthErrorCode.ACCESS_TOKEN_EXPIRED);
             }
 
             String category = jwtUtil.getCategory(accessToken);
             if (!"AccessToken".equals(category)) {
-                throw new BusinessException(ErrorCode.ACCESS_TOKEN_INVALID);
+                throw new BusinessException(AuthErrorCode.ACCESS_TOKEN_INVALID);
             }
 
             String tokenId = jwtUtil.getTokenId(accessToken);
             if (authTokenRepository.hasBlacklistedToken(tokenId)) {
-                throw new BusinessException(ErrorCode.ACCESS_TOKEN_OF_BLACK_LIST);
+                throw new BusinessException(AuthErrorCode.ACCESS_TOKEN_OF_BLACK_LIST);
             }
 
             String loginId = jwtUtil.getLoginId(accessToken);

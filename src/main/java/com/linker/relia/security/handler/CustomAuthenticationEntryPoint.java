@@ -1,6 +1,7 @@
 package com.linker.relia.security.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.common.exception.ErrorCode;
@@ -22,11 +23,11 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException {
-        writeUnauthorizedResponse(response, ErrorCode.USER_UNAUTHORIZED, null);
+        writeUnauthorizedResponse(response, AuthErrorCode.USER_UNAUTHORIZED, null);
     }
 
     public void commence(HttpServletRequest request, HttpServletResponse response, BusinessException exception) throws IOException {
-        ErrorCode errorCode = exception.getErrorCode() == null ? ErrorCode.USER_UNAUTHORIZED : exception.getErrorCode();
+        ErrorCode errorCode = exception.getErrorCode() == null ? AuthErrorCode.USER_UNAUTHORIZED : exception.getErrorCode();
         writeUnauthorizedResponse(response, errorCode, exception.getMessage());
     }
 

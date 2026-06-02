@@ -1,8 +1,8 @@
 package com.linker.relia.auth.service;
 
 import com.linker.relia.auth.dto.ReissueResponse;
+import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.exception.BusinessException;
-import com.linker.relia.common.exception.ErrorCode;
 import com.linker.relia.common.util.CookieUtil;
 import com.linker.relia.infra.redis.AuthTokenRepository;
 import com.linker.relia.security.jwt.JwtUtil;
@@ -23,19 +23,19 @@ public class AuthServiceImpl implements AuthService {
     public ReissueResponse reissueToken(String refreshToken, HttpServletResponse response) {
         // 리프레시 토큰이 없는 경우
         if (refreshToken == null || refreshToken.isBlank()) {
-            throw new BusinessException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
+            throw new BusinessException(AuthErrorCode.REFRESH_TOKEN_NOT_FOUND);
         }
 
         // 토큰 만료 확인
         if (jwtUtil.isExpired(refreshToken)) {
             response.addCookie(cookieUtil.deleteCookie("RefreshToken"));
-            throw new BusinessException(ErrorCode.REFRESH_TOKEN_EXPIRED);
+            throw new BusinessException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
         }
 
         // 리프레시 토큰인지 확인
         if (!"RefreshToken".equals(jwtUtil.getCategory(refreshToken))) {
             response.addCookie(cookieUtil.deleteCookie("RefreshToken"));
-            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+            throw new BusinessException(AuthErrorCode.REFRESH_TOKEN_INVALID);
         }
 
         String loginId = jwtUtil.getLoginId(refreshToken);
@@ -44,7 +44,7 @@ public class AuthServiceImpl implements AuthService {
 
         if (!authTokenRepository.hasRefreshToken(redisKey)) {
             response.addCookie(cookieUtil.deleteCookie("RefreshToken"));
-            throw new BusinessException(ErrorCode.REFRESH_TOKEN_NOT_IN_REDIS);
+            throw new BusinessException(AuthErrorCode.REFRESH_TOKEN_NOT_IN_REDIS);
         }
 
         // 새로운 액세스 토큰과 리프레시 토큰 생성

@@ -29,10 +29,10 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .map(FieldError::getDefaultMessage)
                 .filter(defaultMessage -> defaultMessage != null && !defaultMessage.isBlank())
-                .orElse(ErrorCode.INVALID_REQUEST.getMessage());
+                .orElse(CommonErrorCode.INVALID_REQUEST.getMessage());
 
         log.warn("요청 값 검증 예외 발생. message={}", message);
-        return ApiResponse.failure(ErrorCode.INVALID_REQUEST, message);
+        return ApiResponse.failure(CommonErrorCode.INVALID_REQUEST, message);
     }
 
     /*
@@ -54,12 +54,12 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<ApiResponse<Void>> handleBadRequestException(Exception exception) {
         log.warn("잘못된 요청 예외 발생.", exception);
-        return ApiResponse.failure(ErrorCode.INVALID_REQUEST, null);
+        return ApiResponse.failure(CommonErrorCode.INVALID_REQUEST, null);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception exception) {
         log.error("처리되지 않은 예외가 발생했습니다.", exception);
-        return ApiResponse.failure(ErrorCode.INTERNAL_SERVER_ERROR, null);
+        return ApiResponse.failure(CommonErrorCode.INTERNAL_SERVER_ERROR, null);
     }
 }

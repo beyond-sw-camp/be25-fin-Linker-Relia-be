@@ -18,9 +18,26 @@ public class AuthTokenRepository {
         stringRedisTemplate.opsForValue().set(buildRefreshKey(tokenId), refreshToken, Duration.ofMillis(remainingMillis));
     }
 
+    public void saveBlacklist(String tokenId, long remainingMillis) {
+        stringRedisTemplate.opsForValue().set(buildBlacklistKey(tokenId), "logout", Duration.ofMillis(remainingMillis));
+    }
+
+    public boolean hasBlacklistedToken(String tokenId) {
+        Boolean hasKey = stringRedisTemplate.hasKey(buildBlacklistKey(tokenId));
+        return Boolean.TRUE.equals(hasKey);
+    }
+
     public boolean hasRefreshToken(String tokenId) {
         Boolean hasKey = stringRedisTemplate.hasKey(buildRefreshKey(tokenId));
         return Boolean.TRUE.equals(hasKey);
+    }
+
+    public void deleteRefreshToken(String tokenId) {
+        stringRedisTemplate.delete(buildRefreshKey(tokenId));
+    }
+
+    private String buildBlacklistKey(String tokenId) {
+        return BLACKLIST_PREFIX + tokenId;
     }
 
     private String buildRefreshKey(String tokenId) {

@@ -8,3 +8,9 @@ server:
 spring:
   application:
     name: relia
+
+jwt:
+  issuer: ${JWT_ISSUER}
+  secret: ${JWT_SECRET_KEY}
+  accessExpiredMs: ${JWT_ACCESS_EXPIRED_MS}
+  refreshExpiredMs: ${JWT_REFRESH_EXPIRED_MS}

@@ -5,7 +5,6 @@ import com.linker.relia.auth.dto.LoginResponse;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.util.CookieUtil;
 import com.linker.relia.infra.redis.AuthTokenRepository;
-import com.linker.relia.organization.repository.OrganizationRepository;
 import com.linker.relia.security.jwt.JwtUtil;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
@@ -31,7 +30,6 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final JwtUtil jwtUtil;
     private final CookieUtil cookieUtil;
     private final AuthTokenRepository authTokenRepository;
-    private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
 
     @Override
@@ -42,9 +40,7 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
         user.updateLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
-        String organizationName = organizationRepository.findById(user.getOrganizationId())
-                .map(organization -> organization.getOrganizationName())
-                .orElse(null);
+        String organizationName = user.getOrganization().getOrganizationName();
 
         String accessToken = jwtUtil.createAccessToken(
                 principalDetails.getUsername(),

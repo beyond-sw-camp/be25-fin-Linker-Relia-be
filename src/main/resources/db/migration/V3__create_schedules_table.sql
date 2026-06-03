@@ -39,4 +39,4 @@ CREATE TABLE schedules (
                            CONSTRAINT fk_schedules_consultation
                                FOREIGN KEY (consultation_id)
                                    REFERENCES consultations(id)
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

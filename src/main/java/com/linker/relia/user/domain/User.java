@@ -12,7 +12,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
@@ -27,7 +26,6 @@ import java.util.UUID;
 @Table(name = "users")
 public class User {
     @Id
-    @UuidGenerator
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "id")
     private UUID id;

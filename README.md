@@ -1,4 +1,4 @@
-# Norphan
+# Relia
 
 # 팀원 소개
 
@@ -100,6 +100,7 @@
 
 ---
 # 7.  API 명세서
+🔗[ API 명세서 ](https://playdatacademy.notion.site/36fd943bcac28023a4a7d5e34e94fd8c?v=370d943bcac28007a5fb000cf2e7015e)
 <br/><br/><br/>
 
 ---

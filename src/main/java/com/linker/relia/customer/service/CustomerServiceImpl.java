@@ -48,6 +48,7 @@ public class CustomerServiceImpl implements CustomerService {
                 customerName,
                 organizationCode,
                 request.getCustomerStatus(),
+                request.getInterestYn(),
                 pageable
         );
 

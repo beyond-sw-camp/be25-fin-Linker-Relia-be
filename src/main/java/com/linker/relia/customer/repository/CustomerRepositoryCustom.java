@@ -13,9 +13,7 @@ public interface CustomerRepositoryCustom {
     CustomerListSummaryResponse summarizeCustomers(CustomerAccessScopeType scopeType,
                                                    UUID userId,
                                                    UUID organizationId,
-                                                   String customerName,
-                                                   String organizationCode,
-                                                   CustomerStatus customerStatus);
+                                                   String organizationCode);
 
     Page<CustomerListItemResponse> searchCustomers(CustomerAccessScopeType scopeType,
                                                    UUID userId,

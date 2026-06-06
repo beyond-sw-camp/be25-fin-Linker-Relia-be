@@ -1,8 +1,8 @@
 package com.linker.relia.customer.service;
 
+import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.common.exception.CommonErrorCode;
-import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.customer.dto.CustomerListItemResponse;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
@@ -38,10 +38,9 @@ public class CustomerServiceImpl implements CustomerService {
                 accessScope.scopeType(),
                 accessScope.userId(),
                 accessScope.organizationId(),
-                customerName,
-                organizationCode,
-                request.getCustomerStatus()
+                organizationCode
         );
+
         Page<CustomerListItemResponse> customerPage = customerRepository.searchCustomers(
                 accessScope.scopeType(),
                 accessScope.userId(),

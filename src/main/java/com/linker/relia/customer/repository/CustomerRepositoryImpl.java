@@ -23,9 +23,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
     public CustomerListSummaryResponse summarizeCustomers(CustomerAccessScopeType scopeType,
                                                           UUID userId,
                                                           UUID organizationId,
-                                                          String customerName,
-                                                          String organizationCode,
-                                                          CustomerStatus customerStatus) {
+                                                          String organizationCode) {
         String summaryJpql = """
                 select new com.linker.relia.customer.dto.CustomerListSummaryResponse(
                     count(c),
@@ -40,7 +38,13 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
 
         TypedQuery<CustomerListSummaryResponse> summaryQuery =
                 entityManager.createQuery(summaryJpql, CustomerListSummaryResponse.class);
-        applySummaryParameters(summaryQuery, scopeType, userId, organizationId, organizationCode);
+
+        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
+            summaryQuery.setParameter("userId", userId);
+        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
+            summaryQuery.setParameter("organizationId", organizationId);
+        }
+        summaryQuery.setParameter("organizationCode", organizationCode);
 
         return summaryQuery.getSingleResult();
     }
@@ -82,6 +86,19 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 order by c.createdAt desc
                 """;
 
+        TypedQuery<CustomerListItemResponse> contentQuery =
+                entityManager.createQuery(contentJpql, CustomerListItemResponse.class);
+        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
+            contentQuery.setParameter("userId", userId);
+        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
+            contentQuery.setParameter("organizationId", organizationId);
+        }
+        contentQuery.setParameter("customerName", customerName);
+        contentQuery.setParameter("organizationCode", organizationCode);
+        contentQuery.setParameter("customerStatus", customerStatus);
+        contentQuery.setFirstResult((int) pageable.getOffset());
+        contentQuery.setMaxResults(pageable.getPageSize());
+
         String countJpql = """
                 select count(c)
                 from Customer c
@@ -89,36 +106,17 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 join fp.organization org
                 """ + buildWhereClause(scopeType);
 
-        TypedQuery<CustomerListItemResponse> contentQuery =
-                entityManager.createQuery(contentJpql, CustomerListItemResponse.class);
-        applyParameters(contentQuery, scopeType, userId, organizationId, customerName, organizationCode, customerStatus);
-        contentQuery.setFirstResult((int) pageable.getOffset());
-        contentQuery.setMaxResults(pageable.getPageSize());
-
         TypedQuery<Long> countQuery = entityManager.createQuery(countJpql, Long.class);
-        applyParameters(countQuery, scopeType, userId, organizationId, customerName, organizationCode, customerStatus);
+        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
+            countQuery.setParameter("userId", userId);
+        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
+            countQuery.setParameter("organizationId", organizationId);
+        }
+        countQuery.setParameter("customerName", customerName);
+        countQuery.setParameter("organizationCode", organizationCode);
+        countQuery.setParameter("customerStatus", customerStatus);
 
         return new PageImpl<>(contentQuery.getResultList(), pageable, countQuery.getSingleResult());
-    }
-
-    private String buildWhereClause(CustomerAccessScopeType scopeType) {
-        StringBuilder whereClause = new StringBuilder("""
-                where c.deletedAt is null
-                  and fp.deletedAt is null
-                  and org.deletedAt is null
-                  and (:customerName is null or c.customerName like concat('%', :customerName, '%'))
-                  and (:organizationCode is null or org.organizationCode = :organizationCode)
-                  and (:customerStatus is null or c.customerStatus = :customerStatus)
-                """);
-
-        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
-            whereClause.append("\n  and fp.id = :userId");
-        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
-            whereClause.append("\n  and org.id = :organizationId");
-        }
-
-        whereClause.append("\n");
-        return whereClause.toString();
     }
 
     private String buildSummaryWhereClause(CustomerAccessScopeType scopeType) {
@@ -139,38 +137,23 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
         return whereClause.toString();
     }
 
-    private void applyParameters(TypedQuery<?> query,
-                                 CustomerAccessScopeType scopeType,
-                                 UUID userId,
-                                 UUID organizationId,
-                                 String customerName,
-                                 String organizationCode,
-                                 CustomerStatus customerStatus) {
-        applyScopeParameters(query, scopeType, userId, organizationId);
-        query.setParameter("customerName", customerName);
-        query.setParameter("organizationCode", organizationCode);
-        query.setParameter("customerStatus", customerStatus);
-    }
+    private String buildWhereClause(CustomerAccessScopeType scopeType) {
+        StringBuilder whereClause = new StringBuilder("""
+                where c.deletedAt is null
+                  and fp.deletedAt is null
+                  and org.deletedAt is null
+                  and (:customerName is null or c.customerName like concat('%', :customerName, '%'))
+                  and (:organizationCode is null or org.organizationCode = :organizationCode)
+                  and (:customerStatus is null or c.customerStatus = :customerStatus)
+                """);
 
-    private void applyScopeParameters(TypedQuery<?> query,
-                                      CustomerAccessScopeType scopeType,
-                                      UUID userId,
-                                      UUID organizationId) {
         if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
-            query.setParameter("userId", userId);
+            whereClause.append("\n  and fp.id = :userId");
+        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
+            whereClause.append("\n  and org.id = :organizationId");
         }
 
-        if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
-            query.setParameter("organizationId", organizationId);
-        }
-    }
-
-    private void applySummaryParameters(TypedQuery<?> query,
-                                        CustomerAccessScopeType scopeType,
-                                        UUID userId,
-                                        UUID organizationId,
-                                        String organizationCode) {
-        applyScopeParameters(query, scopeType, userId, organizationId);
-        query.setParameter("organizationCode", organizationCode);
+        whereClause.append("\n");
+        return whereClause.toString();
     }
 }

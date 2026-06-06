@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.linker.relia.customer.domain.CustomerGrade;
 import com.linker.relia.customer.domain.CustomerStatus;
 import com.linker.relia.customer.domain.InterestReason;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
+@AllArgsConstructor
 @Builder
 public class CustomerListItemResponse {
     private final UUID customerId;

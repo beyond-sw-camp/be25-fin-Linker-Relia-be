@@ -9,4 +9,4 @@ CREATE TABLE user_emp_code_sequences (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO user_emp_code_sequences (user_role, next_value)
-VALUES ('FP', 21);
+VALUES ('FP', 101);

@@ -110,6 +110,22 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
     }
 
     @Override
+    public boolean existsAccessibleCustomer(AccessScope accessScope, UUID customerId) {
+        String existsJpql = """
+                select count(c)
+                from Customer c
+                join c.customerFp fp
+                join fp.organization org
+                """ + buildDetailWhereClause(accessScope);
+
+        TypedQuery<Long> existsQuery = entityManager.createQuery(existsJpql, Long.class);
+        bindAccessScope(existsQuery, accessScope);
+        existsQuery.setParameter("customerId", customerId);
+
+        return existsQuery.getSingleResult() > 0;
+    }
+
+    @Override
     public Optional<CustomerDetailQueryResult> findCustomerDetail(AccessScope accessScope,
                                                                   UUID customerId) {
         String detailJpql = """

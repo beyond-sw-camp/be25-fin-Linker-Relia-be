@@ -1,12 +1,14 @@
 package com.linker.relia.contract.repository;
 
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
+import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -40,5 +42,32 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
         query.setParameter("referenceDate", referenceDate);
         query.setParameter("dueDateLimit", dueDateLimit);
         return query.getSingleResult();
+    }
+
+    @Override
+    public List<CustomerOwnedContractResponse> findOwnCustomerContracts(UUID customerId) {
+        String jpql = """
+                select new com.linker.relia.customer.dto.CustomerOwnedContractResponse(
+                    ct.id,
+                    ic.insuranceCompanyName,
+                    ip.insuranceProductName,
+                    ct.monthlyPremium,
+                    ct.contractStartDate,
+                    ct.contractStatus
+                )
+                from Contract ct
+                join ct.insuranceProduct ip
+                join ip.insuranceCompany ic
+                where ct.customer.id = :customerId
+                  and ct.deletedAt is null
+                  and ip.deletedAt is null
+                  and ic.deletedAt is null
+                order by ct.contractStartDate desc, ct.createdAt desc
+                """;
+
+        TypedQuery<CustomerOwnedContractResponse> query =
+                entityManager.createQuery(jpql, CustomerOwnedContractResponse.class);
+        query.setParameter("customerId", customerId);
+        return query.getResultList();
     }
 }

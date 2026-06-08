@@ -12,7 +12,7 @@ public interface ConsultationRepository extends JpaRepository<Consultation, UUID
     @Query("""
             select max(c.consultationSequence)
             from Consultation c
-            where c.customerId = :customerId
+            where c.customer.id = :customerId
               and c.deletedAt is null /* 삭제된 상담일지 제외 */
             """)
     Optional<Integer> findMaxSequenceByCustomerId(UUID customerId);

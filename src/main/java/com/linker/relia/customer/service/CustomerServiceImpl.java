@@ -11,6 +11,7 @@ import com.linker.relia.customer.dto.CustomerListItemResponse;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
 import com.linker.relia.customer.dto.CustomerListSummaryResponse;
+import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import com.linker.relia.customer.exception.CustomerErrorCode;
 import com.linker.relia.customer.repository.CustomerRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -93,6 +95,18 @@ public class CustomerServiceImpl implements CustomerService {
                 .nextConsultedAt(toLocalDate(customerDetail.nextConsultedAt()))
                 .contractSummary(contractSummary == null ? CustomerContractSummaryResponse.empty() : contractSummary)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomerOwnedContractResponse> getCustomerContracts(PrincipalDetails principalDetails, UUID customerId) {
+        AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
+
+        if (!customerRepository.existsAccessibleCustomer(accessScope, customerId)) {
+            throw new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND);
+        }
+
+        return contractRepository.findOwnCustomerContracts(customerId);
     }
 
     private String normalizeNullable(String value) {

@@ -4,6 +4,7 @@ import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.customer.dto.CustomerDetailResponse;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
+import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import com.linker.relia.customer.service.CustomerService;
 import com.linker.relia.security.principal.PrincipalDetails;
 import jakarta.validation.Valid;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -40,5 +42,13 @@ public class CustomerController {
                                                                                  @PathVariable UUID customerId) {
         CustomerDetailResponse responseDto = customerService.getCustomerDetail(principalDetails, customerId);
         return ApiResponse.success(HttpStatus.OK, "고객 상세 조회 성공", responseDto);
+    }
+
+    @GetMapping("/{customerId}/contracts")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<List<CustomerOwnedContractResponse>>> getCustomerContracts(@AuthenticationPrincipal PrincipalDetails principalDetails,
+                                                                                                 @PathVariable UUID customerId) {
+        List<CustomerOwnedContractResponse> responseDto = customerService.getCustomerContracts(principalDetails, customerId);
+        return ApiResponse.success(HttpStatus.OK, "고객 보유 계약 조회 성공", responseDto);
     }
 }

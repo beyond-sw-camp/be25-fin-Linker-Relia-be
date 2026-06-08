@@ -1,7 +1,12 @@
 package com.linker.relia.consultation.domain;
 
+import com.linker.relia.customer.domain.Customer;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
@@ -23,12 +28,12 @@ public class Consultation {
     @Column(name = "id")
     private UUID id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
     @Column(name = "consultation_sequence")
     private Integer consultationSequence;
-
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "customer_id")
-    private UUID customerId;
 
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "fp_id")

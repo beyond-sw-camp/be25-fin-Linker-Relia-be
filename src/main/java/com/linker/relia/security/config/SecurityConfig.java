@@ -9,6 +9,7 @@ import com.linker.relia.security.handler.LoginFailureHandler;
 import com.linker.relia.security.handler.LoginSuccessHandler;
 import com.linker.relia.security.jwt.JwtProperties;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,7 +50,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/swagger-ui/**",
-                                "v3/api-docs/**",
+                                "/v3/api-docs/**",
                                 "/swagger-ui.html"
                         ).permitAll()
 

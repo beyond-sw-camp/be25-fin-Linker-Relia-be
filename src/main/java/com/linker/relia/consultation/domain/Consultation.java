@@ -1,8 +1,11 @@
 package com.linker.relia.consultation.domain;
 
 import com.linker.relia.customer.domain.Customer;
+import com.linker.relia.user.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -14,6 +17,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
@@ -26,7 +30,9 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "consultations")
 public class Consultation {
+
     @Id
+    @UuidGenerator
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "id")
     private UUID id;
@@ -35,12 +41,52 @@ public class Consultation {
     @JoinColumn(name = "customer_id")
     private Customer customer;
 
+    @Column(name = "consultation_sequence")
+    private Integer consultationSequence;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fp_id")
+    private User fp;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "contract_id")
+    private UUID contractId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "consultation_type")
+    private ConsultationType consultationType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "consultation_channel")
+    private ConsultationChannel consultationChannel;
+
     @Column(name = "consulted_at")
     private LocalDateTime consultedAt;
+
+    @Column(name = "special_note")
+    private String specialNote;
 
     @Column(name = "next_scheduled_at")
     private LocalDateTime nextScheduledAt;
 
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "created_by")
+    private UUID createdBy;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "updated_by")
+    private UUID updatedBy;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "deleted_by")
+    private UUID deletedBy;
 }

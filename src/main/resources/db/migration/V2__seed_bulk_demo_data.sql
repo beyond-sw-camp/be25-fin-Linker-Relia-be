@@ -508,16 +508,8 @@ SELECT
         WHEN customer_no <= 300 THEN 'GOLD'
         ELSE 'GENERAL'
     END AS customer_grade,
-    CASE
-        WHEN customer_no <= 150 THEN TRUE
-        ELSE FALSE
-    END AS interest_yn,
-    CASE
-        WHEN customer_no <= 60 THEN 'RENEWAL_DUE'
-        WHEN customer_no <= 113 THEN 'MATURITY_DUE'
-        WHEN customer_no <= 150 THEN 'UNPAID'
-        ELSE NULL
-    END AS interest_reason,
+    FALSE AS interest_yn,
+    NULL AS interest_reason,
     CONCAT(
         CASE MOD(customer_no, 12)
             WHEN 0 THEN '김'
@@ -767,12 +759,7 @@ SELECT
         WHEN MOD(contract_no, 5) = 0 THEN DATE_ADD(DATE_ADD('2022-01-01', INTERVAL MOD(contract_no * 11, 1000) DAY), INTERVAL 15 YEAR)
         ELSE DATE_ADD(DATE_ADD('2022-01-01', INTERVAL MOD(contract_no * 11, 1000) DAY), INTERVAL 20 YEAR)
     END AS contract_end_date,
-    CASE
-        WHEN MOD(contract_no, 15) = 0 THEN 'COMPLETED'
-        WHEN MOD(contract_no, 11) = 0 THEN 'LAPSED'
-        WHEN MOD(contract_no, 9) = 0 THEN 'TERMINATED'
-        ELSE 'MAINTENANCE'
-    END AS contract_status,
+    'MAINTENANCE' AS contract_status,
     CASE
         WHEN MOD(contract_no, 6) = 0 THEN 10
         WHEN MOD(contract_no, 5) = 0 THEN 15
@@ -813,6 +800,224 @@ FROM (
     ) slots
         ON slots.slot_no <= contracted_customers.contract_quota
 ) contract_seed;
+
+-- Align a subset of active contracts to the demo reference month so that
+-- interest customers are derived from actual contract / monthly closing data.
+UPDATE contracts ct
+JOIN (
+    SELECT
+        target.contract_id,
+        DATE_ADD('2026-06-08', INTERVAL target.seq_no + 3 DAY) AS due_date
+    FROM (
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
+            ct.id AS contract_id
+        FROM contracts ct
+        JOIN insurance_products ip ON ip.id = ct.insurance_product_id
+        WHERE ct.contract_status = 'MAINTENANCE'
+          AND ct.contract_code <= 'CTR000260'
+          AND ip.is_renewable = TRUE
+        ORDER BY ct.contract_code
+        LIMIT 24
+    ) target
+) renewal_targets ON renewal_targets.contract_id = ct.id
+SET ct.contract_end_date = renewal_targets.due_date,
+    ct.coverage_end_date = renewal_targets.due_date,
+    ct.updated_by = @SYSTEM_USER_ID;
+
+UPDATE contracts ct
+JOIN (
+    SELECT
+        target.contract_id,
+        DATE_ADD('2026-06-08', INTERVAL target.seq_no + 11 DAY) AS due_date
+    FROM (
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
+            ct.id AS contract_id
+        FROM contracts ct
+        JOIN insurance_products ip ON ip.id = ct.insurance_product_id
+        WHERE ct.contract_status = 'MAINTENANCE'
+          AND ct.contract_code <= 'CTR000260'
+          AND ip.is_renewable = FALSE
+        ORDER BY ct.contract_code
+        LIMIT 18
+    ) target
+) maturity_targets ON maturity_targets.contract_id = ct.id
+SET ct.contract_end_date = maturity_targets.due_date,
+    ct.coverage_end_date = maturity_targets.due_date,
+    ct.updated_by = @SYSTEM_USER_ID;
+
+UPDATE contracts ct
+JOIN (
+    SELECT
+        target.contract_id,
+        DATE_SUB('2026-06-08', INTERVAL target.seq_no + 12 DAY) AS completed_date
+    FROM (
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
+            ct.id AS contract_id
+        FROM contracts ct
+        WHERE ct.contract_code > 'CTR000260'
+        ORDER BY ct.contract_code
+        LIMIT 36
+    ) target
+) completed_targets ON completed_targets.contract_id = ct.id
+SET ct.contract_end_date = completed_targets.completed_date,
+    ct.coverage_end_date = completed_targets.completed_date,
+    ct.updated_by = @SYSTEM_USER_ID;
+
+UPDATE contracts
+SET contract_status = CASE
+        WHEN contract_end_date < '2026-06-08' THEN 'COMPLETED'
+        ELSE 'MAINTENANCE'
+    END,
+    updated_by = @SYSTEM_USER_ID;
+
+UPDATE contracts ct
+JOIN (
+    SELECT
+        target.contract_id
+    FROM (
+        SELECT
+            ct.id AS contract_id
+        FROM contracts ct
+        WHERE ct.contract_status = 'MAINTENANCE'
+          AND ct.contract_code > 'CTR000320'
+        ORDER BY ct.contract_code DESC
+        LIMIT 24
+    ) target
+) terminated_targets ON terminated_targets.contract_id = ct.id
+SET ct.contract_status = 'TERMINATED',
+    ct.updated_by = @SYSTEM_USER_ID;
+
+UPDATE contracts ct
+JOIN (
+    SELECT
+        target.contract_id
+    FROM (
+        SELECT
+            ct.id AS contract_id
+        FROM contracts ct
+        WHERE ct.contract_status = 'MAINTENANCE'
+          AND ct.contract_code > 'CTR000320'
+        ORDER BY ct.contract_code
+        LIMIT 28
+    ) target
+) lapsed_targets ON lapsed_targets.contract_id = ct.id
+SET ct.contract_status = 'LAPSED',
+    ct.updated_by = @SYSTEM_USER_ID;
+
+INSERT INTO contract_monthly_closing (
+    id,
+    closing_month,
+    contract_id,
+    contract_status,
+    payment_status,
+    current_payment_round,
+    maintenance_round,
+    lapse_yn,
+    lapse_at,
+    terminated_yn,
+    terminated_at,
+    customer_id,
+    fp_id,
+    contract_date,
+    contract_start_date,
+    contract_end_date,
+    payment_period_years,
+    payment_cycle,
+    monthly_premium,
+    coverage_start_date,
+    coverage_end_date,
+    coverage_summary,
+    closed_at
+)
+SELECT
+    CONCAT('60500000-0000-0000-0000-', LPAD(ROW_NUMBER() OVER (ORDER BY ct.contract_code), 12, '0')) AS id,
+    '2026-05' AS closing_month,
+    ct.id AS contract_id,
+    ct.contract_status,
+    CASE
+        WHEN unpaid_targets.contract_id IS NOT NULL THEN 'UNPAID'
+        ELSE 'PAID'
+    END AS payment_status,
+    LEAST(
+        ct.payment_period_years * 12,
+        GREATEST(1, TIMESTAMPDIFF(MONTH, ct.contract_start_date, '2026-05-31') + 1)
+    ) AS current_payment_round,
+    CASE
+        WHEN ct.contract_status = 'MAINTENANCE'
+            THEN LEAST(
+                ct.payment_period_years * 12,
+                GREATEST(1, TIMESTAMPDIFF(MONTH, ct.contract_start_date, '2026-05-31') + 1)
+            )
+        ELSE NULL
+    END AS maintenance_round,
+    CASE WHEN ct.contract_status = 'LAPSED' THEN TRUE ELSE FALSE END AS lapse_yn,
+    CASE WHEN ct.contract_status = 'LAPSED' THEN DATE_SUB('2026-05-31', INTERVAL 5 DAY) ELSE NULL END AS lapse_at,
+    CASE WHEN ct.contract_status = 'TERMINATED' THEN TRUE ELSE FALSE END AS terminated_yn,
+    CASE WHEN ct.contract_status = 'TERMINATED' THEN DATE_SUB('2026-05-31', INTERVAL 3 DAY) ELSE NULL END AS terminated_at,
+    ct.customer_id,
+    ct.fp_id,
+    ct.contract_date,
+    ct.contract_start_date,
+    ct.contract_end_date,
+    ct.payment_period_years,
+    ct.payment_cycle,
+    ct.monthly_premium,
+    ct.coverage_start_date,
+    ct.coverage_end_date,
+    ct.coverage_summary,
+    '2026-05-31 18:00:00' AS closed_at
+FROM contracts ct
+LEFT JOIN (
+    SELECT contract_id
+    FROM (
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY ct.contract_code DESC) AS seq_no,
+            ct.id AS contract_id
+        FROM contracts ct
+        WHERE ct.contract_status = 'MAINTENANCE'
+          AND ct.contract_code <= 'CTR000260'
+        ORDER BY ct.contract_code DESC
+        LIMIT 32
+    ) unpaid_seed
+) unpaid_targets ON unpaid_targets.contract_id = ct.id;
+
+UPDATE customers c
+LEFT JOIN (
+    SELECT
+        ct.customer_id,
+        MIN(
+            CASE
+                WHEN cmc.payment_status = 'UNPAID' THEN 1
+                WHEN ip.is_renewable = TRUE
+                     AND ct.contract_status = 'MAINTENANCE'
+                     AND ct.contract_end_date BETWEEN '2026-06-08' AND DATE_ADD('2026-06-08', INTERVAL 30 DAY) THEN 2
+                WHEN ip.is_renewable = FALSE
+                     AND ct.contract_status = 'MAINTENANCE'
+                     AND ct.contract_end_date BETWEEN '2026-06-08' AND DATE_ADD('2026-06-08', INTERVAL 30 DAY) THEN 3
+                ELSE 9
+            END
+        ) AS interest_priority
+    FROM contracts ct
+    JOIN insurance_products ip ON ip.id = ct.insurance_product_id
+    LEFT JOIN contract_monthly_closing cmc
+        ON cmc.contract_id = ct.id
+       AND cmc.closing_month = '2026-05'
+    GROUP BY ct.customer_id
+) interest_targets ON interest_targets.customer_id = c.id
+SET c.interest_yn = CASE
+        WHEN interest_targets.interest_priority < 9 THEN TRUE
+        ELSE FALSE
+    END,
+    c.interest_reason = CASE interest_targets.interest_priority
+        WHEN 1 THEN 'UNPAID'
+        WHEN 2 THEN 'RENEWAL_DUE'
+        WHEN 3 THEN 'MATURITY_DUE'
+        ELSE NULL
+    END,
+    c.updated_by = @SYSTEM_USER_ID;
 
 -- ----------------------------------------------------------------------------
 -- customer / contract / consultation bulk seed sections

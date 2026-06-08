@@ -1,8 +1,8 @@
 package com.linker.relia.customer.service;
 
+import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
-import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.contract.repository.ContractRepository;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
 import com.linker.relia.customer.dto.CustomerDetailQueryResult;
@@ -12,9 +12,6 @@ import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
 import com.linker.relia.customer.dto.CustomerListSummaryResponse;
 import com.linker.relia.customer.exception.CustomerErrorCode;
-import com.linker.relia.customer.policy.CustomerAccessPolicy;
-import com.linker.relia.customer.policy.CustomerAccessScope;
-import com.linker.relia.customer.policy.CustomerAccessScopeType;
 import com.linker.relia.customer.repository.CustomerRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import lombok.RequiredArgsConstructor;
@@ -32,29 +29,22 @@ import java.util.UUID;
 public class CustomerServiceImpl implements CustomerService {
     private final CustomerRepository customerRepository;
     private final ContractRepository contractRepository;
-    private final CustomerAccessPolicy customerAccessPolicy;
+    private final CustomerAccessService customerAccessService;
 
     @Override
     @Transactional(readOnly = true)
     public CustomerListResponse getCustomers(PrincipalDetails principalDetails, CustomerListRequest request) {
-        CustomerAccessScope accessScope = customerAccessPolicy.resolve(principalDetails);
+        AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
         Pageable pageable = request.toPageable();
         String customerName = normalizeNullable(request.getCustomerName());
         String organizationCode = normalizeNullable(request.getOrganizationCode());
 
-        validateOrganizationCodeFilter(accessScope, organizationCode);
+        customerAccessService.validateOrganizationCodeFilter(accessScope, organizationCode);
 
-        CustomerListSummaryResponse summary = customerRepository.summarizeCustomers(
-                accessScope.scopeType(),
-                accessScope.userId(),
-                accessScope.organizationId(),
-                organizationCode
-        );
+        CustomerListSummaryResponse summary = customerRepository.summarizeCustomers(accessScope, organizationCode);
 
         Page<CustomerListItemResponse> customerPage = customerRepository.searchCustomers(
-                accessScope.scopeType(),
-                accessScope.userId(),
-                accessScope.organizationId(),
+                accessScope,
                 customerName,
                 organizationCode,
                 request.getCustomerStatus(),
@@ -71,14 +61,9 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     @Transactional(readOnly = true)
     public CustomerDetailResponse getCustomerDetail(PrincipalDetails principalDetails, UUID customerId) {
-        CustomerAccessScope accessScope = customerAccessPolicy.resolve(principalDetails);
+        AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
 
-        CustomerDetailQueryResult customerDetail = customerRepository.findCustomerDetail(
-                        accessScope.scopeType(),
-                        accessScope.userId(),
-                        accessScope.organizationId(),
-                        customerId
-                )
+        CustomerDetailQueryResult customerDetail = customerRepository.findCustomerDetail(accessScope, customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
 
         CustomerContractSummaryResponse contractSummary = contractRepository.summarizeCustomerContracts(
@@ -117,16 +102,6 @@ public class CustomerServiceImpl implements CustomerService {
 
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
-    }
-
-    private void validateOrganizationCodeFilter(CustomerAccessScope accessScope, String organizationCode) {
-        if (organizationCode == null) {
-            return;
-        }
-
-        if (accessScope.scopeType() != CustomerAccessScopeType.ALL_CUSTOMERS) {
-            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "해당 권한에서는 organizationCode를 사용할 수 없습니다.");
-        }
     }
 
     private LocalDate toLocalDate(LocalDateTime dateTime) {

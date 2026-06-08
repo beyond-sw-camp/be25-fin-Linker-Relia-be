@@ -1,10 +1,10 @@
 package com.linker.relia.customer.repository;
 
+import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.customer.domain.CustomerStatus;
 import com.linker.relia.customer.dto.CustomerDetailQueryResult;
 import com.linker.relia.customer.dto.CustomerListItemResponse;
 import com.linker.relia.customer.dto.CustomerListSummaryResponse;
-import com.linker.relia.customer.policy.CustomerAccessScopeType;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
@@ -23,9 +23,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
     private EntityManager entityManager;
 
     @Override
-    public CustomerListSummaryResponse summarizeCustomers(CustomerAccessScopeType scopeType,
-                                                          UUID userId,
-                                                          UUID organizationId,
+    public CustomerListSummaryResponse summarizeCustomers(AccessScope accessScope,
                                                           String organizationCode) {
         String summaryJpql = """
                 select new com.linker.relia.customer.dto.CustomerListSummaryResponse(
@@ -37,25 +35,19 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 from Customer c
                 join c.customerFp fp
                 join fp.organization org
-                """ + buildSummaryWhereClause(scopeType);
+                """ + buildSummaryWhereClause(accessScope);
 
         TypedQuery<CustomerListSummaryResponse> summaryQuery =
                 entityManager.createQuery(summaryJpql, CustomerListSummaryResponse.class);
 
-        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
-            summaryQuery.setParameter("userId", userId);
-        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
-            summaryQuery.setParameter("organizationId", organizationId);
-        }
+        bindAccessScope(summaryQuery, accessScope);
         summaryQuery.setParameter("organizationCode", organizationCode);
 
         return summaryQuery.getSingleResult();
     }
 
     @Override
-    public Page<CustomerListItemResponse> searchCustomers(CustomerAccessScopeType scopeType,
-                                                          UUID userId,
-                                                          UUID organizationId,
+    public Page<CustomerListItemResponse> searchCustomers(AccessScope accessScope,
                                                           String customerName,
                                                           String organizationCode,
                                                           CustomerStatus customerStatus,
@@ -86,17 +78,13 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 from Customer c
                 join c.customerFp fp
                 join fp.organization org
-                """ + buildWhereClause(scopeType) + """
+                """ + buildWhereClause(accessScope) + """
                 order by c.createdAt desc
                 """;
 
         TypedQuery<CustomerListItemResponse> contentQuery =
                 entityManager.createQuery(contentJpql, CustomerListItemResponse.class);
-        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
-            contentQuery.setParameter("userId", userId);
-        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
-            contentQuery.setParameter("organizationId", organizationId);
-        }
+        bindAccessScope(contentQuery, accessScope);
         contentQuery.setParameter("customerName", customerName);
         contentQuery.setParameter("organizationCode", organizationCode);
         contentQuery.setParameter("customerStatus", customerStatus);
@@ -109,14 +97,10 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 from Customer c
                 join c.customerFp fp
                 join fp.organization org
-                """ + buildWhereClause(scopeType);
+                """ + buildWhereClause(accessScope);
 
         TypedQuery<Long> countQuery = entityManager.createQuery(countJpql, Long.class);
-        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
-            countQuery.setParameter("userId", userId);
-        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
-            countQuery.setParameter("organizationId", organizationId);
-        }
+        bindAccessScope(countQuery, accessScope);
         countQuery.setParameter("customerName", customerName);
         countQuery.setParameter("organizationCode", organizationCode);
         countQuery.setParameter("customerStatus", customerStatus);
@@ -126,9 +110,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
     }
 
     @Override
-    public Optional<CustomerDetailQueryResult> findCustomerDetail(CustomerAccessScopeType scopeType,
-                                                                  UUID userId,
-                                                                  UUID organizationId,
+    public Optional<CustomerDetailQueryResult> findCustomerDetail(AccessScope accessScope,
                                                                   UUID customerId) {
         String detailJpql = """
                 select new com.linker.relia.customer.dto.CustomerDetailQueryResult(
@@ -166,22 +148,26 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 from Customer c
                 join c.customerFp fp
                 join fp.organization org
-                """ + buildDetailWhereClause(scopeType);
+                """ + buildDetailWhereClause(accessScope);
 
         TypedQuery<CustomerDetailQueryResult> detailQuery =
                 entityManager.createQuery(detailJpql, CustomerDetailQueryResult.class);
-        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
-            detailQuery.setParameter("userId", userId);
-        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
-            detailQuery.setParameter("organizationId", organizationId);
-        }
+        bindAccessScope(detailQuery, accessScope);
         detailQuery.setParameter("customerId", customerId);
 
         List<CustomerDetailQueryResult> results = detailQuery.getResultList();
         return results.stream().findFirst();
     }
 
-    private String buildSummaryWhereClause(CustomerAccessScopeType scopeType) {
+    private void bindAccessScope(TypedQuery<?> query, AccessScope accessScope) {
+        if (accessScope.isOwnScope()) {
+            query.setParameter("userId", accessScope.userId());
+        } else if (accessScope.isBranchScope()) {
+            query.setParameter("organizationId", accessScope.organizationId());
+        }
+    }
+
+    private String buildSummaryWhereClause(AccessScope accessScope) {
         StringBuilder whereClause = new StringBuilder("""
                 where c.deletedAt is null
                   and fp.deletedAt is null
@@ -189,9 +175,9 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                   and (:organizationCode is null or org.organizationCode = :organizationCode)
                 """);
 
-        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
+        if (accessScope.isOwnScope()) {
             whereClause.append("\n  and fp.id = :userId");
-        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
+        } else if (accessScope.isBranchScope()) {
             whereClause.append("\n  and org.id = :organizationId");
         }
 
@@ -199,7 +185,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
         return whereClause.toString();
     }
 
-    private String buildWhereClause(CustomerAccessScopeType scopeType) {
+    private String buildWhereClause(AccessScope accessScope) {
         StringBuilder whereClause = new StringBuilder("""
                 where c.deletedAt is null
                   and fp.deletedAt is null
@@ -210,9 +196,9 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                   and (:interestYn is null or c.interestYn = :interestYn)
                 """);
 
-        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
+        if (accessScope.isOwnScope()) {
             whereClause.append("\n  and fp.id = :userId");
-        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
+        } else if (accessScope.isBranchScope()) {
             whereClause.append("\n  and org.id = :organizationId");
         }
 
@@ -220,7 +206,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
         return whereClause.toString();
     }
 
-    private String buildDetailWhereClause(CustomerAccessScopeType scopeType) {
+    private String buildDetailWhereClause(AccessScope accessScope) {
         StringBuilder whereClause = new StringBuilder("""
                 where c.deletedAt is null
                   and fp.deletedAt is null
@@ -228,9 +214,9 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                   and c.id = :customerId
                 """);
 
-        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
+        if (accessScope.isOwnScope()) {
             whereClause.append("\n  and fp.id = :userId");
-        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
+        } else if (accessScope.isBranchScope()) {
             whereClause.append("\n  and org.id = :organizationId");
         }
 

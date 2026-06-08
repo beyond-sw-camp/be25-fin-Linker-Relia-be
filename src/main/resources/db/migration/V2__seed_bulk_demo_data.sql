@@ -1220,6 +1220,26 @@ FROM (
     ) limited_contracts
 ) termination_consultation_seed;
 
+UPDATE consultations cs
+JOIN (
+    SELECT
+        ranked.id,
+        ROW_NUMBER() OVER (
+            PARTITION BY ranked.customer_id
+            ORDER BY ranked.consulted_at, ranked.created_at, ranked.id
+        ) AS consultation_sequence
+    FROM (
+        SELECT
+            id,
+            customer_id,
+            consulted_at,
+            created_at
+        FROM consultations
+    ) ranked
+) resequenced ON resequenced.id = cs.id
+SET cs.consultation_sequence = resequenced.consultation_sequence,
+    cs.updated_by = @SYSTEM_USER_ID;
+
 INSERT INTO consultation_new_details (
     id,
     consultation_id,

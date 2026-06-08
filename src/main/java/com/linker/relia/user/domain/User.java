@@ -1,5 +1,6 @@
 package com.linker.relia.user.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
 import com.linker.relia.organization.domain.Organization;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -28,7 +29,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "users")
-public class User {
+public class User extends BaseEntity {
     @Id
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "id")
@@ -72,20 +73,6 @@ public class User {
 
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "created_by")
-    @JdbcTypeCode(SqlTypes.CHAR)
-    private UUID createdBy;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @Column(name = "updated_by")
-    @JdbcTypeCode(SqlTypes.CHAR)
-    private UUID updatedBy;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

@@ -1,12 +1,14 @@
 package com.linker.relia.customer.repository;
 
 import com.linker.relia.customer.domain.CustomerStatus;
+import com.linker.relia.customer.dto.CustomerDetailQueryResult;
 import com.linker.relia.customer.dto.CustomerListItemResponse;
 import com.linker.relia.customer.dto.CustomerListSummaryResponse;
 import com.linker.relia.customer.policy.CustomerAccessScopeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public interface CustomerRepositoryCustom {
@@ -23,4 +25,9 @@ public interface CustomerRepositoryCustom {
                                                    CustomerStatus customerStatus,
                                                    Boolean interestYn,
                                                    Pageable pageable);
+
+    Optional<CustomerDetailQueryResult> findCustomerDetail(CustomerAccessScopeType scopeType,
+                                                           UUID userId,
+                                                           UUID organizationId,
+                                                           UUID customerId);
 }

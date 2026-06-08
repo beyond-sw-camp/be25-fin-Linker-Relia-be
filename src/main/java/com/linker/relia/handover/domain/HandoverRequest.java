@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -17,8 +19,10 @@ import java.util.UUID;
 public class HandoverRequest {
 
     @Id
-    @Column(name = "id", length = 36)
-    private String id;
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "id")
+    private UUID id;
+
 
     @ManyToOne(fetch = FetchType.LAZY)
     // @ManyToOne: 여러 요청이 하나의 고객에 연결 (N:1)
@@ -41,26 +45,29 @@ public class HandoverRequest {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "created_by", length = 36, nullable = false, updatable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "created_by", nullable = false, updatable = false)
     private String createdBy;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @Column(name = "updated_by", length = 36, nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "updated_by", nullable = false)
     private String updatedBy;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @Column(name = "deleted_by", length = 36)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "deleted_by")
     private String deletedBy;
 
     // 정적 팩토리 메서드
     public static HandoverRequest create(Customer customer, User currentFp,
                                          RequestType requestType, String createdBy) {
         HandoverRequest request = new HandoverRequest();
-        request.id = UUID.randomUUID().toString();
+        request.id = UUID.randomUUID();
         request.customer = customer;
         request.currentFp = currentFp;
         request.requestType = requestType;

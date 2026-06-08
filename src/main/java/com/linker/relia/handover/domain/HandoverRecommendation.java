@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -16,8 +18,9 @@ import java.util.UUID;
 public class HandoverRecommendation {
 
     @Id
-    @Column(name = "id", length = 36)
-    private String id;
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "id")
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "handover_request_id", nullable = false)
@@ -38,7 +41,8 @@ public class HandoverRecommendation {
     @Column(name = "approval_status", length = 30, nullable = false)
     private ApprovalStatus approvalStatus;
 
-    @Column(name = "reviewed_by", length = 36)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "reviewed_by")
     private String reviewedBy;
 
     @Column(name = "approved_at")
@@ -57,7 +61,7 @@ public class HandoverRecommendation {
     public static HandoverRecommendation create(HandoverRequest handoverRequest, User recommendedFp,
                                                 String recommendationReason) {
         HandoverRecommendation rec = new HandoverRecommendation();
-        rec.id = UUID.randomUUID().toString();
+        rec.id = UUID.randomUUID();
         rec.handoverRequest = handoverRequest;
         rec.recommendedFp = recommendedFp;
         rec.recommendedFpName = recommendedFp.getUserName();

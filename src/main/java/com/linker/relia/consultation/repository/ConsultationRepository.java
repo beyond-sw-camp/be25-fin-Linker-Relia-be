@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface ConsultationRepository extends JpaRepository<Consultation, UUID> {
+public interface ConsultationRepository extends JpaRepository<Consultation, UUID>, ConsultationRepositoryCustom {
 
     @Query("""
             select max(c.consultationSequence)

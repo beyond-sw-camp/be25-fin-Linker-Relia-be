@@ -22,6 +22,8 @@ public interface CustomerRepositoryCustom {
                                                    Boolean interestYn,
                                                    Pageable pageable);
 
+    boolean existsAccessibleCustomer(AccessScope accessScope, UUID customerId);
+
     Optional<CustomerDetailQueryResult> findCustomerDetail(AccessScope accessScope,
                                                            UUID customerId);
 }

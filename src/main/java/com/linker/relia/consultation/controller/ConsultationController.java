@@ -5,6 +5,7 @@ import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
 import com.linker.relia.consultation.service.ConsultationService;
 import com.linker.relia.security.principal.PrincipalDetails;
+import com.linker.relia.user.domain.User;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,8 +16,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -30,11 +29,11 @@ public class ConsultationController {
     public ResponseEntity<ApiResponse<ConsultationCreateResponse>> createConsultation(
             @Valid @RequestBody ConsultationCreateRequest request,
             @AuthenticationPrincipal PrincipalDetails principalDetails
-            ) {
-        UUID fpId = principalDetails.getUser().getId();
+    ) {
+        User customerFp = principalDetails.getUser();
 
         ConsultationCreateResponse response =
-                consultationService.createConsultation(request,fpId);
+                consultationService.createConsultation(request, customerFp);
 
         return ApiResponse.success(
                 HttpStatus.CREATED,

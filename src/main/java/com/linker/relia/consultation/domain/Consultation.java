@@ -1,7 +1,16 @@
 package com.linker.relia.consultation.domain;
 
 import com.linker.relia.customer.domain.Customer;
-import jakarta.persistence.*;
+import com.linker.relia.user.domain.User;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,9 +44,9 @@ public class Consultation {
     @Column(name = "consultation_sequence")
     private Integer consultationSequence;
 
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "fp_id")
-    private UUID fpId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fp_id")
+    private User fp;
 
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "contract_id")

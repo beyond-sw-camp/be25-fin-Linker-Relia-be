@@ -27,7 +27,7 @@ public class CustomerController {
     private final CustomerService customerService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER')")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<CustomerListResponse>> getCustomers(@AuthenticationPrincipal PrincipalDetails principalDetails,
                                                                           @Valid @ModelAttribute CustomerListRequest request) {
         CustomerListResponse responseDto = customerService.getCustomers(principalDetails, request);
@@ -35,7 +35,7 @@ public class CustomerController {
     }
 
     @GetMapping("/{customerId}")
-    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER')")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<CustomerDetailResponse>> getCustomerDetail(@AuthenticationPrincipal PrincipalDetails principalDetails,
                                                                                  @PathVariable UUID customerId) {
         CustomerDetailResponse responseDto = customerService.getCustomerDetail(principalDetails, customerId);

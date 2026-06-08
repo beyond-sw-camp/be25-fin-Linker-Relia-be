@@ -17,6 +17,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -38,6 +39,12 @@ public class Contract {
 
     @Column(name = "monthly_premium")
     private BigDecimal monthlyPremium;
+
+    @Column(name = "contract_status")
+    private String contractStatus;
+
+    @Column(name = "contract_end_date")
+    private LocalDate contractEndDate;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

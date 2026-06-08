@@ -1,6 +1,7 @@
 package com.linker.relia.contract.domain;
 
 import com.linker.relia.customer.domain.Customer;
+import com.linker.relia.insurance.domain.InsuranceProduct;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -37,14 +38,24 @@ public class Contract {
     @JoinColumn(name = "customer_id")
     private Customer customer;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "insurance_product_id")
+    private InsuranceProduct insuranceProduct;
+
     @Column(name = "monthly_premium")
     private BigDecimal monthlyPremium;
+
+    @Column(name = "contract_start_date")
+    private LocalDate contractStartDate;
 
     @Column(name = "contract_status")
     private String contractStatus;
 
     @Column(name = "contract_end_date")
     private LocalDate contractEndDate;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

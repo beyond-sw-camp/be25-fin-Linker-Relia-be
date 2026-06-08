@@ -1,6 +1,7 @@
 package com.linker.relia.customer.repository;
 
 import com.linker.relia.customer.domain.CustomerStatus;
+import com.linker.relia.customer.dto.CustomerDetailQueryResult;
 import com.linker.relia.customer.dto.CustomerListItemResponse;
 import com.linker.relia.customer.dto.CustomerListSummaryResponse;
 import com.linker.relia.customer.policy.CustomerAccessScopeType;
@@ -12,6 +13,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -122,6 +125,62 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
         return new PageImpl<>(contentQuery.getResultList(), pageable, countQuery.getSingleResult());
     }
 
+    @Override
+    public Optional<CustomerDetailQueryResult> findCustomerDetail(CustomerAccessScopeType scopeType,
+                                                                  UUID userId,
+                                                                  UUID organizationId,
+                                                                  UUID customerId) {
+        String detailJpql = """
+                select new com.linker.relia.customer.dto.CustomerDetailQueryResult(
+                    c.id,
+                    c.customerName,
+                    c.customerStatus,
+                    c.interestYn,
+                    c.customerGrade,
+                    c.customerBirthDate,
+                    c.customerGender,
+                    c.customerPhone,
+                    c.customerEmail,
+                    case
+                        when c.customerAddressDetail is null or c.customerAddressDetail = ''
+                            then c.customerAddressRoad
+                        else concat(c.customerAddressRoad, ', ', c.customerAddressDetail)
+                    end,
+                    c.customerJob,
+                    c.customerCompanyName,
+                    fp.id,
+                    fp.userName,
+                    org.organizationCode,
+                    org.organizationName,
+                    (select max(cs.consultedAt)
+                        from Consultation cs
+                       where cs.customer = c
+                         and cs.deletedAt is null),
+                    (select min(cs.nextScheduledAt)
+                        from Consultation cs
+                       where cs.customer = c
+                         and cs.deletedAt is null
+                         and cs.nextScheduledAt is not null
+                         and cs.nextScheduledAt >= current_timestamp)
+                )
+                from Customer c
+                join c.customerFp fp
+                join fp.organization org
+                """ + buildDetailWhereClause(scopeType);
+
+        TypedQuery<CustomerDetailQueryResult> detailQuery =
+                entityManager.createQuery(detailJpql, CustomerDetailQueryResult.class);
+        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
+            detailQuery.setParameter("userId", userId);
+        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
+            detailQuery.setParameter("organizationId", organizationId);
+        }
+        detailQuery.setParameter("customerId", customerId);
+
+        List<CustomerDetailQueryResult> results = detailQuery.getResultList();
+        return results.stream().findFirst();
+    }
+
     private String buildSummaryWhereClause(CustomerAccessScopeType scopeType) {
         StringBuilder whereClause = new StringBuilder("""
                 where c.deletedAt is null
@@ -149,6 +208,24 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                   and (:organizationCode is null or org.organizationCode = :organizationCode)
                   and (:customerStatus is null or c.customerStatus = :customerStatus)
                   and (:interestYn is null or c.interestYn = :interestYn)
+                """);
+
+        if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {
+            whereClause.append("\n  and fp.id = :userId");
+        } else if (scopeType == CustomerAccessScopeType.BRANCH_CUSTOMERS) {
+            whereClause.append("\n  and org.id = :organizationId");
+        }
+
+        whereClause.append("\n");
+        return whereClause.toString();
+    }
+
+    private String buildDetailWhereClause(CustomerAccessScopeType scopeType) {
+        StringBuilder whereClause = new StringBuilder("""
+                where c.deletedAt is null
+                  and fp.deletedAt is null
+                  and org.deletedAt is null
+                  and c.id = :customerId
                 """);
 
         if (scopeType == CustomerAccessScopeType.OWN_CUSTOMERS) {

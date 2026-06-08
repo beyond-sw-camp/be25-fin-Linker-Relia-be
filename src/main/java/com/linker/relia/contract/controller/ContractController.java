@@ -1,0 +1,36 @@
+package com.linker.relia.contract.controller;
+
+import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.contract.dto.ContractSummaryRequest;
+import com.linker.relia.contract.dto.ContractSummaryResponse;
+import com.linker.relia.contract.service.ContractService;
+import com.linker.relia.security.principal.PrincipalDetails;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/contracts")
+@SecurityRequirement(name = "Bearer Authentication")
+public class ContractController {
+    private final ContractService contractService;
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<ContractSummaryResponse>> getContractSummary(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute ContractSummaryRequest request
+    ) {
+        ContractSummaryResponse responseDto = contractService.getContractSummary(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "보유 계약 요약 통계 조회 성공", responseDto);
+    }
+}

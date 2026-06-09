@@ -40,7 +40,7 @@ public class Customer {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_fp_id")
-    private User fp;
+    private User customerFp;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "customer_status")

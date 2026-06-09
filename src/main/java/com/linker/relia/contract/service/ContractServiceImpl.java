@@ -3,7 +3,10 @@ package com.linker.relia.contract.service;
 import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeResolver;
+import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.contract.dto.ContractListItemResponse;
+import com.linker.relia.contract.dto.ContractListRequest;
 import com.linker.relia.contract.dto.ContractSummaryRequest;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.repository.ContractRepository;
@@ -41,6 +44,31 @@ public class ContractServiceImpl implements ContractService {
                 referenceDate,
                 dueDateLimit
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ContractListItemResponse> getContracts(PrincipalDetails principalDetails,
+                                                               ContractListRequest request) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        String organizationCode = normalizeNullable(request.getOrganizationCode());
+        validateOrganizationCodeFilter(accessScope, organizationCode);
+
+        YearMonth closingMonth = resolveClosingMonth(request.getClosingMonth());
+        LocalDate referenceDate = LocalDate.now();
+        LocalDate dueDateLimit = referenceDate.plusDays(30);
+
+        return PageResponse.from(contractRepository.searchHoldingContracts(
+                accessScope,
+                organizationCode,
+                request.getInsuranceCompanyId(),
+                closingMonth.toString(),
+                request.getContractStatus(),
+                request.getSort(),
+                referenceDate,
+                dueDateLimit,
+                request.toPageable()
+        ));
     }
 
     private YearMonth resolveClosingMonth(String closingMonth) {

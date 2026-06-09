@@ -34,6 +34,10 @@ public class InsuranceProduct {
     @JoinColumn(name = "insurance_company_id")
     private InsuranceCompany insuranceCompany;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "insurance_category_id")
+    private InsuranceCategory insuranceCategory;
+
     @Column(name = "insurance_product_name")
     private String insuranceProductName;
 

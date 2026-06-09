@@ -1,5 +1,6 @@
 package com.linker.relia.consultation.domain;
 
+import com.linker.relia.contract.domain.Contract;
 import com.linker.relia.customer.domain.Customer;
 import com.linker.relia.user.domain.User;
 import jakarta.persistence.Column;
@@ -48,9 +49,9 @@ public class Consultation {
     @JoinColumn(name = "fp_id")
     private User fp;
 
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "contract_id")
-    private UUID contractId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contract_id")
+    private Contract contract;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "consultation_type")

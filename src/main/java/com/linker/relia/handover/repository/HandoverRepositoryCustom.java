@@ -7,6 +7,9 @@ import com.linker.relia.handover.dto.response.HandoverListItemResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+import java.util.UUID;
+
 public interface HandoverRepositoryCustom {
 
     Page<HandoverListItemResponse> searchHandovers(
@@ -16,4 +19,6 @@ public interface HandoverRepositoryCustom {
             String customerName,
             Pageable pageable
     );
+    List<String> findCustomerCategories(UUID customerId);
+    String findMainChannel(UUID customerId);
 }

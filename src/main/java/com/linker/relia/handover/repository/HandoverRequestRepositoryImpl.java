@@ -12,6 +12,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.UUID;
+
 @Repository
 public class HandoverRequestRepositoryImpl implements HandoverRepositoryCustom {
 
@@ -108,5 +111,36 @@ public class HandoverRequestRepositoryImpl implements HandoverRepositoryCustom {
         } else if (accessScope.isBranchScope()) {
             query.setParameter("organizationId", accessScope.organizationId());
         }
+    }
+
+    @Override
+    public List<String> findCustomerCategories(UUID customerId) {
+        return entityManager.createQuery("""
+        SELECT ip.insuranceCategory.insuranceCategoryName
+        FROM Contract ct
+        JOIN ct.insuranceProduct ip
+        WHERE ct.customer.id = :customerId
+        AND ct.contractStatus = 'MAINTENANCE'
+        AND ct.deletedAt IS NULL
+        GROUP BY ip.insuranceCategory.id
+        """, String.class)
+                .setParameter("customerId", customerId)
+                .getResultList();
+    }
+
+    @Override
+    public String findMainChannel(UUID customerId) {
+        List<String> result = entityManager.createQuery("""
+        SELECT c.consultationChannel
+        FROM Consultation c
+        WHERE c.customer.id = :customerId
+        AND c.deletedAt IS NULL
+        GROUP BY c.consultationChannel
+        ORDER BY COUNT(c.id) DESC
+        """, String.class)
+                .setParameter("customerId", customerId)
+                .setMaxResults(1)
+                .getResultList();
+        return result.isEmpty() ? null : result.get(0);
     }
 }

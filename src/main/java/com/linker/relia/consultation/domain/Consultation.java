@@ -1,5 +1,6 @@
 package com.linker.relia.consultation.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
 import com.linker.relia.contract.domain.Contract;
 import com.linker.relia.customer.domain.Customer;
 import com.linker.relia.user.domain.User;
@@ -30,8 +31,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "consultations")
-public class Consultation {
-
+public class Consultation extends BaseEntity {
     @Id
     @UuidGenerator
     @JdbcTypeCode(SqlTypes.CHAR)
@@ -69,20 +69,6 @@ public class Consultation {
 
     @Column(name = "next_scheduled_at")
     private LocalDateTime nextScheduledAt;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "created_by")
-    private UUID createdBy;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "updated_by")
-    private UUID updatedBy;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

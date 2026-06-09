@@ -2,6 +2,7 @@ package com.linker.relia.contract.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.dto.response.PageResponse;
+import com.linker.relia.contract.dto.ContractDetailResponse;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListRequest;
 import com.linker.relia.contract.dto.ContractSummaryRequest;
@@ -17,8 +18,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -35,6 +39,16 @@ public class ContractController {
     ) {
         PageResponse<ContractListItemResponse> responseDto = contractService.getContracts(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "보유 계약 목록 조회 성공", responseDto);
+    }
+
+    @GetMapping("/{contractId}")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<ContractDetailResponse>> getContractDetail(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @PathVariable UUID contractId
+    ) {
+        ContractDetailResponse responseDto = contractService.getContractDetail(principalDetails, contractId);
+        return ApiResponse.success(HttpStatus.OK, "계약 상세 조회 성공", responseDto);
     }
 
     @GetMapping("/summary")

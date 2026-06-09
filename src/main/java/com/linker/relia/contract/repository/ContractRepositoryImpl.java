@@ -1,6 +1,7 @@
 package com.linker.relia.contract.repository;
 
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.contract.dto.ContractDetailQueryResult;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListSort;
 import com.linker.relia.contract.dto.ContractListStatus;
@@ -21,6 +22,7 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -178,9 +180,67 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
         return new PageImpl<>(content, pageable, toLong(countQuery.getSingleResult()));
     }
 
+    @Override
+    public Optional<ContractDetailQueryResult> findContractDetail(AccessScope accessScope,
+                                                                  UUID contractId) {
+        String sql = """
+                select
+                    c.customer_name,
+                    c.customer_status,
+                    c.customer_gender,
+                    c.customer_birth_date,
+                    c.customer_phone,
+                    c.customer_email,
+                    case
+                        when c.customer_address_detail is null or c.customer_address_detail = ''
+                            then c.customer_address_road
+                        else concat(c.customer_address_road, ', ', c.customer_address_detail)
+                    end as customer_address,
+                    ic.insurance_company_name,
+                    ip.insurance_product_name,
+                    ct.contract_start_date,
+                    ct.contract_end_date,
+                    ct.coverage_start_date,
+                    ct.coverage_end_date,
+                    ct.payment_period_years,
+                    ct.payment_cycle
+                from contracts ct
+                join customers c on c.id = ct.customer_id
+                join users fp on fp.id = ct.fp_id
+                join organizations org on org.id = fp.organization_id
+                join insurance_products ip on ip.id = ct.insurance_product_id
+                join insurance_companies ic on ic.id = ip.insurance_company_id
+                where ct.id = :contractId
+                  and ct.deleted_at is null
+                  and fp.deleted_at is null
+                """ + buildContractDetailAccessScopeWhereClause(accessScope);
+
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("contractId", contractId.toString());
+        bindAccessScope(query, accessScope);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream()
+                .findFirst()
+                .map(this::toContractDetailQueryResult);
+    }
+
     private String buildAccessScopeWhereClause(AccessScope accessScope) {
         if (accessScope.isOwnScope()) {
             return "\n  and cmc.fp_id = :userId\n";
+        }
+
+        if (accessScope.isBranchScope()) {
+            return "\n  and org.id = :organizationId\n";
+        }
+
+        return "\n";
+    }
+
+    private String buildContractDetailAccessScopeWhereClause(AccessScope accessScope) {
+        if (accessScope.isOwnScope()) {
+            return "\n  and ct.fp_id = :userId\n";
         }
 
         if (accessScope.isBranchScope()) {
@@ -349,6 +409,26 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
         }
 
         return ((Number) value).intValue() == 1;
+    }
+
+    private ContractDetailQueryResult toContractDetailQueryResult(Object[] row) {
+        return new ContractDetailQueryResult(
+                (String) row[0],
+                (String) row[1],
+                (String) row[2],
+                toLocalDate(row[3]),
+                (String) row[4],
+                (String) row[5],
+                (String) row[6],
+                (String) row[7],
+                (String) row[8],
+                toLocalDate(row[9]),
+                toLocalDate(row[10]),
+                toLocalDate(row[11]),
+                toLocalDate(row[12]),
+                ((Number) row[13]).intValue(),
+                (String) row[14]
+        );
     }
   
     @Override

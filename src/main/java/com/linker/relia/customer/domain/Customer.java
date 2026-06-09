@@ -1,5 +1,6 @@
 package com.linker.relia.customer.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
 import com.linker.relia.user.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,7 +30,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "customers")
-public class Customer {
+public class Customer extends BaseEntity {
     @Id
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "id")
@@ -108,20 +109,6 @@ public class Customer {
 
     @Column(name = "customer_dependents_count")
     private int customerDependentsCount;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "created_by")
-    @JdbcTypeCode(SqlTypes.CHAR)
-    private UUID createdBy;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @Column(name = "updated_by")
-    @JdbcTypeCode(SqlTypes.CHAR)
-    private UUID updatedBy;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

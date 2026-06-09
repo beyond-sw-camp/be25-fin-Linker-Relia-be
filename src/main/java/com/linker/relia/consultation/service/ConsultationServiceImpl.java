@@ -13,13 +13,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class ConsultationServiceImpl implements ConsultationService {
-
     private final ConsultationRepository consultationRepository;
     private final CustomerRepository customerRepository;
     private final ContractRepository contractRepository;
@@ -42,8 +39,6 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .findMaxSequenceByCustomerId(request.getCustomerId())
                 .orElse(0) + 1;
 
-        LocalDateTime now = LocalDateTime.now();
-
         Consultation consultation = Consultation.builder()
                 .consultationSequence(nextSequence)
                 .customer(customer)
@@ -54,10 +49,6 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .consultedAt(request.getConsultedAt())
                 .specialNote(request.getSpecialNote())
                 .nextScheduledAt(request.getNextScheduledAt())
-                .createdAt(now)
-                .createdBy(fp.getId())
-                .updatedAt(now)
-                .updatedBy(fp.getId())
                 .build();
 
         consultationRepository.save(consultation);

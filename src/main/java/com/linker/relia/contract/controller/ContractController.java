@@ -1,6 +1,9 @@
 package com.linker.relia.contract.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.common.dto.response.PageResponse;
+import com.linker.relia.contract.dto.ContractListItemResponse;
+import com.linker.relia.contract.dto.ContractListRequest;
 import com.linker.relia.contract.dto.ContractSummaryRequest;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.service.ContractService;
@@ -23,6 +26,16 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "Bearer Authentication")
 public class ContractController {
     private final ContractService contractService;
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<ContractListItemResponse>>> getContracts(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute ContractListRequest request
+    ) {
+        PageResponse<ContractListItemResponse> responseDto = contractService.getContracts(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "보유 계약 목록 조회 성공", responseDto);
+    }
 
     @GetMapping("/summary")
     @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")

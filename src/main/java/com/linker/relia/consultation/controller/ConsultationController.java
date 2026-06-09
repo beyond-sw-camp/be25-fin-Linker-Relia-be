@@ -30,10 +30,10 @@ public class ConsultationController {
             @Valid @RequestBody ConsultationCreateRequest request,
             @AuthenticationPrincipal PrincipalDetails principalDetails
     ) {
-        User customerFp = principalDetails.getUser();
+        User fp = principalDetails.getUser();
 
         ConsultationCreateResponse response =
-                consultationService.createConsultation(request, customerFp);
+                consultationService.createConsultation(request, fp);
 
         return ApiResponse.success(
                 HttpStatus.CREATED,

@@ -4,6 +4,8 @@ import com.linker.relia.consultation.domain.Consultation;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
 import com.linker.relia.consultation.repository.ConsultationRepository;
+import com.linker.relia.contract.domain.Contract;
+import com.linker.relia.contract.repository.ContractRepository;
 import com.linker.relia.customer.domain.Customer;
 import com.linker.relia.customer.repository.CustomerRepository;
 import com.linker.relia.user.domain.User;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConsultationServiceImpl implements ConsultationService {
     private final ConsultationRepository consultationRepository;
     private final CustomerRepository customerRepository;
+    private final ContractRepository contractRepository;
 
     @Override
     public ConsultationCreateResponse createConsultation(
@@ -26,6 +29,12 @@ public class ConsultationServiceImpl implements ConsultationService {
         Customer customer = customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new IllegalArgumentException("고객이 존재하지 않습니다."));
 
+        Contract contract = null;
+        if (request.getContractId() != null) {
+            contract = contractRepository.findById(request.getContractId())
+                    .orElseThrow(() -> new IllegalArgumentException("Contract not found."));
+        }
+
         int nextSequence = consultationRepository
                 .findMaxSequenceByCustomerId(request.getCustomerId())
                 .orElse(0) + 1;
@@ -34,7 +43,7 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .consultationSequence(nextSequence)
                 .customer(customer)
                 .fp(fp)
-                .contractId(request.getContractId())
+                .contract(contract)
                 .consultationType(request.getConsultationType())
                 .consultationChannel(request.getConsultationChannel())
                 .consultedAt(request.getConsultedAt())

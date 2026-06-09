@@ -3,6 +3,7 @@ package com.linker.relia.consultation.service;
 import com.linker.relia.consultation.dto.request.ConsultationDraftSaveRequest;
 import com.linker.relia.consultation.dto.response.ConsultationDraftResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface ConsultationDraftService {
@@ -10,6 +11,10 @@ public interface ConsultationDraftService {
     ConsultationDraftResponse saveDraft(
             UUID fpId,
             ConsultationDraftSaveRequest request
+    );
+
+    List<ConsultationDraftResponse> getDrafts(
+            UUID fpId
     );
 
     ConsultationDraftResponse getDraft(

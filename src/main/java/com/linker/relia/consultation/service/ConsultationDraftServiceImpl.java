@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -76,8 +77,19 @@ public class ConsultationDraftServiceImpl implements ConsultationDraftService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<ConsultationDraftResponse> getDrafts(UUID fpId){
+        return consultationDraftRepository
+                .findAllByFpIdAndDeletedAtIsNullOrderByLastSavedAtDesc(fpId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public ConsultationDraftResponse getDraft(UUID draftId, UUID fpId){
-        ConsultationDraft draft = consultationDraftRepository.findByIdAndFpId(draftId, fpId)
+        ConsultationDraft draft = consultationDraftRepository
+                .findByIdAndFpIdAndDeletedAtIsNull(draftId, fpId)
                 .orElseThrow(() -> new IllegalArgumentException("임시저장 상담일지를 찾을 수 없습니다."));
 
         return toResponse(draft);
@@ -85,10 +97,11 @@ public class ConsultationDraftServiceImpl implements ConsultationDraftService {
 
     @Override
     public void deleteDraft(UUID draftId, UUID fpId){
-        ConsultationDraft draft = consultationDraftRepository.findByIdAndFpId(draftId, fpId)
+        ConsultationDraft draft = consultationDraftRepository
+                .findByIdAndFpIdAndDeletedAtIsNull(draftId, fpId)
                 .orElseThrow(() -> new IllegalArgumentException("임시저장 상담일지를 찾을 수 없습니다."));
 
-        consultationDraftRepository.delete(draft);
+        draft.delete(fpId);
     }
 
     private ConsultationDraftResponse toResponse(ConsultationDraft draft){

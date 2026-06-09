@@ -9,10 +9,12 @@ import java.util.UUID;
 
 public interface ConsultationDraftRepository extends JpaRepository<ConsultationDraft, UUID> {
 
-    Optional<ConsultationDraft> findByIdAndFpId (
+    Optional<ConsultationDraft> findByIdAndFpIdAndDeletedAtIsNull (
             UUID draftId,
             UUID fpId
     );
 
-    List<ConsultationDraft> findAllByFpIdOrderByLastSavedAtDesc(UUID fpId);
+    List<ConsultationDraft> findAllByFpIdAndDeletedAtIsNullOrderByLastSavedAtDesc(
+            UUID fpId
+    );
 }

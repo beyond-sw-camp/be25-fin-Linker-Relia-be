@@ -115,4 +115,9 @@ public class ConsultationDraft {
         this.updatedAt = LocalDateTime.now();
         this.updatedBy = updatedBy;
     }
+
+    public void delete(UUID deletedBy){
+        this.deletedAt = LocalDateTime.now();
+        this.deletedBy = deletedBy;
+    }
 }

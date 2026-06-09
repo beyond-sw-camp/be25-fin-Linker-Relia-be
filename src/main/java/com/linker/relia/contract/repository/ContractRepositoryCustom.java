@@ -1,6 +1,7 @@
 package com.linker.relia.contract.repository;
 
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.contract.dto.ContractDetailQueryResult;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListSort;
 import com.linker.relia.contract.dto.ContractListStatus;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ContractRepositoryCustom {
@@ -36,6 +38,9 @@ public interface ContractRepositoryCustom {
                                                           LocalDate referenceDate,
                                                           LocalDate dueDateLimit,
                                                           Pageable pageable);
+
+    Optional<ContractDetailQueryResult> findContractDetail(AccessScope accessScope,
+                                                           UUID contractId);
 
     List<CustomerOwnedContractResponse> findOwnCustomerContracts(UUID customerId);
 }

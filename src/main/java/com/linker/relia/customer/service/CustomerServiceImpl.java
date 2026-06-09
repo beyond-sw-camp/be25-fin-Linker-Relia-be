@@ -72,6 +72,7 @@ public class CustomerServiceImpl implements CustomerService {
     @Transactional(readOnly = true)
     public CustomerDetailResponse getCustomerDetail(PrincipalDetails principalDetails, UUID customerId) {
         AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
+        customerAccessService.validateCustomerAccess(accessScope, customerId);
 
         CustomerDetailQueryResult customerDetail = customerRepository.findCustomerDetail(accessScope, customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
@@ -109,10 +110,7 @@ public class CustomerServiceImpl implements CustomerService {
     @Transactional(readOnly = true)
     public List<CustomerOwnedContractResponse> getOwnCustomerContracts(PrincipalDetails principalDetails, UUID customerId) {
         AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
-
-        if (!customerRepository.existsAccessibleCustomer(accessScope, customerId)) {
-            throw new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND);
-        }
+        customerAccessService.validateCustomerAccess(accessScope, customerId);
 
         return contractRepository.findOwnCustomerContracts(customerId);
     }
@@ -123,10 +121,7 @@ public class CustomerServiceImpl implements CustomerService {
                                                                                      UUID customerId,
                                                                                      ConsultationHistoryRequest request) {
         AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
-
-        if (!customerRepository.existsAccessibleCustomer(accessScope, customerId)) {
-            throw new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND);
-        }
+        customerAccessService.validateCustomerAccess(accessScope, customerId);
 
         Page<ConsultationHistoryItemResponse> consultationPage = consultationRepository.findOwnCustomerConsultations(
                 accessScope,

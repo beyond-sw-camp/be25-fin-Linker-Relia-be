@@ -55,6 +55,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/organizations/branches").permitAll()
                         .requestMatchers(
                                 "/api/auth/login",
+                                "/api/auth/reissue",
+                                "/api/auth/logout",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html"

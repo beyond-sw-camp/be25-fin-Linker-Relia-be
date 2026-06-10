@@ -12,11 +12,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.UUID;
-
 @Repository
-public class HandoverRequestRepositoryImpl implements HandoverRepositoryCustom {
+public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearchRepository { // 요청 목록 검색 JPQL 구현
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -32,7 +29,7 @@ public class HandoverRequestRepositoryImpl implements HandoverRepositoryCustom {
         // 목록 조회 쿼리
         // LEFT JOIN h.currentFp fp → 해촉 설계사는 null이라 LEFT JOIN 사용
         String contentJpql = """
-                SELECT new com.linker.relia.handover.dto.HandoverListItemResponse(
+                SELECT new com.linker.relia.handover.dto.response.HandoverListItemResponse(
                     h.id,
                     c.customerName,
                     c.customerGrade,
@@ -113,34 +110,4 @@ public class HandoverRequestRepositoryImpl implements HandoverRepositoryCustom {
         }
     }
 
-    @Override
-    public List<String> findCustomerCategories(UUID customerId) {
-        return entityManager.createQuery("""
-        SELECT ip.insuranceCategory.insuranceCategoryName
-        FROM Contract ct
-        JOIN ct.insuranceProduct ip
-        WHERE ct.customer.id = :customerId
-        AND ct.contractStatus = 'MAINTENANCE'
-        AND ct.deletedAt IS NULL
-        GROUP BY ip.insuranceCategory.id
-        """, String.class)
-                .setParameter("customerId", customerId)
-                .getResultList();
-    }
-
-    @Override
-    public String findMainChannel(UUID customerId) {
-        List<String> result = entityManager.createQuery("""
-        SELECT c.consultationChannel
-        FROM Consultation c
-        WHERE c.customer.id = :customerId
-        AND c.deletedAt IS NULL
-        GROUP BY c.consultationChannel
-        ORDER BY COUNT(c.id) DESC
-        """, String.class)
-                .setParameter("customerId", customerId)
-                .setMaxResults(1)
-                .getResultList();
-        return result.isEmpty() ? null : result.get(0);
-    }
 }

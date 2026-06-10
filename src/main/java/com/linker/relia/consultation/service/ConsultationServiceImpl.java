@@ -1,5 +1,6 @@
 package com.linker.relia.consultation.service;
 
+import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.consultation.domain.Consultation;
 import com.linker.relia.consultation.domain.ConsultationCancelDetail;
 import com.linker.relia.consultation.domain.ConsultationClaimDetail;
@@ -14,6 +15,7 @@ import com.linker.relia.consultation.domain.ConsultationRenewalPremiumChangeReas
 import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
+import com.linker.relia.consultation.exception.ConsultationErrorCode;
 import com.linker.relia.consultation.repository.ConsultationCancelDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimReviewItemRepository;
@@ -71,16 +73,27 @@ public class ConsultationServiceImpl implements ConsultationService {
 
         Contract contract = null;
         if (request.getConsultationType() == ConsultationType.NEW_CONTRACT) {
+
             if (request.getContractId() != null) {
-                throw new IllegalArgumentException("신규 상담은 계약 정보를 가질 수 없습니다.");
+                throw new BusinessException(
+                        ConsultationErrorCode.CONTRACT_NOT_ALLOWED
+                );
             }
+
         } else {
+
             if (request.getContractId() == null) {
-                throw new IllegalArgumentException("계약 ID는 필수입니다.");
+                throw new BusinessException(
+                        ConsultationErrorCode.CONTRACT_REQUIRED
+                );
             }
 
             contract = contractRepository.findById(request.getContractId())
-                    .orElseThrow(() -> new IllegalArgumentException("Contract not found."));
+                    .orElseThrow(() ->
+                            new BusinessException(
+                                    ConsultationErrorCode.CONTRACT_NOT_FOUND
+                            )
+                    );
         }
 
         int nextSequence = consultationRepository

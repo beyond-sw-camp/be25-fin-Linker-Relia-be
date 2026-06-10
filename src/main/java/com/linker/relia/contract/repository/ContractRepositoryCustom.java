@@ -5,6 +5,7 @@ import com.linker.relia.contract.dto.ContractDetailQueryResult;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListSort;
 import com.linker.relia.contract.dto.ContractListStatus;
+import com.linker.relia.contract.dto.ContractMonthlyTrendResponse;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
@@ -44,6 +45,12 @@ public interface ContractRepositoryCustom {
                                                                                            String organizationCode,
                                                                                            UUID insuranceCompanyId,
                                                                                            String closingMonth);
+
+    List<ContractMonthlyTrendResponse> summarizeMonthlyContractTrend(AccessScope accessScope,
+                                                                     String organizationCode,
+                                                                     UUID insuranceCompanyId,
+                                                                     String startMonth,
+                                                                     String endMonth);
 
     Optional<ContractDetailQueryResult> findContractDetail(AccessScope accessScope,
                                                            UUID contractId);

@@ -877,6 +877,37 @@ JOIN (
             GROUP BY customer_id
             HAVING COUNT(*) = 1
         ) single_contract_customers ON single_contract_customers.customer_id = ct.customer_id
+        LEFT JOIN (
+            SELECT renewal_seed.contract_id
+            FROM (
+                SELECT ct.id AS contract_id
+                FROM contracts ct
+                JOIN insurance_products ip ON ip.id = ct.insurance_product_id
+                WHERE ct.contract_status = 'MAINTENANCE'
+                  AND ip.is_renewable = TRUE
+                ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 211),
+                         MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 29, 97),
+                         ct.contract_code
+                LIMIT 24
+            ) renewal_seed
+        ) renewal_targets ON renewal_targets.contract_id = ct.id
+        LEFT JOIN (
+            SELECT maturity_seed.contract_id
+            FROM (
+                SELECT ct.id AS contract_id
+                FROM contracts ct
+                JOIN insurance_products ip ON ip.id = ct.insurance_product_id
+                WHERE ct.contract_status = 'MAINTENANCE'
+                  AND ip.is_renewable = FALSE
+                ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 19, 223),
+                         MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 31, 89),
+                         ct.contract_code
+                LIMIT 18
+            ) maturity_seed
+        ) maturity_targets ON maturity_targets.contract_id = ct.id
+        WHERE ct.contract_status = 'MAINTENANCE'
+          AND renewal_targets.contract_id IS NULL
+          AND maturity_targets.contract_id IS NULL
         ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 23, 227),
                  MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 41, 101),
                  ct.contract_code

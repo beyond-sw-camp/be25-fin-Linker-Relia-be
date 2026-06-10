@@ -6,6 +6,7 @@ import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListSort;
 import com.linker.relia.contract.dto.ContractListStatus;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
+import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import jakarta.persistence.EntityManager;
@@ -181,6 +182,61 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     }
 
     @Override
+    public List<InsuranceCompanyContractStatusResponse> summarizeInsuranceCompanyContractStatuses(
+            AccessScope accessScope,
+            String organizationCode,
+            UUID insuranceCompanyId,
+            String closingMonth
+    ) {
+        String sql = """
+                select
+                    ic.insurance_company_name,
+                    count(*) as total_contract_count,
+                    coalesce(sum(cmc.monthly_premium), 0) as total_monthly_premium_amount,
+                    round(
+                        coalesce(
+                            sum(case when cmc.contract_status = 'MAINTENANCE' then 1 else 0 end)
+                            / nullif(count(*), 0) * 100,
+                            0
+                        ),
+                        1
+                    ) as retention_rate
+                from contract_monthly_closing cmc
+                join contracts ct on ct.id = cmc.contract_id
+                join customers c on c.id = cmc.customer_id
+                join users fp on fp.id = cmc.fp_id
+                join organizations org on org.id = fp.organization_id
+                join insurance_products ip on ip.id = ct.insurance_product_id
+                join insurance_companies ic on ic.id = ip.insurance_company_id
+                where cmc.closing_month = :closingMonth
+                  and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
+                  and (:organizationCode is null or org.organization_code = :organizationCode)
+                  and (:insuranceCompanyId is null or ip.insurance_company_id = :insuranceCompanyId)
+                  and ct.deleted_at is null
+                  and c.deleted_at is null
+                  and fp.deleted_at is null
+                  and org.deleted_at is null
+                  and ip.deleted_at is null
+                  and ic.deleted_at is null
+                """ + buildAccessScopeWhereClause(accessScope) + """
+                group by ic.id, ic.insurance_company_name
+                order by total_contract_count desc, ic.insurance_company_name asc
+                """;
+
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("closingMonth", closingMonth);
+        query.setParameter("organizationCode", organizationCode);
+        query.setParameter("insuranceCompanyId", insuranceCompanyId == null ? null : insuranceCompanyId.toString());
+        bindAccessScope(query, accessScope);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream()
+                .map(this::toInsuranceCompanyContractStatusResponse)
+                .toList();
+    }
+
+    @Override
     public Optional<ContractDetailQueryResult> findContractDetail(AccessScope accessScope,
                                                                   UUID contractId) {
         String sql = """
@@ -339,6 +395,23 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
 
     private long toLong(Object value) {
         return ((Number) Objects.requireNonNull(value)).longValue();
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value instanceof BigDecimal bigDecimal) {
+            return bigDecimal;
+        }
+
+        return new BigDecimal(Objects.requireNonNull(value).toString());
+    }
+
+    private InsuranceCompanyContractStatusResponse toInsuranceCompanyContractStatusResponse(Object[] row) {
+        return InsuranceCompanyContractStatusResponse.builder()
+                .insuranceCompanyName((String) row[0])
+                .totalContractCount(toLong(row[1]))
+                .totalMonthlyPremiumAmount(toBigDecimal(row[2]))
+                .retentionRate(toBigDecimal(row[3]))
+                .build();
     }
 
     private ContractListItemResponse toContractListItemResponse(Object[] row,

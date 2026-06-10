@@ -158,11 +158,6 @@ public class CustomerServiceImpl implements CustomerService {
         customerAccessService.validateCustomerAccess(accessScope, customerId);
 
         return consultationAiBriefingRepository.findOwnCustomerLatestAiBriefing(customerId)
-                .map(briefing -> new CustomerAiBriefingResponse(
-                        briefing.getId(),
-                        briefing.getBriefingContent(),
-                        briefing.getCreatedAt()
-                ))
                 .orElseGet(CustomerAiBriefingResponse::empty);
     }
 

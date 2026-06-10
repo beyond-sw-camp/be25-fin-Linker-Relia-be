@@ -78,6 +78,8 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .findMaxSequenceByCustomerId(request.getCustomerId())
                 .orElse(0) + 1;
 
+        LocalDateTime now = LocalDateTime.now();
+
         Consultation consultation = Consultation.builder()
                 .consultationSequence(nextSequence)
                 .customer(customer)

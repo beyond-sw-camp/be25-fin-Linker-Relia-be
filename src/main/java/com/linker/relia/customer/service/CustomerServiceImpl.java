@@ -5,8 +5,10 @@ import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.consultation.dto.request.ConsultationHistoryRequest;
 import com.linker.relia.consultation.dto.response.ConsultationHistoryItemResponse;
+import com.linker.relia.consultation.repository.ConsultationAiBriefingRepository;
 import com.linker.relia.consultation.repository.ConsultationRepository;
 import com.linker.relia.contract.repository.ContractRepository;
+import com.linker.relia.customer.dto.CustomerAiBriefingResponse;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
 import com.linker.relia.customer.dto.CustomerDetailQueryResult;
 import com.linker.relia.customer.dto.CustomerDetailResponse;
@@ -39,6 +41,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerFpHistoryRepository customerFpHistoryRepository;
     private final ContractRepository contractRepository;
     private final ConsultationRepository consultationRepository;
+    private final ConsultationAiBriefingRepository consultationAiBriefingRepository;
     private final CustomerAccessService customerAccessService;
 
     @Override
@@ -146,6 +149,21 @@ public class CustomerServiceImpl implements CustomerService {
         );
 
         return PageResponse.from(historyPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerAiBriefingResponse getCustomerAiBriefing(PrincipalDetails principalDetails, UUID customerId) {
+        AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
+        customerAccessService.validateCustomerAccess(accessScope, customerId);
+
+        return consultationAiBriefingRepository.findOwnCustomerLatestAiBriefing(customerId)
+                .map(briefing -> new CustomerAiBriefingResponse(
+                        briefing.getId(),
+                        briefing.getBriefingContent(),
+                        briefing.getCreatedAt()
+                ))
+                .orElseGet(CustomerAiBriefingResponse::empty);
     }
 
     private String normalizeNullable(String value) {

@@ -11,6 +11,7 @@ import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListRequest;
 import com.linker.relia.contract.dto.ContractSummaryRequest;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
+import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.contract.exception.ContractErrorCode;
 import com.linker.relia.contract.repository.ContractRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -73,6 +75,26 @@ public class ContractServiceImpl implements ContractService {
                 dueDateLimit,
                 request.toPageable()
         ));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InsuranceCompanyContractStatusResponse> getInsuranceCompanyContractStatuses(
+            PrincipalDetails principalDetails,
+            ContractSummaryRequest request
+    ) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        String organizationCode = normalizeNullable(request.getOrganizationCode());
+        validateOrganizationCodeFilter(accessScope, organizationCode);
+
+        YearMonth closingMonth = resolveClosingMonth(request.getClosingMonth());
+
+        return contractRepository.summarizeInsuranceCompanyContractStatuses(
+                accessScope,
+                organizationCode,
+                request.getInsuranceCompanyId(),
+                closingMonth.toString()
+        );
     }
 
     @Override

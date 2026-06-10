@@ -6,8 +6,10 @@ import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListRequest;
 import com.linker.relia.contract.dto.ContractSummaryRequest;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
+import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.security.principal.PrincipalDetails;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface ContractService {
@@ -16,6 +18,9 @@ public interface ContractService {
 
     PageResponse<ContractListItemResponse> getContracts(PrincipalDetails principalDetails,
                                                         ContractListRequest request);
+
+    List<InsuranceCompanyContractStatusResponse> getInsuranceCompanyContractStatuses(PrincipalDetails principalDetails,
+                                                                                     ContractSummaryRequest request);
 
     ContractDetailResponse getContractDetail(PrincipalDetails principalDetails,
                                              UUID contractId);

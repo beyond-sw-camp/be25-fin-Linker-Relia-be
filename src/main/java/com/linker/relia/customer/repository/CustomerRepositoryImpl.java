@@ -30,7 +30,8 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     count(c),
                     coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.CONTRACTED then 1L else 0L end), 0L),
                     coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.PROSPECT then 1L else 0L end), 0L),
-                    coalesce(sum(case when c.interestYn = true then 1L else 0L end), 0L)
+                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.COMPLETED then 1L else 0L end), 0L),
+                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.TERMINATED then 1L else 0L end), 0L)
                 )
                 from Customer c
                 join c.customerFp fp
@@ -51,7 +52,6 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                                                           String customerName,
                                                           String organizationCode,
                                                           CustomerStatus customerStatus,
-                                                          Boolean interestYn,
                                                           Pageable pageable) {
         String contentJpql = """
                 select new com.linker.relia.customer.dto.CustomerListItemResponse(
@@ -69,8 +69,6 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                           and cs.nextScheduledAt >= current_timestamp),
                     c.customerGrade,
                     c.customerStatus,
-                    c.interestYn,
-                    c.interestReason,
                     org.id,
                     org.organizationCode,
                     org.organizationName
@@ -88,7 +86,6 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
         contentQuery.setParameter("customerName", customerName);
         contentQuery.setParameter("organizationCode", organizationCode);
         contentQuery.setParameter("customerStatus", customerStatus);
-        contentQuery.setParameter("interestYn", interestYn);
         contentQuery.setFirstResult((int) pageable.getOffset());
         contentQuery.setMaxResults(pageable.getPageSize());
 
@@ -104,7 +101,6 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
         countQuery.setParameter("customerName", customerName);
         countQuery.setParameter("organizationCode", organizationCode);
         countQuery.setParameter("customerStatus", customerStatus);
-        countQuery.setParameter("interestYn", interestYn);
 
         return new PageImpl<>(contentQuery.getResultList(), pageable, countQuery.getSingleResult());
     }
@@ -209,7 +205,6 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                   and (:customerName is null or c.customerName like concat('%', :customerName, '%'))
                   and (:organizationCode is null or org.organizationCode = :organizationCode)
                   and (:customerStatus is null or c.customerStatus = :customerStatus)
-                  and (:interestYn is null or c.interestYn = :interestYn)
                 """);
 
         if (accessScope.isOwnScope()) {

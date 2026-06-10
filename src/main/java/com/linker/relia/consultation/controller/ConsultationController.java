@@ -7,9 +7,11 @@ import com.linker.relia.consultation.dto.response.ConsultationListResponse;
 import com.linker.relia.consultation.service.ConsultationService;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -30,6 +32,7 @@ public class ConsultationController {
 
     private final ConsultationService consultationService;
 
+    @Operation(summary = "상담일지 유형별 작성")
     @PostMapping
     public ResponseEntity<ApiResponse<ConsultationCreateResponse>> createConsultation(
             @Valid @RequestBody ConsultationCreateRequest request,
@@ -47,9 +50,11 @@ public class ConsultationController {
         );
     }
 
+    @Operation(summary = "상담일지 목록조회")
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ConsultationListResponse>>> getConsultations(
-        @PageableDefault(size = 10) Pageable pageable
+            @ParameterObject
+            @PageableDefault(size = 10) Pageable pageable
     ) {
         Page<ConsultationListResponse> response =
                 consultationService.getConsultations(pageable);
@@ -60,9 +65,4 @@ public class ConsultationController {
                 response
         );
     }
-
-//    @GetMapping
-//    public ResponseEntity<ApiResponse<Page<ConsultationListResponse>>> getConsultations(
-//
-//    )
 }

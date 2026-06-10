@@ -1,6 +1,7 @@
 package com.linker.relia.organization.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.organization.dto.BranchOrganizationResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
 import com.linker.relia.organization.service.OrganizationService;
@@ -14,11 +15,19 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/organizations")
 public class OrganizationController {
     private final OrganizationService organizationService;
+
+    @GetMapping("/branches")
+    public ResponseEntity<ApiResponse<List<BranchOrganizationResponse>>> getBranchOrganizations() {
+        List<BranchOrganizationResponse> responseDto = organizationService.getBranchOrganizations();
+        return ApiResponse.success(HttpStatus.OK, "지점 목록 조회 성공", responseDto);
+    }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")

@@ -1,6 +1,9 @@
 package com.linker.relia.organization.service;
 
 import com.linker.relia.organization.domain.Organization;
+import com.linker.relia.organization.domain.OrganizationStatus;
+import com.linker.relia.organization.domain.OrganizationType;
+import com.linker.relia.organization.dto.BranchOrganizationResponse;
 import com.linker.relia.organization.dto.OrganizationChartItemResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
@@ -19,6 +22,19 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrganizationServiceImpl implements OrganizationService {
     private final OrganizationRepository organizationRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BranchOrganizationResponse> getBranchOrganizations() {
+        return organizationRepository
+                .findAllByOrganizationTypeAndOrganizationStatusAndDeletedAtIsNullOrderByCreatedAtAsc(
+                        OrganizationType.BRANCH,
+                        OrganizationStatus.ACTIVE
+                )
+                .stream()
+                .map(BranchOrganizationResponse::from)
+                .toList();
+    }
 
     @Override
     @Transactional(readOnly = true)

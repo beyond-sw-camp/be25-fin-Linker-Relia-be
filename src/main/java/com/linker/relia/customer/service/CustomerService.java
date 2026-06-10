@@ -3,6 +3,7 @@ package com.linker.relia.customer.service;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.consultation.dto.request.ConsultationHistoryRequest;
 import com.linker.relia.consultation.dto.response.ConsultationHistoryItemResponse;
+import com.linker.relia.customer.dto.CustomerAiBriefingResponse;
 import com.linker.relia.customer.dto.CustomerDetailResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryItemResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryRequest;
@@ -28,4 +29,6 @@ public interface CustomerService {
     PageResponse<CustomerFpHistoryItemResponse> getCustomerFpHistories(PrincipalDetails principalDetails,
                                                                        UUID customerId,
                                                                        CustomerFpHistoryRequest request);
+
+    CustomerAiBriefingResponse getCustomerAiBriefing(PrincipalDetails principalDetails, UUID customerId);
 }

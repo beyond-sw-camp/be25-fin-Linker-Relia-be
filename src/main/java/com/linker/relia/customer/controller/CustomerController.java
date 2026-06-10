@@ -4,6 +4,7 @@ import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.consultation.dto.request.ConsultationHistoryRequest;
 import com.linker.relia.consultation.dto.response.ConsultationHistoryItemResponse;
+import com.linker.relia.customer.dto.CustomerAiBriefingResponse;
 import com.linker.relia.customer.dto.CustomerDetailResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryItemResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryRequest;
@@ -81,5 +82,13 @@ public class CustomerController {
                 request
         );
         return ApiResponse.success(HttpStatus.OK, "담당 설계사 변경 이력 조회 성공", responseDto);
+    }
+
+    @GetMapping("/{customerId}/ai-briefing")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<CustomerAiBriefingResponse>> getCustomerAiBriefing(@AuthenticationPrincipal PrincipalDetails principalDetails,
+                                                                                         @PathVariable UUID customerId) {
+        CustomerAiBriefingResponse responseDto = customerService.getCustomerAiBriefing(principalDetails, customerId);
+        return ApiResponse.success(HttpStatus.OK, "고객 AI 상담 브리핑 조회 성공", responseDto);
     }
 }

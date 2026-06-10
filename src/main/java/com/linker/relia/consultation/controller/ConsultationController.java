@@ -34,6 +34,17 @@ public class ConsultationController {
 
     private final ConsultationService consultationService;
 
+    /**
+     * Create a consultation record for the authenticated user.
+     *
+     * The request body must include one detail object appropriate to `consultationType`
+     * (one of `newDetail`, `claimDetail`, `renewalDetail`, or `cancelDetail`).
+     *
+     * @param request the consultation creation payload
+     * @param principalDetails the authenticated principal used to identify the creator
+     * @return a ResponseEntity containing an ApiResponse with the created ConsultationCreateResponse;
+     *         the response uses HTTP 201 and a success message ("상담일지가 등록되었습니다.")
+     */
     @Operation(
             summary = "상담일지 등록",
             description = "상담 유형에 따라 newDetail, claimDetail, renewalDetail, cancelDetail 중 하나를 입력합니다.",
@@ -167,6 +178,12 @@ public class ConsultationController {
         );
     }
 
+    /**
+     * Retrieve a paginated list of consultation entries.
+     *
+     * @param pageable pagination and sorting parameters (default page size: 10)
+     * @return a ResponseEntity containing an ApiResponse whose payload is a Page of ConsultationListResponse representing the requested page of consultations
+     */
     @Operation(summary = "상담일지 목록조회")
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ConsultationListResponse>>> getConsultations(

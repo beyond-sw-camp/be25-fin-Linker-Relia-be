@@ -66,6 +66,15 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     private final InsuranceProductRepository insuranceProductRepository;
 
+    /**
+     * Create a new consultation and persist its type-specific detail records.
+     *
+     * @param request the DTO containing consultation fields and any type-specific detail payloads
+     * @param fp the user performing the creation (used for audit/ownership)
+     * @return a response containing the newly created consultation's identifier
+     * @throws IllegalArgumentException if the referenced customer does not exist
+     * @throws BusinessException for contract-related validation failures (contract required, not allowed, or not found)
+     */
     @Override
     public ConsultationCreateResponse createConsultation(
             ConsultationCreateRequest request,
@@ -127,6 +136,11 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     }
 
+    /**
+     * Return a page of consultations that are not deleted, each converted to a ConsultationListResponse.
+     *
+     * @return a Page of ConsultationListResponse representing consultations with null `deletedAt`
+     */
     @Override
     @Transactional(readOnly = true)
     public Page<ConsultationListResponse> getConsultations(Pageable pageable){
@@ -134,6 +148,16 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .map(ConsultationListResponse::from);
     }
 
+    /**
+     * Dispatches persistence of type-specific consultation detail records based on the request's consultation type.
+     *
+     * <p>Delegates to the appropriate save*Detail method for NEW_CONTRACT, CLAIM, RENEWAL, or TERMINATION.</p>
+     *
+     * @param request      the create request containing consultation type and corresponding detail payload
+     * @param consultation the persisted Consultation entity to associate with the detail records
+     * @param fp           the acting user (for createdBy/updatedBy audit fields)
+     * @param now          the timestamp to use for createdAt/updatedAt audit fields
+     */
     private void saveConsultationDetail(
             ConsultationCreateRequest request,
             Consultation consultation,

@@ -11,6 +11,12 @@ import java.util.UUID;
 
 public interface ConsultationRepository extends JpaRepository<Consultation, UUID>, ConsultationRepositoryCustom {
 
+    /**
+     * Retrieves the highest consultation sequence number for the given customer excluding soft-deleted records.
+     *
+     * @param customerId the UUID of the customer to search sequences for
+     * @return an Optional containing the maximum consultation sequence for the customer, or empty if none exist
+     */
     @Query("""
             select max(c.consultationSequence)
             from Consultation c
@@ -19,5 +25,11 @@ public interface ConsultationRepository extends JpaRepository<Consultation, UUID
             """)
     Optional<Integer> findMaxSequenceByCustomerId(UUID customerId);
 
-    Page<Consultation> findAllByDeletedAtIsNull(Pageable pageable);
+    /**
+ * Retrieve consultations that are not soft-deleted using the provided pagination and sorting.
+ *
+ * @param pageable pagination and sorting information
+ * @return a page of Consultation entities with `deletedAt` equal to null
+ */
+Page<Consultation> findAllByDeletedAtIsNull(Pageable pageable);
 }

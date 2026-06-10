@@ -21,6 +21,13 @@ public class ConsultationListResponse {
     private LocalDateTime nextScheduledAt;
     private String fpName;
 
+    /**
+     * Create a ConsultationListResponse DTO populated from a Consultation domain object.
+     *
+     * @param consultation the source Consultation whose id, customer name, consultation type and channel,
+     *                     consulted/next-scheduled timestamps, and FP username will be mapped into the DTO
+     * @return a ConsultationListResponse populated with values copied from the provided consultation
+     */
     public static ConsultationListResponse from(Consultation consultation) {
         return ConsultationListResponse.builder()
                 .consultationId(consultation.getId())

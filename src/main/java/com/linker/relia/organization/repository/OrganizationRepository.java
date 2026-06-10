@@ -2,6 +2,7 @@ package com.linker.relia.organization.repository;
 
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.domain.OrganizationStatus;
+import com.linker.relia.organization.domain.OrganizationType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -14,4 +15,9 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
     List<Organization> findAllByDeletedAtIsNullOrderByCreatedAtAsc();
 
     List<Organization> findAllByOrganizationStatusAndDeletedAtIsNullOrderByCreatedAtAsc(OrganizationStatus organizationStatus);
+
+    List<Organization> findAllByOrganizationTypeAndOrganizationStatusAndDeletedAtIsNullOrderByCreatedAtAsc(
+            OrganizationType organizationType,
+            OrganizationStatus organizationStatus
+    );
 }

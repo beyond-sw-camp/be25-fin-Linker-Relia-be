@@ -1,5 +1,7 @@
-package com.linker.relia.insurance.domain;
+package com.linker.relia.consultation.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
+import com.linker.relia.customer.domain.Customer;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,6 +15,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
@@ -23,24 +26,28 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "insurance_products")
-public class InsuranceProduct {
+@Table(name = "consultation_ai_briefings")
+public class ConsultationAiBriefing extends BaseEntity {
     @Id
+    @UuidGenerator
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "id")
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "insurance_company_id")
-    private InsuranceCompany insuranceCompany;
+    @Column(name = "update_sequence")
+    private Integer updateSequence;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "insurance_category_id")
-    private InsuranceCategory insuranceCategory;
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
 
-    @Column(name = "insurance_product_name")
-    private String insuranceProductName;
+    @Column(name = "briefing_content")
+    private String briefingContent;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "deleted_by")
+    private UUID deletedBy;
 }

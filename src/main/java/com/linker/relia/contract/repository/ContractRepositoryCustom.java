@@ -6,6 +6,7 @@ import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListSort;
 import com.linker.relia.contract.dto.ContractListStatus;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
+import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,11 @@ public interface ContractRepositoryCustom {
                                                           LocalDate referenceDate,
                                                           LocalDate dueDateLimit,
                                                           Pageable pageable);
+
+    List<InsuranceCompanyContractStatusResponse> summarizeInsuranceCompanyContractStatuses(AccessScope accessScope,
+                                                                                           String organizationCode,
+                                                                                           UUID insuranceCompanyId,
+                                                                                           String closingMonth);
 
     Optional<ContractDetailQueryResult> findContractDetail(AccessScope accessScope,
                                                            UUID contractId);

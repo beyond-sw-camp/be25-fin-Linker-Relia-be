@@ -5,6 +5,8 @@ import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.consultation.dto.request.ConsultationHistoryRequest;
 import com.linker.relia.consultation.dto.response.ConsultationHistoryItemResponse;
 import com.linker.relia.customer.dto.CustomerDetailResponse;
+import com.linker.relia.customer.dto.CustomerFpHistoryItemResponse;
+import com.linker.relia.customer.dto.CustomerFpHistoryRequest;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
@@ -66,5 +68,18 @@ public class CustomerController {
                 request
         );
         return ApiResponse.success(HttpStatus.OK, "고객 상담 이력 조회 성공", responseDto);
+    }
+
+    @GetMapping("/{customerId}/fp-histories")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<CustomerFpHistoryItemResponse>>> getCustomerFpHistories(@AuthenticationPrincipal PrincipalDetails principalDetails,
+                                                                                                           @PathVariable UUID customerId,
+                                                                                                           @Valid @ModelAttribute CustomerFpHistoryRequest request) {
+        PageResponse<CustomerFpHistoryItemResponse> responseDto = customerService.getCustomerFpHistories(
+                principalDetails,
+                customerId,
+                request
+        );
+        return ApiResponse.success(HttpStatus.OK, "담당 설계사 변경 이력 조회 성공", responseDto);
     }
 }

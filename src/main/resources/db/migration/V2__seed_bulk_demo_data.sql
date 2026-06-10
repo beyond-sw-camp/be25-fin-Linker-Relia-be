@@ -1599,19 +1599,18 @@ FROM (
         ROW_NUMBER() OVER (ORDER BY hr.id) AS seq_no,
         hr.customer_id,
         hr.id AS handover_request_id,
-        before_fp.id AS before_fp_id,
-        before_fp.user_name AS before_fp_name,
-        after_fp.id AS after_fp_id,
+        rec.recommended_fp_id AS before_fp_id,
+        rec.recommended_fp_name AS before_fp_name,
+        c.customer_fp_id AS after_fp_id,
         after_fp.user_name AS after_fp_name,
         rec.approved_at,
         rec.reviewed_by
     FROM handover_requests hr
     JOIN customers c ON c.id = hr.customer_id
-    JOIN users before_fp ON before_fp.id = c.customer_fp_id
     JOIN handover_recommendations rec
         ON rec.handover_request_id = hr.id
        AND rec.approval_status = 'APPROVED'
-    JOIN users after_fp ON after_fp.id = rec.recommended_fp_id
+    JOIN users after_fp ON after_fp.id = c.customer_fp_id
     WHERE hr.request_status = 'COMPLETED'
 ) history_seed;
 

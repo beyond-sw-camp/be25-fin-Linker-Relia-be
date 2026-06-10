@@ -43,7 +43,7 @@ public class HandoverRecommendation {
 
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "reviewed_by")
-    private String reviewedBy;
+    private UUID reviewedBy;
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
@@ -72,13 +72,13 @@ public class HandoverRecommendation {
     }
 
     //  비즈니스 메서드
-    public void approve(String reviewedBy) {
+    public void approve(UUID reviewedBy) {
         this.approvalStatus = ApprovalStatus.APPROVED;
         this.reviewedBy = reviewedBy;
         this.approvedAt = LocalDateTime.now();
     }
 
-    public void reject(String reviewedBy) {
+    public void reject(UUID reviewedBy) {
         this.approvalStatus = ApprovalStatus.REJECTED;
         this.reviewedBy = reviewedBy;
         this.rejectedAt = LocalDateTime.now();

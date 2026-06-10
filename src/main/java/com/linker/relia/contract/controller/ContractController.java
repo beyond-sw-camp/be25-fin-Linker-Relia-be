@@ -7,6 +7,7 @@ import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListRequest;
 import com.linker.relia.contract.dto.ContractSummaryRequest;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
+import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.contract.service.ContractService;
 import com.linker.relia.security.principal.PrincipalDetails;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -39,6 +41,17 @@ public class ContractController {
     ) {
         PageResponse<ContractListItemResponse> responseDto = contractService.getContracts(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "보유 계약 목록 조회 성공", responseDto);
+    }
+
+    @GetMapping("/insurance-companies")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<List<InsuranceCompanyContractStatusResponse>>> getInsuranceCompanyContractStatuses(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute ContractSummaryRequest request
+    ) {
+        List<InsuranceCompanyContractStatusResponse> responseDto =
+                contractService.getInsuranceCompanyContractStatuses(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "보험사별 계약 현황 조회 성공", responseDto);
     }
 
     @GetMapping("/{contractId}")

@@ -11,6 +11,7 @@ import com.linker.relia.consultation.domain.ConsultationNewProposedProduct;
 import com.linker.relia.consultation.domain.ConsultationRenewalDetail;
 import com.linker.relia.consultation.domain.ConsultationRenewalInterest;
 import com.linker.relia.consultation.domain.ConsultationRenewalPremiumChangeReason;
+import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
 import com.linker.relia.consultation.repository.ConsultationCancelDetailRepository;
@@ -69,7 +70,15 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .orElseThrow(() -> new IllegalArgumentException("고객이 존재하지 않습니다."));
 
         Contract contract = null;
-        if (request.getContractId() != null) {
+        if (request.getConsultationType() == ConsultationType.NEW_CONTRACT) {
+            if (request.getContractId() != null) {
+                throw new IllegalArgumentException("신규 상담은 계약 정보를 가질 수 없습니다.");
+            }
+        } else {
+            if (request.getContractId() == null) {
+                throw new IllegalArgumentException("계약 ID는 필수입니다.");
+            }
+
             contract = contractRepository.findById(request.getContractId())
                     .orElseThrow(() -> new IllegalArgumentException("Contract not found."));
         }

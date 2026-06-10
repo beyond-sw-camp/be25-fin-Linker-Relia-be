@@ -53,8 +53,14 @@ public class GlobalExceptionHandler {
             IllegalArgumentException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleBadRequestException(Exception exception) {
-        log.warn("잘못된 요청 예외 발생.", exception);
-        return ApiResponse.failure(CommonErrorCode.INVALID_REQUEST, null);
+        String message = exception.getMessage();
+
+        if (message == null || message.isBlank()) {
+            message = CommonErrorCode.INVALID_REQUEST.getMessage();
+        }
+
+        log.warn("잘못된 요청 예외 발생. message={}", message);
+        return ApiResponse.failure(CommonErrorCode.INVALID_REQUEST, message);
     }
 
     @ExceptionHandler(Exception.class)

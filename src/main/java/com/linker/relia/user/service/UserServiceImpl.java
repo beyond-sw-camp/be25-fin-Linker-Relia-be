@@ -1,5 +1,7 @@
 package com.linker.relia.user.service;
 
+import com.linker.relia.common.audit.AuditActorIds;
+import com.linker.relia.common.audit.AuditContextHolder;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.domain.OrganizationStatus;
@@ -20,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -56,8 +57,6 @@ public class UserServiceImpl implements UserService {
         }
 
         UUID userId = UUID.randomUUID();
-        LocalDateTime now = LocalDateTime.now();
-
         User user = User.builder()
                 .id(userId)
                 .empCode(empCodeGenerator.generate(UserRole.FP))
@@ -70,13 +69,15 @@ public class UserServiceImpl implements UserService {
                 .phone(normalizeNullable(request.getPhone()))
                 .email(email)
                 .joinedAt(LocalDate.now())
-                .createdAt(now)
-                .createdBy(userId)
-                .updatedAt(now)
-                .updatedBy(userId)
                 .build();
 
-        User savedUser = userRepository.save(user);
+        User savedUser;
+        AuditContextHolder.setCurrentAuditor(AuditActorIds.PUBLIC_SIGNUP_USER_ID);
+        try {
+            savedUser = userRepository.save(user);
+        } finally {
+            AuditContextHolder.clear();
+        }
 
         return FpSignupResponse.builder()
                 .userId(savedUser.getId().toString())

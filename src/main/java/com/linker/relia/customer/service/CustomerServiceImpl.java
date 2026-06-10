@@ -10,12 +10,15 @@ import com.linker.relia.contract.repository.ContractRepository;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
 import com.linker.relia.customer.dto.CustomerDetailQueryResult;
 import com.linker.relia.customer.dto.CustomerDetailResponse;
+import com.linker.relia.customer.dto.CustomerFpHistoryItemResponse;
+import com.linker.relia.customer.dto.CustomerFpHistoryRequest;
 import com.linker.relia.customer.dto.CustomerListItemResponse;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
 import com.linker.relia.customer.dto.CustomerListSummaryResponse;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import com.linker.relia.customer.exception.CustomerErrorCode;
+import com.linker.relia.customer.repository.CustomerFpHistoryRepository;
 import com.linker.relia.customer.repository.CustomerRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CustomerServiceImpl implements CustomerService {
     private final CustomerRepository customerRepository;
+    private final CustomerFpHistoryRepository customerFpHistoryRepository;
     private final ContractRepository contractRepository;
     private final ConsultationRepository consultationRepository;
     private final CustomerAccessService customerAccessService;
@@ -68,6 +72,7 @@ public class CustomerServiceImpl implements CustomerService {
     @Transactional(readOnly = true)
     public CustomerDetailResponse getCustomerDetail(PrincipalDetails principalDetails, UUID customerId) {
         AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
+        customerAccessService.validateCustomerAccess(accessScope, customerId);
 
         CustomerDetailQueryResult customerDetail = customerRepository.findCustomerDetail(accessScope, customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
@@ -105,10 +110,7 @@ public class CustomerServiceImpl implements CustomerService {
     @Transactional(readOnly = true)
     public List<CustomerOwnedContractResponse> getOwnCustomerContracts(PrincipalDetails principalDetails, UUID customerId) {
         AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
-
-        if (!customerRepository.existsAccessibleCustomer(accessScope, customerId)) {
-            throw new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND);
-        }
+        customerAccessService.validateCustomerAccess(accessScope, customerId);
 
         return contractRepository.findOwnCustomerContracts(customerId);
     }
@@ -119,10 +121,7 @@ public class CustomerServiceImpl implements CustomerService {
                                                                                      UUID customerId,
                                                                                      ConsultationHistoryRequest request) {
         AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
-
-        if (!customerRepository.existsAccessibleCustomer(accessScope, customerId)) {
-            throw new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND);
-        }
+        customerAccessService.validateCustomerAccess(accessScope, customerId);
 
         Page<ConsultationHistoryItemResponse> consultationPage = consultationRepository.findOwnCustomerConsultations(
                 accessScope,
@@ -131,6 +130,22 @@ public class CustomerServiceImpl implements CustomerService {
         );
 
         return PageResponse.from(consultationPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<CustomerFpHistoryItemResponse> getCustomerFpHistories(PrincipalDetails principalDetails,
+                                                                              UUID customerId,
+                                                                              CustomerFpHistoryRequest request) {
+        AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
+        customerAccessService.validateCustomerAccess(accessScope, customerId);
+
+        Page<CustomerFpHistoryItemResponse> historyPage = customerFpHistoryRepository.findCustomerFpHistories(
+                customerId,
+                request.toPageable()
+        );
+
+        return PageResponse.from(historyPage);
     }
 
     private String normalizeNullable(String value) {

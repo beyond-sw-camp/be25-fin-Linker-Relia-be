@@ -1,5 +1,6 @@
 package com.linker.relia.organization.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -24,7 +25,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "organizations")
-public class Organization {
+public class Organization extends BaseEntity {
     @Id
     @UuidGenerator
     @JdbcTypeCode(SqlTypes.CHAR)
@@ -54,20 +55,6 @@ public class Organization {
     @Enumerated(EnumType.STRING)
     @Column(name = "organization_status")
     private OrganizationStatus organizationStatus;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "created_by")
-    private UUID createdBy;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "updated_by")
-    private UUID updatedBy;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

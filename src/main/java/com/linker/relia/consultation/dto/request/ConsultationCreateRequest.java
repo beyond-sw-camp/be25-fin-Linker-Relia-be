@@ -30,4 +30,9 @@ public class ConsultationCreateRequest {
     private String specialNote;
 
     private LocalDateTime nextScheduledAt;
+
+    private ConsultationNewDetailRequest newDetail;
+    private ConsultationClaimDetailRequest claimDetail;
+    private ConsultationRenewalDetailRequest renewalDetail;
+    private ConsultationCancelDetailRequest cancelDetail;
 }

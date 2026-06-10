@@ -9,6 +9,7 @@ import com.linker.relia.contract.dto.ContractDetailQueryResult;
 import com.linker.relia.contract.dto.ContractDetailResponse;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListRequest;
+import com.linker.relia.contract.dto.ContractMonthlyTrendResponse;
 import com.linker.relia.contract.dto.ContractSummaryRequest;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
@@ -19,9 +20,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -99,6 +104,40 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<ContractMonthlyTrendResponse> getMonthlyContractTrend(PrincipalDetails principalDetails,
+                                                                      ContractSummaryRequest request) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        String organizationCode = normalizeNullable(request.getOrganizationCode());
+        validateOrganizationCodeFilter(accessScope, organizationCode);
+
+        YearMonth endMonth = resolveClosingMonth(request.getClosingMonth());
+        YearMonth startMonth = endMonth.minusMonths(5);
+
+        List<ContractMonthlyTrendResponse> monthlyTrend = contractRepository.summarizeMonthlyContractTrend(
+                accessScope,
+                organizationCode,
+                request.getInsuranceCompanyId(),
+                startMonth.toString(),
+                endMonth.toString()
+        );
+
+        Map<String, ContractMonthlyTrendResponse> trendByMonth = new HashMap<>();
+        for (ContractMonthlyTrendResponse trend : monthlyTrend) {
+            trendByMonth.put(trend.getMonth(), trend);
+        }
+
+        List<ContractMonthlyTrendResponse> result = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            YearMonth month = startMonth.plusMonths(i);
+            String monthValue = month.toString();
+            result.add(trendByMonth.getOrDefault(monthValue, emptyMonthlyTrend(monthValue)));
+        }
+
+        return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public ContractDetailResponse getContractDetail(PrincipalDetails principalDetails,
                                                     UUID contractId) {
         AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
@@ -140,6 +179,14 @@ public class ContractServiceImpl implements ContractService {
 
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private ContractMonthlyTrendResponse emptyMonthlyTrend(String month) {
+        return ContractMonthlyTrendResponse.builder()
+                .month(month)
+                .contractCount(0L)
+                .totalMonthlyPremiumAmount(BigDecimal.ZERO)
+                .build();
     }
 
     private ContractDetailResponse toContractDetailResponse(ContractDetailQueryResult queryResult) {

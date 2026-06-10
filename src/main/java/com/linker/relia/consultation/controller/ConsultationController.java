@@ -60,4 +60,9 @@ public class ConsultationController {
                 response
         );
     }
+
+//    @GetMapping
+//    public ResponseEntity<ApiResponse<Page<ConsultationListResponse>>> getConsultations(
+//
+//    )
 }

@@ -19,7 +19,6 @@ public interface CustomerRepositoryCustom {
                                                    String customerName,
                                                    String organizationCode,
                                                    CustomerStatus customerStatus,
-                                                   Boolean interestYn,
                                                    Pageable pageable);
 
     boolean existsAccessibleCustomer(AccessScope accessScope, UUID customerId);

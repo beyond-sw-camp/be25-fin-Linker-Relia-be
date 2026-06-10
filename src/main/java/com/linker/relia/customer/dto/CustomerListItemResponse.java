@@ -3,7 +3,6 @@ package com.linker.relia.customer.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.linker.relia.customer.domain.CustomerGrade;
 import com.linker.relia.customer.domain.CustomerStatus;
-import com.linker.relia.customer.domain.InterestReason;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -32,8 +31,6 @@ public class CustomerListItemResponse {
 
     private final CustomerGrade customerGrade;
     private final CustomerStatus customerStatus;
-    private final boolean interestYn;
-    private final InterestReason interestReason;
     private final UUID organizationId;
     private final String organizationCode;
     private final String organizationName;

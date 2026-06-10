@@ -11,5 +11,4 @@ public class CustomerListRequest extends PageQueryRequest {
     private String customerName;
     private String organizationCode;
     private CustomerStatus customerStatus;
-    private Boolean interestYn;
 }

@@ -500,7 +500,7 @@ SELECT
     CONCAT('CUS', LPAD(customer_no, 6, '0')) AS customer_code,
     customer_fp_id,
     CASE
-        WHEN customer_no <= 525 THEN 'CONTRACTED'
+        WHEN MOD(customer_no * 7 + 3, 10) < 7 THEN 'CONTRACTED'
         ELSE 'PROSPECT'
     END AS customer_status,
     CASE
@@ -786,10 +786,22 @@ FROM (
         SELECT
             id AS customer_id,
             customer_fp_id AS fp_id,
-            ROW_NUMBER() OVER (ORDER BY customer_code) AS contracted_customer_rank,
+            ROW_NUMBER() OVER (
+                ORDER BY MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 37, 101),
+                         MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 13, 53),
+                         customer_code
+            ) AS contracted_customer_rank,
             CASE
-                WHEN ROW_NUMBER() OVER (ORDER BY customer_code) <= 260 THEN 1
-                WHEN ROW_NUMBER() OVER (ORDER BY customer_code) <= 440 THEN 2
+                WHEN ROW_NUMBER() OVER (
+                    ORDER BY MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 37, 101),
+                             MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 13, 53),
+                             customer_code
+                ) <= 260 THEN 1
+                WHEN ROW_NUMBER() OVER (
+                    ORDER BY MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 37, 101),
+                             MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 13, 53),
+                             customer_code
+                ) <= 440 THEN 2
                 ELSE 3
             END AS contract_quota
         FROM customers
@@ -815,9 +827,10 @@ JOIN (
         FROM contracts ct
         JOIN insurance_products ip ON ip.id = ct.insurance_product_id
         WHERE ct.contract_status = 'MAINTENANCE'
-          AND ct.contract_code <= 'CTR000260'
           AND ip.is_renewable = TRUE
-        ORDER BY ct.contract_code
+        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 211),
+                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 29, 97),
+                 ct.contract_code
         LIMIT 24
     ) target
 ) renewal_targets ON renewal_targets.contract_id = ct.id
@@ -837,9 +850,10 @@ JOIN (
         FROM contracts ct
         JOIN insurance_products ip ON ip.id = ct.insurance_product_id
         WHERE ct.contract_status = 'MAINTENANCE'
-          AND ct.contract_code <= 'CTR000260'
           AND ip.is_renewable = FALSE
-        ORDER BY ct.contract_code
+        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 19, 223),
+                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 31, 89),
+                 ct.contract_code
         LIMIT 18
     ) target
 ) maturity_targets ON maturity_targets.contract_id = ct.id
@@ -857,9 +871,16 @@ JOIN (
             ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
             ct.id AS contract_id
         FROM contracts ct
-        WHERE ct.contract_code > 'CTR000260'
-        ORDER BY ct.contract_code
-        LIMIT 36
+        JOIN (
+            SELECT customer_id
+            FROM contracts
+            GROUP BY customer_id
+            HAVING COUNT(*) = 1
+        ) single_contract_customers ON single_contract_customers.customer_id = ct.customer_id
+        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 23, 227),
+                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 41, 101),
+                 ct.contract_code
+        LIMIT 72
     ) target
 ) completed_targets ON completed_targets.contract_id = ct.id
 SET ct.contract_end_date = completed_targets.completed_date,
@@ -881,10 +902,17 @@ JOIN (
         SELECT
             ct.id AS contract_id
         FROM contracts ct
+        JOIN (
+            SELECT customer_id
+            FROM contracts
+            GROUP BY customer_id
+            HAVING COUNT(*) = 1
+        ) single_contract_customers ON single_contract_customers.customer_id = ct.customer_id
         WHERE ct.contract_status = 'MAINTENANCE'
-          AND ct.contract_code > 'CTR000320'
-        ORDER BY ct.contract_code DESC
-        LIMIT 24
+        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 43, 239) DESC,
+                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 11, 107) DESC,
+                 ct.contract_code DESC
+        LIMIT 45
     ) target
 ) terminated_targets ON terminated_targets.contract_id = ct.id
 SET ct.contract_status = 'TERMINATED',
@@ -899,13 +927,47 @@ JOIN (
             ct.id AS contract_id
         FROM contracts ct
         WHERE ct.contract_status = 'MAINTENANCE'
-          AND ct.contract_code > 'CTR000320'
-        ORDER BY ct.contract_code
+        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 47, 241),
+                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 13, 109),
+                 ct.contract_code
         LIMIT 28
     ) target
 ) lapsed_targets ON lapsed_targets.contract_id = ct.id
 SET ct.contract_status = 'LAPSED',
     ct.updated_by = @SYSTEM_USER_ID;
+
+UPDATE customers c
+SET c.customer_status = CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM contracts ct
+            WHERE ct.customer_id = c.id
+              AND ct.deleted_at IS NULL
+              AND ct.contract_status IN ('MAINTENANCE', 'LAPSED')
+        ) THEN 'CONTRACTED'
+        WHEN EXISTS (
+            SELECT 1
+            FROM contracts ct
+            WHERE ct.customer_id = c.id
+              AND ct.deleted_at IS NULL
+              AND ct.contract_status = 'COMPLETED'
+        ) THEN 'COMPLETED'
+        WHEN EXISTS (
+            SELECT 1
+            FROM contracts ct
+            WHERE ct.customer_id = c.id
+              AND ct.deleted_at IS NULL
+              AND ct.contract_status = 'TERMINATED'
+        ) THEN 'TERMINATED'
+        WHEN EXISTS (
+            SELECT 1
+            FROM contracts ct
+            WHERE ct.customer_id = c.id
+              AND ct.deleted_at IS NULL
+        ) THEN 'CONTRACTED'
+        ELSE 'PROSPECT'
+    END,
+    c.updated_by = @SYSTEM_USER_ID;
 
 INSERT INTO contract_monthly_closing (
     id,
@@ -978,8 +1040,9 @@ LEFT JOIN (
             ct.id AS contract_id
         FROM contracts ct
         WHERE ct.contract_status = 'MAINTENANCE'
-          AND ct.contract_code <= 'CTR000260'
-        ORDER BY ct.contract_code DESC
+        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 59, 251) DESC,
+                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 113) DESC,
+                 ct.contract_code DESC
         LIMIT 32
     ) unpaid_seed
 ) unpaid_targets ON unpaid_targets.contract_id = ct.id;

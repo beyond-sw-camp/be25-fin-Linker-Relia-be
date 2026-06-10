@@ -193,7 +193,7 @@ CREATE TABLE customers (
                            deleted_by CHAR(36) NOT NULL,
                            PRIMARY KEY (id),
                            UNIQUE KEY uk_customers_code (customer_code),
-                           CONSTRAINT chk_customers_status CHECK (customer_status IN ('PROSPECT', 'CONTRACTED')),
+                           CONSTRAINT chk_customers_status CHECK (customer_status IN ('PROSPECT', 'CONTRACTED', 'COMPLETED', 'TERMINATED')),
                            CONSTRAINT chk_customers_grade CHECK (customer_grade IN ('GENERAL', 'GOLD', 'VIP')),
                            CONSTRAINT chk_customers_interest_reason CHECK (interest_reason IS NULL OR interest_reason IN ('UNPAID', 'RENEWAL_DUE', 'MATURITY_DUE')),
                            CONSTRAINT fk_customers_fp FOREIGN KEY (customer_fp_id) REFERENCES users(id)

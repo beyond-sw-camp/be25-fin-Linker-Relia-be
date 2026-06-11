@@ -84,6 +84,8 @@ public class CustomerServiceImpl implements CustomerService {
         String organizationCode = normalizeNullable(request.getOrganizationCode());
         String interestReason = request.getInterestReason() == null ? null : request.getInterestReason().name();
 
+        customerAccessService.validateOrganizationCodeFilter(accessScope, organizationCode);
+
         CustomerInterestSummaryResponse summary = customerRepository.summarizeInterestCustomers(
                 accessScope,
                 organizationCode

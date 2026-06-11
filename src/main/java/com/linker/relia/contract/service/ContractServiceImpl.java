@@ -5,6 +5,9 @@ import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeResolver;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.contract.domain.Contract;
+import com.linker.relia.contract.dto.ContractCreateRequest;
+import com.linker.relia.contract.dto.ContractCreateResponse;
 import com.linker.relia.contract.dto.ContractDetailQueryResult;
 import com.linker.relia.contract.dto.ContractDetailResponse;
 import com.linker.relia.contract.dto.ContractListItemResponse;
@@ -15,8 +18,15 @@ import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.contract.exception.ContractErrorCode;
 import com.linker.relia.contract.repository.ContractRepository;
+import com.linker.relia.customer.domain.Customer;
+import com.linker.relia.customer.exception.CustomerErrorCode;
+import com.linker.relia.customer.repository.CustomerRepository;
+import com.linker.relia.insurance.domain.InsuranceProduct;
+import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
+import com.linker.relia.user.domain.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +34,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,8 +43,78 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ContractServiceImpl implements ContractService {
+    private static final String ACTIVE_STATUS = "ACTIVE";
+    private static final String DEFAULT_CONTRACT_STATUS = "MAINTENANCE";
+    private static final String LAPSED_CONTRACT_STATUS = "LAPSED";
+    private static final String MONTHLY_PAYMENT_CYCLE = "MONTHLY";
+    private static final String CONTRACT_CODE_PREFIX = "CTR";
+    private static final Collection<String> DUPLICATE_BLOCKING_CONTRACT_STATUSES = List.of(
+            DEFAULT_CONTRACT_STATUS,
+            LAPSED_CONTRACT_STATUS
+    );
+
     private final ContractRepository contractRepository;
+    private final CustomerRepository customerRepository;
+    private final InsuranceProductRepository insuranceProductRepository;
     private final AccessScopeResolver accessScopeResolver;
+
+    @Override
+    @Transactional
+    public synchronized ContractCreateResponse createContract(PrincipalDetails principalDetails,
+                                                              ContractCreateRequest request) {
+        User fp = principalDetails.getUser();
+        Customer customer = customerRepository.findByIdAndDeletedAtIsNull(request.getCustomerId())
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
+        validateCustomerOwner(fp, customer);
+
+        InsuranceProduct insuranceProduct = insuranceProductRepository
+                .findByIdAndInsuranceProductStatusAndDeletedAtIsNull(
+                        request.getInsuranceProductId(),
+                        ACTIVE_STATUS
+                )
+                .orElseThrow(() -> new BusinessException(ContractErrorCode.INSURANCE_PRODUCT_NOT_FOUND));
+
+        validateDuplicateContract(customer, insuranceProduct);
+
+        String contractCode = generateContractCode();
+        validateContractDates(request);
+        validatePaymentCycle(request.getPaymentCycle());
+
+        LocalDate coverageStartDate = request.getCoverageStartDate() == null
+                ? request.getContractStartDate()
+                : request.getCoverageStartDate();
+        LocalDate coverageEndDate = request.getCoverageEndDate() == null
+                ? request.getContractEndDate()
+                : request.getCoverageEndDate();
+        validateCoverageDates(coverageStartDate, coverageEndDate);
+
+        Contract contract = Contract.builder()
+                .id(UUID.randomUUID())
+                .contractCode(contractCode)
+                .customer(customer)
+                .fp(fp)
+                .insuranceProduct(insuranceProduct)
+                .contractDate(request.getContractDate())
+                .contractStartDate(request.getContractStartDate())
+                .contractEndDate(request.getContractEndDate())
+                .contractStatus(DEFAULT_CONTRACT_STATUS)
+                .paymentPeriodYears(request.getPaymentPeriodYears())
+                .paymentCycle(MONTHLY_PAYMENT_CYCLE)
+                .monthlyPremium(request.getMonthlyPremium())
+                .coverageStartDate(coverageStartDate)
+                .coverageEndDate(coverageEndDate)
+                .coverageSummary(normalizeNullable(request.getCoverageSummary()))
+                .build();
+
+        Contract savedContract;
+        try {
+            savedContract = contractRepository.saveAndFlush(contract);
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ContractErrorCode.DUPLICATE_CONTRACT_CODE);
+        }
+
+        return ContractCreateResponse.from(savedContract);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -169,6 +250,47 @@ public class ContractServiceImpl implements ContractService {
 
         if (!accessScope.isAllScope()) {
             throw new BusinessException(AuthErrorCode.USER_FORBIDDEN, "조직 코드로 계약을 조회할 수 있는 권한이 없습니다.");
+        }
+    }
+
+    private void validateCustomerOwner(User fp, Customer customer) {
+        if (customer.getCustomerFp() == null || !fp.getId().equals(customer.getCustomerFp().getId())) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN, "담당 고객에 대해서만 계약을 등록할 수 있습니다.");
+        }
+    }
+
+    private String generateContractCode() {
+        long nextSequence = contractRepository.findMaxContractCodeSequence() + 1;
+        return CONTRACT_CODE_PREFIX + String.format("%06d", nextSequence);
+    }
+
+    private void validateDuplicateContract(Customer customer, InsuranceProduct insuranceProduct) {
+        boolean exists = contractRepository.existsByCustomerAndInsuranceProductAndContractStatusInAndDeletedAtIsNull(
+                customer,
+                insuranceProduct,
+                DUPLICATE_BLOCKING_CONTRACT_STATUSES
+        );
+
+        if (exists) {
+            throw new BusinessException(ContractErrorCode.DUPLICATE_ACTIVE_OR_LAPSED_CONTRACT);
+        }
+    }
+
+    private void validateContractDates(ContractCreateRequest request) {
+        if (request.getContractStartDate().isAfter(request.getContractEndDate())) {
+            throw new BusinessException(ContractErrorCode.INVALID_CONTRACT_DATE);
+        }
+    }
+
+    private void validateCoverageDates(LocalDate coverageStartDate, LocalDate coverageEndDate) {
+        if (coverageStartDate.isAfter(coverageEndDate)) {
+            throw new BusinessException(ContractErrorCode.INVALID_CONTRACT_DATE);
+        }
+    }
+
+    private void validatePaymentCycle(String paymentCycle) {
+        if (!MONTHLY_PAYMENT_CYCLE.equals(paymentCycle)) {
+            throw new BusinessException(ContractErrorCode.INVALID_PAYMENT_CYCLE);
         }
     }
 

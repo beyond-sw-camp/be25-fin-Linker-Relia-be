@@ -47,8 +47,8 @@ public class InsuranceServiceImpl implements InsuranceService {
     public List<InsuranceProductResponse> getInsuranceProducts(InsuranceProductListRequest request) {
         return insuranceProductRepository
                 .searchActiveInsuranceProducts(
-                        request.getInsuranceCompanyId(),
-                        request.getInsuranceCategoryId(),
+                        request.getInsuranceCompanyCode(),
+                        request.getInsuranceCategoryCode(),
                         ACTIVE_STATUS
                 )
                 .stream()

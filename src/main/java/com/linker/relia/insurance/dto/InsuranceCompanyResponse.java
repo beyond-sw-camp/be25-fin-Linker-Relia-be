@@ -10,11 +10,13 @@ import java.util.UUID;
 @Builder
 public class InsuranceCompanyResponse {
     private final UUID insuranceCompanyId;
+    private final String insuranceCompanyCode;
     private final String insuranceCompanyName;
 
     public static InsuranceCompanyResponse from(InsuranceCompany insuranceCompany) {
         return InsuranceCompanyResponse.builder()
                 .insuranceCompanyId(insuranceCompany.getId())
+                .insuranceCompanyCode(insuranceCompany.getInsuranceCompanyCode())
                 .insuranceCompanyName(insuranceCompany.getInsuranceCompanyName())
                 .build();
     }

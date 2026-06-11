@@ -20,13 +20,13 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
               and ic.deletedAt is null
               and category.insuranceCategoryStatus = :activeStatus
               and category.deletedAt is null
-              and (:insuranceCompanyId is null or ic.id = :insuranceCompanyId)
-              and (:insuranceCategoryId is null or category.id = :insuranceCategoryId)
+              and (:insuranceCompanyCode is null or ic.insuranceCompanyCode = :insuranceCompanyCode)
+              and (:insuranceCategoryCode is null or category.insuranceCategoryCode = :insuranceCategoryCode)
             order by ip.insuranceProductName asc
             """)
     List<InsuranceProduct> searchActiveInsuranceProducts(
-            @Param("insuranceCompanyId") UUID insuranceCompanyId,
-            @Param("insuranceCategoryId") UUID insuranceCategoryId,
+            @Param("insuranceCompanyCode") String insuranceCompanyCode,
+            @Param("insuranceCategoryCode") String insuranceCategoryCode,
             @Param("activeStatus") String activeStatus
     );
 }

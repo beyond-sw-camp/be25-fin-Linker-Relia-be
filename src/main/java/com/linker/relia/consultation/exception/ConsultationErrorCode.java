@@ -27,6 +27,12 @@ public enum ConsultationErrorCode implements ErrorCode {
         "CONSULTATION_004",
                 "존재하지 않는 상담일지입니다.",
         HttpStatus.NOT_FOUND
+    ),
+
+    CONSULTATION_ACCESS_DENIED(
+        "CONSULTATION_005",
+                "상담일지 조회 권한이 없습니다.",
+        HttpStatus.FORBIDDEN
     );
 
     private final String code;

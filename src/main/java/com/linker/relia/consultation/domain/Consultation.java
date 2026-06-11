@@ -38,15 +38,15 @@ public class Consultation extends BaseEntity {
     @Column(name = "id")
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
     @Column(name = "consultation_sequence")
     private Integer consultationSequence;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "fp_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "fp_id", nullable = false)
     private User fp;
 
     @ManyToOne(fetch = FetchType.LAZY)

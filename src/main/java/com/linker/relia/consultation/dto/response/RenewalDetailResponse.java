@@ -50,6 +50,7 @@ public class RenewalDetailResponse {
                 )
                 .otherReason(
                         premiumChangeReasons.stream()
+                                .filter(reason -> "OTHER".equals(reason.getReasonType()))
                                 .map(ConsultationRenewalPremiumChangeReason::getOtherReason)
                                 .filter(reason -> reason != null && !reason.isBlank())
                                 .findFirst()

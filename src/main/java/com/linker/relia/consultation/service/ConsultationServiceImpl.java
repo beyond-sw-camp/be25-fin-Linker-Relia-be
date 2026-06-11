@@ -151,6 +151,8 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .orElseThrow(() ->
                         new BusinessException(ConsultationErrorCode.CONSULTATION_NOT_FOUND)
                 );
+        validateConsultationAccess(consultation, fp);
+
         NewDetailResponse newDetail = null;
         RenewalDetailResponse renewalDetail = null;
         ClaimDetailResponse claimDetail = null;
@@ -203,6 +205,27 @@ public class ConsultationServiceImpl implements ConsultationService {
                 coverageNeeds,
                 proposedProducts
         );
+    }
+
+    private void validateConsultationAccess(Consultation consultation, User fp) {
+        switch (fp.getUserRole()) {
+            case HQ_MANAGER -> {
+                return;
+            }
+            case BRANCH_MANAGER -> {
+                if (!consultation.getCustomer().getCustomerFp().getOrganization().getId()
+                        .equals(fp.getOrganization().getId())) {
+                    throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
+                }
+            }
+            case FP -> {
+                if (!consultation.getCustomer().getCustomerFp().getId()
+                        .equals(fp.getId())) {
+                    throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
+                }
+            }
+            default -> throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
+        }
     }
 
     private RenewalDetailResponse getRenewalDetailResponse(UUID consultationId) {
@@ -447,7 +470,11 @@ public class ConsultationServiceImpl implements ConsultationService {
                         ConsultationRenewalPremiumChangeReason.builder()
                                 .consultationRenewalDetail(detail)
                                 .reasonType(reasonType)
-                                .otherReason(request.getRenewalDetail().getOtherReason())
+                                .otherReason(
+                                        "OTHER".equals(reasonType)
+                                                ? request.getRenewalDetail().getOtherReason()
+                                                : null
+                                )
                                 .createdAt(now)
                                 .createdBy(fp.getId())
                                 .updatedAt(now)

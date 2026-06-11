@@ -3,11 +3,13 @@ package com.linker.relia.consultation.dto.response;
 import com.linker.relia.consultation.domain.ConsultationNewCoverageNeed;
 import com.linker.relia.consultation.domain.ConsultationNewDetail;
 import com.linker.relia.consultation.domain.ConsultationNewProposedProduct;
+import com.linker.relia.insurance.domain.InsuranceProduct;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Getter
@@ -56,6 +58,11 @@ public class NewDetailResponse {
         public static ProposedProductResponse from(
                 ConsultationNewProposedProduct proposedProduct
         ) {
+            InsuranceProduct insuranceProduct = Objects.requireNonNull(
+                    proposedProduct.getInsuranceProduct(),
+                    "제안 상품의 보험상품 정보가 존재하지 않습니다."
+            );
+
             return ProposedProductResponse.builder()
                     .insuranceProductId(proposedProduct.getInsuranceProduct().getId())
                     .insuranceProductName(proposedProduct.getInsuranceProductName())

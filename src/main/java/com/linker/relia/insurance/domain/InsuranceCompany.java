@@ -30,6 +30,9 @@ public class InsuranceCompany {
     @Column(name = "insurance_company_name")
     private String insuranceCompanyName;
 
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 }

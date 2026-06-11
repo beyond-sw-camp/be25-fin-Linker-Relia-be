@@ -2,8 +2,11 @@ package com.linker.relia.insurance.service;
 
 import com.linker.relia.insurance.dto.InsuranceCategoryResponse;
 import com.linker.relia.insurance.dto.InsuranceCompanyResponse;
+import com.linker.relia.insurance.dto.InsuranceProductListRequest;
+import com.linker.relia.insurance.dto.InsuranceProductResponse;
 import com.linker.relia.insurance.repository.InsuranceCategoryRepository;
 import com.linker.relia.insurance.repository.InsuranceCompanyRepository;
+import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +20,7 @@ public class InsuranceServiceImpl implements InsuranceService {
 
     private final InsuranceCompanyRepository insuranceCompanyRepository;
     private final InsuranceCategoryRepository insuranceCategoryRepository;
+    private final InsuranceProductRepository insuranceProductRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -35,6 +39,20 @@ public class InsuranceServiceImpl implements InsuranceService {
                 .findAllByInsuranceCategoryStatusAndDeletedAtIsNullOrderByInsuranceCategoryNameAsc(ACTIVE_STATUS)
                 .stream()
                 .map(InsuranceCategoryResponse::from)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InsuranceProductResponse> getInsuranceProducts(InsuranceProductListRequest request) {
+        return insuranceProductRepository
+                .searchActiveInsuranceProducts(
+                        request.getInsuranceCompanyId(),
+                        request.getInsuranceCategoryId(),
+                        ACTIVE_STATUS
+                )
+                .stream()
+                .map(InsuranceProductResponse::from)
                 .toList();
     }
 }

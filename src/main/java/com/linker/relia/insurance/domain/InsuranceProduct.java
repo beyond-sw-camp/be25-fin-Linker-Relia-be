@@ -41,6 +41,9 @@ public class InsuranceProduct {
     @Column(name = "insurance_product_name")
     private String insuranceProductName;
 
+    @Column(name = "insurance_product_status")
+    private String insuranceProductStatus;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 }

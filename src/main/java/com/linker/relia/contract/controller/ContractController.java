@@ -5,6 +5,7 @@ import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.contract.dto.ContractDetailResponse;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListRequest;
+import com.linker.relia.contract.dto.ContractMonthlyTrendResponse;
 import com.linker.relia.contract.dto.ContractSummaryRequest;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
@@ -52,6 +53,17 @@ public class ContractController {
         List<InsuranceCompanyContractStatusResponse> responseDto =
                 contractService.getInsuranceCompanyContractStatuses(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "보험사별 계약 현황 조회 성공", responseDto);
+    }
+
+    @GetMapping("/monthly-trend")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<List<ContractMonthlyTrendResponse>>> getMonthlyContractTrend(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute ContractSummaryRequest request
+    ) {
+        List<ContractMonthlyTrendResponse> responseDto =
+                contractService.getMonthlyContractTrend(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "월별 계약 추이 조회 성공", responseDto);
     }
 
     @GetMapping("/{contractId}")

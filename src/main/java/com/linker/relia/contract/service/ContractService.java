@@ -4,6 +4,7 @@ import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.contract.dto.ContractDetailResponse;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListRequest;
+import com.linker.relia.contract.dto.ContractMonthlyTrendResponse;
 import com.linker.relia.contract.dto.ContractSummaryRequest;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
@@ -21,6 +22,9 @@ public interface ContractService {
 
     List<InsuranceCompanyContractStatusResponse> getInsuranceCompanyContractStatuses(PrincipalDetails principalDetails,
                                                                                      ContractSummaryRequest request);
+
+    List<ContractMonthlyTrendResponse> getMonthlyContractTrend(PrincipalDetails principalDetails,
+                                                               ContractSummaryRequest request);
 
     ContractDetailResponse getContractDetail(PrincipalDetails principalDetails,
                                              UUID contractId);

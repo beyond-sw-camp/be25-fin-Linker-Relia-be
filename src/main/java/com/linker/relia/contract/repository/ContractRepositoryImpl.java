@@ -5,6 +5,7 @@ import com.linker.relia.contract.dto.ContractDetailQueryResult;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListSort;
 import com.linker.relia.contract.dto.ContractListStatus;
+import com.linker.relia.contract.dto.ContractMonthlyTrendResponse;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
@@ -237,6 +238,55 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     }
 
     @Override
+    public List<ContractMonthlyTrendResponse> summarizeMonthlyContractTrend(
+            AccessScope accessScope,
+            String organizationCode,
+            UUID insuranceCompanyId,
+            String startMonth,
+            String endMonth
+    ) {
+        String sql = """
+                select
+                    cmc.closing_month,
+                    count(*) as contract_count,
+                    coalesce(sum(cmc.monthly_premium), 0) as total_monthly_premium_amount
+                from contract_monthly_closing cmc
+                join contracts ct on ct.id = cmc.contract_id
+                join customers c on c.id = cmc.customer_id
+                join users fp on fp.id = cmc.fp_id
+                join organizations org on org.id = fp.organization_id
+                join insurance_products ip on ip.id = ct.insurance_product_id
+                join insurance_companies ic on ic.id = ip.insurance_company_id
+                where cmc.closing_month between :startMonth and :endMonth
+                  and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
+                  and (:organizationCode is null or org.organization_code = :organizationCode)
+                  and (:insuranceCompanyId is null or ip.insurance_company_id = :insuranceCompanyId)
+                  and ct.deleted_at is null
+                  and c.deleted_at is null
+                  and fp.deleted_at is null
+                  and org.deleted_at is null
+                  and ip.deleted_at is null
+                  and ic.deleted_at is null
+                """ + buildAccessScopeWhereClause(accessScope) + """
+                group by cmc.closing_month
+                order by cmc.closing_month asc
+                """;
+
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("startMonth", startMonth);
+        query.setParameter("endMonth", endMonth);
+        query.setParameter("organizationCode", organizationCode);
+        query.setParameter("insuranceCompanyId", insuranceCompanyId == null ? null : insuranceCompanyId.toString());
+        bindAccessScope(query, accessScope);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream()
+                .map(this::toContractMonthlyTrendResponse)
+                .toList();
+    }
+
+    @Override
     public Optional<ContractDetailQueryResult> findContractDetail(AccessScope accessScope,
                                                                   UUID contractId) {
         String sql = """
@@ -411,6 +461,14 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 .totalContractCount(toLong(row[1]))
                 .totalMonthlyPremiumAmount(toBigDecimal(row[2]))
                 .retentionRate(toBigDecimal(row[3]))
+                .build();
+    }
+
+    private ContractMonthlyTrendResponse toContractMonthlyTrendResponse(Object[] row) {
+        return ContractMonthlyTrendResponse.builder()
+                .month((String) row[0])
+                .contractCount(toLong(row[1]))
+                .totalMonthlyPremiumAmount(toBigDecimal(row[2]))
                 .build();
     }
 

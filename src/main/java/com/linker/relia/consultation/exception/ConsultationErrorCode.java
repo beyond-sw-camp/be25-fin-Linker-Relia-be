@@ -21,6 +21,12 @@ public enum ConsultationErrorCode implements ErrorCode {
             "CONSULTATION_003",
             "존재하지 않는 계약입니다.",
             HttpStatus.NOT_FOUND
+    ),
+
+    CONSULTATION_NOT_FOUND(
+        "CONSULTATION_004",
+                "존재하지 않는 상담일지입니다.",
+        HttpStatus.NOT_FOUND
     );
 
     private final String code;

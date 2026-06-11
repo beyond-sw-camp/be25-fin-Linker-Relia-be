@@ -15,7 +15,9 @@ import com.linker.relia.consultation.domain.ConsultationRenewalPremiumChangeReas
 import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
+import com.linker.relia.consultation.dto.response.ConsultationDetailResponse;
 import com.linker.relia.consultation.dto.response.ConsultationListResponse;
+import com.linker.relia.consultation.dto.response.NewDetailResponse;
 import com.linker.relia.consultation.exception.ConsultationErrorCode;
 import com.linker.relia.consultation.repository.ConsultationCancelDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimDetailRepository;
@@ -42,6 +44,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -132,6 +135,53 @@ public class ConsultationServiceImpl implements ConsultationService {
     public Page<ConsultationListResponse> getConsultations(Pageable pageable){
         return consultationRepository.findAllByDeletedAtIsNull(pageable)
                 .map(ConsultationListResponse::from);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ConsultationDetailResponse getConsultationDetail(
+            UUID consultationId,
+            User fp
+    ){
+        Consultation consultation = consultationRepository
+                .findByIdAndDeletedAtIsNull(consultationId)
+                .orElseThrow(() ->
+                        new BusinessException(ConsultationErrorCode.CONSULTATION_NOT_FOUND)
+                );
+        NewDetailResponse newDetail = null;
+
+        if (consultation.getConsultationType() == ConsultationType.NEW_CONTRACT) {
+            newDetail = getNewDetailResponse(consultationId);
+        }
+
+        return ConsultationDetailResponse.from(
+                consultation,
+                newDetail
+        );
+    }
+
+    private NewDetailResponse getNewDetailResponse(UUID consultationId) {
+        ConsultationNewDetail detail = consultationNewDetailRepository
+                .findByConsultationId(consultationId)
+                .orElse(null);
+
+        if (detail == null) {
+            return null;
+        }
+
+        List<ConsultationNewCoverageNeed> coverageNeeds =
+                consultationNewCoverageNeedRepository
+                        .findAllByConsultationNewDetailId(detail.getId());
+
+        List<ConsultationNewProposedProduct> proposedProducts =
+                consultationNewProposedProductRepository
+                        .findAllByConsultationNewDetailId(detail.getId());
+
+        return NewDetailResponse.from(
+                detail,
+                coverageNeeds,
+                proposedProducts
+        );
     }
 
     private void saveConsultationDetail(

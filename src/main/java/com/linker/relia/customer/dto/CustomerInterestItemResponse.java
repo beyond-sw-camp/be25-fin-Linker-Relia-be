@@ -21,6 +21,7 @@ public class CustomerInterestItemResponse {
     private final String customerPhone;
     private final CustomerStatus customerStatus;
     private final InterestReason interestReason;
+    private final LocalDate contractEndDate;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private final LocalDateTime lastConsultedAt;

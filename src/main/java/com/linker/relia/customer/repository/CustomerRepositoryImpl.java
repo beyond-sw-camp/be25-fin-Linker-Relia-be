@@ -209,6 +209,47 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     c.customer_phone,
                     c.customer_status,
                     c.interest_reason,
+                    case
+                        when c.interest_reason = 'UNPAID' then (
+                            select min(ct.contract_end_date)
+                            from contracts ct
+                            join contract_monthly_closing cmc on cmc.contract_id = ct.id
+                            where ct.customer_id = c.id
+                              and ct.deleted_at is null
+                              and cmc.contract_status = 'MAINTENANCE'
+                              and cmc.payment_status = 'UNPAID'
+                              and cmc.closing_month = (
+                                  select max(cmc2.closing_month)
+                                  from contract_monthly_closing cmc2
+                                  join contracts ct2 on ct2.id = cmc2.contract_id
+                                  where cmc2.contract_id = cmc.contract_id
+                                    and ct2.deleted_at is null
+                              )
+                        )
+                        when c.interest_reason = 'RENEWAL_DUE' then (
+                            select min(ct.contract_end_date)
+                            from contracts ct
+                            join insurance_products ip on ip.id = ct.insurance_product_id
+                            where ct.customer_id = c.id
+                              and ct.deleted_at is null
+                              and ip.deleted_at is null
+                              and ct.contract_status = 'MAINTENANCE'
+                              and ip.is_renewable = true
+                              and ct.contract_end_date between current_date and date_add(current_date, interval 30 day)
+                        )
+                        when c.interest_reason = 'MATURITY_DUE' then (
+                            select min(ct.contract_end_date)
+                            from contracts ct
+                            join insurance_products ip on ip.id = ct.insurance_product_id
+                            where ct.customer_id = c.id
+                              and ct.deleted_at is null
+                              and ip.deleted_at is null
+                              and ct.contract_status = 'MAINTENANCE'
+                              and ip.is_renewable = false
+                              and ct.contract_end_date between current_date and date_add(current_date, interval 30 day)
+                        )
+                        else null
+                    end as contract_end_date,
                     (
                         select max(cs.consulted_at)
                         from consultations cs
@@ -463,13 +504,14 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 .customerPhone((String) row[3])
                 .customerStatus(toCustomerStatus(row[4]))
                 .interestReason(toInterestReason(row[5]))
-                .lastConsultedAt(toLocalDateTime(row[6]))
-                .unpaidInstallmentCount(toInteger(row[7]))
-                .renewalDDay(toInteger(row[8]))
-                .maturityDDay(toInteger(row[9]))
-                .organizationId(toUuid(row[10]))
-                .organizationCode((String) row[11])
-                .organizationName((String) row[12])
+                .contractEndDate(toLocalDate(row[6]))
+                .lastConsultedAt(toLocalDateTime(row[7]))
+                .unpaidInstallmentCount(toInteger(row[8]))
+                .renewalDDay(toInteger(row[9]))
+                .maturityDDay(toInteger(row[10]))
+                .organizationId(toUuid(row[11]))
+                .organizationCode((String) row[12])
+                .organizationName((String) row[13])
                 .build();
     }
 

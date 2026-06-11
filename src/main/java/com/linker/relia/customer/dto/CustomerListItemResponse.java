@@ -22,6 +22,8 @@ public class CustomerListItemResponse {
     private final String customerPhone;
     private final long contractCount;
     private final BigDecimal monthlyPremium;
+    private final LocalDate contractEndDate;
+    private final LocalDate terminatedAt;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private final LocalDateTime lastConsultedAt;

@@ -61,12 +61,48 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     c.customerPhone,
                     (select count(ct.id) from Contract ct where ct.customer = c and ct.deletedAt is null),
                     (select coalesce(sum(ct.monthlyPremium), 0) from Contract ct where ct.customer = c and ct.deletedAt is null),
+                    case
+                        when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.COMPLETED then (
+                            select max(cmc.contractEndDate)
+                            from ContractMonthlyClosing cmc
+                            where cmc.customer = c
+                              and cmc.closingMonth = (
+                                  select max(cmc2.closingMonth)
+                                  from ContractMonthlyClosing cmc2
+                                  where cmc2.customer = c
+                              )
+                              and cmc.contractStatus = 'COMPLETED'
+                        )
+                        else null
+                    end,
+                    case
+                        when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.TERMINATED then (
+                            select max(cmc.terminatedAt)
+                            from ContractMonthlyClosing cmc
+                            where cmc.customer = c
+                              and cmc.closingMonth = (
+                                  select max(cmc2.closingMonth)
+                                  from ContractMonthlyClosing cmc2
+                                  where cmc2.customer = c
+                              )
+                              and (cmc.terminatedYn = true or cmc.contractStatus = 'TERMINATED')
+                        )
+                        else null
+                    end,
                     (select max(cs.consultedAt) from Consultation cs where cs.customer = c and cs.deletedAt is null),
-                    (select min(cs.nextScheduledAt) from Consultation cs
-                        where cs.customer = c
-                          and cs.deletedAt is null
-                          and cs.nextScheduledAt is not null
-                          and cs.nextScheduledAt >= current_timestamp),
+                    case
+                        when c.customerStatus in (
+                            com.linker.relia.customer.domain.CustomerStatus.COMPLETED,
+                            com.linker.relia.customer.domain.CustomerStatus.TERMINATED
+                        ) then null
+                        else (
+                            select min(cs.nextScheduledAt) from Consultation cs
+                            where cs.customer = c
+                              and cs.deletedAt is null
+                              and cs.nextScheduledAt is not null
+                              and cs.nextScheduledAt >= current_timestamp
+                        )
+                    end,
                     c.customerGrade,
                     c.customerStatus,
                     org.id,
@@ -150,12 +186,20 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                         from Consultation cs
                        where cs.customer = c
                          and cs.deletedAt is null),
-                    (select min(cs.nextScheduledAt)
-                        from Consultation cs
-                       where cs.customer = c
-                         and cs.deletedAt is null
-                         and cs.nextScheduledAt is not null
-                         and cs.nextScheduledAt >= current_timestamp)
+                    case
+                        when c.customerStatus in (
+                            com.linker.relia.customer.domain.CustomerStatus.COMPLETED,
+                            com.linker.relia.customer.domain.CustomerStatus.TERMINATED
+                        ) then null
+                        else (
+                            select min(cs.nextScheduledAt)
+                            from Consultation cs
+                           where cs.customer = c
+                             and cs.deletedAt is null
+                             and cs.nextScheduledAt is not null
+                             and cs.nextScheduledAt >= current_timestamp
+                        )
+                    end
                 )
                 from Customer c
                 join c.customerFp fp

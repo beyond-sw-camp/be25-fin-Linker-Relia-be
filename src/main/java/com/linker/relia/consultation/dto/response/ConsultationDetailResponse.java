@@ -31,11 +31,13 @@ public class ConsultationDetailResponse {
 
     private NewDetailResponse newDetail;
     private RenewalDetailResponse renewalDetail;
+    private ClaimDetailResponse claimDetail;
 
     public static ConsultationDetailResponse from(
             Consultation consultation,
             NewDetailResponse newDetail,
-            RenewalDetailResponse renewalDetail
+            RenewalDetailResponse renewalDetail,
+            ClaimDetailResponse claimDetail
     ) {
         return ConsultationDetailResponse.builder()
                 .consultationId(consultation.getId())
@@ -54,6 +56,7 @@ public class ConsultationDetailResponse {
                 .fpName(consultation.getFp().getUserName())
                 .newDetail(newDetail)
                 .renewalDetail(renewalDetail)
+                .claimDetail(claimDetail)
                 .build();
     }
 }

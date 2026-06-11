@@ -14,6 +14,7 @@ import com.linker.relia.consultation.domain.ConsultationRenewalInterest;
 import com.linker.relia.consultation.domain.ConsultationRenewalPremiumChangeReason;
 import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
+import com.linker.relia.consultation.dto.response.ClaimDetailResponse;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
 import com.linker.relia.consultation.dto.response.ConsultationDetailResponse;
 import com.linker.relia.consultation.dto.response.ConsultationListResponse;
@@ -151,6 +152,7 @@ public class ConsultationServiceImpl implements ConsultationService {
                 );
         NewDetailResponse newDetail = null;
         RenewalDetailResponse renewalDetail = null;
+        ClaimDetailResponse claimDetail = null;
 
         if (consultation.getConsultationType() == ConsultationType.NEW_CONTRACT) {
             newDetail = getNewDetailResponse(consultationId);
@@ -160,10 +162,14 @@ public class ConsultationServiceImpl implements ConsultationService {
             renewalDetail = getRenewalDetailResponse(consultationId);
         }
 
+        if(consultation.getConsultationType() == ConsultationType.CLAIM){
+            claimDetail = getClaimDetailResponse(consultationId);
+        }
         return ConsultationDetailResponse.from(
                 consultation,
                 newDetail,
-                renewalDetail
+                renewalDetail,
+                claimDetail
         );
     }
 
@@ -214,6 +220,32 @@ public class ConsultationServiceImpl implements ConsultationService {
                 detail,
                 premiumChangeReasons,
                 interests
+        );
+    }
+
+    private ClaimDetailResponse getClaimDetailResponse(UUID consultationId) {
+
+        ConsultationClaimDetail detail =
+                consultationClaimDetailRepository
+                        .findByConsultationId(consultationId)
+                        .orElse(null);
+
+        if (detail == null) {
+            return null;
+        }
+
+        List<ConsultationClaimType> claimTypes =
+                consultationClaimTypeRepository
+                        .findAllByConsultationClaimDetailId(detail.getId());
+
+        List<ConsultationClaimReviewItem> reviewItems =
+                consultationClaimReviewItemRepository
+                        .findAllByConsultationClaimDetailId(detail.getId());
+
+        return ClaimDetailResponse.from(
+                detail,
+                claimTypes,
+                reviewItems
         );
     }
 

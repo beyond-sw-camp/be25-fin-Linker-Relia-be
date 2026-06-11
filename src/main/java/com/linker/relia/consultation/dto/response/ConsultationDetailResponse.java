@@ -30,10 +30,12 @@ public class ConsultationDetailResponse {
     private String fpName;
 
     private NewDetailResponse newDetail;
+    private RenewalDetailResponse renewalDetail;
 
     public static ConsultationDetailResponse from(
             Consultation consultation,
-            NewDetailResponse newDetail
+            NewDetailResponse newDetail,
+            RenewalDetailResponse renewalDetail
     ) {
         return ConsultationDetailResponse.builder()
                 .consultationId(consultation.getId())
@@ -51,6 +53,7 @@ public class ConsultationDetailResponse {
                 .specialNote(consultation.getSpecialNote())
                 .fpName(consultation.getFp().getUserName())
                 .newDetail(newDetail)
+                .renewalDetail(renewalDetail)
                 .build();
     }
 }

@@ -18,6 +18,7 @@ import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
 import com.linker.relia.consultation.dto.response.ConsultationDetailResponse;
 import com.linker.relia.consultation.dto.response.ConsultationListResponse;
 import com.linker.relia.consultation.dto.response.NewDetailResponse;
+import com.linker.relia.consultation.dto.response.RenewalDetailResponse;
 import com.linker.relia.consultation.exception.ConsultationErrorCode;
 import com.linker.relia.consultation.repository.ConsultationCancelDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimDetailRepository;
@@ -149,14 +150,20 @@ public class ConsultationServiceImpl implements ConsultationService {
                         new BusinessException(ConsultationErrorCode.CONSULTATION_NOT_FOUND)
                 );
         NewDetailResponse newDetail = null;
+        RenewalDetailResponse renewalDetail = null;
 
         if (consultation.getConsultationType() == ConsultationType.NEW_CONTRACT) {
             newDetail = getNewDetailResponse(consultationId);
         }
 
+        if (consultation.getConsultationType() == ConsultationType.RENEWAL) {
+            renewalDetail = getRenewalDetailResponse(consultationId);
+        }
+
         return ConsultationDetailResponse.from(
                 consultation,
-                newDetail
+                newDetail,
+                renewalDetail
         );
     }
 
@@ -181,6 +188,32 @@ public class ConsultationServiceImpl implements ConsultationService {
                 detail,
                 coverageNeeds,
                 proposedProducts
+        );
+    }
+
+    private RenewalDetailResponse getRenewalDetailResponse(UUID consultationId) {
+
+        ConsultationRenewalDetail detail =
+                consultationRenewalDetailRepository
+                        .findByConsultationId(consultationId)
+                        .orElse(null);
+
+        if (detail == null) {
+            return null;
+        }
+
+        List<ConsultationRenewalPremiumChangeReason> premiumChangeReasons =
+                consultationRenewalPremiumChangeReasonRepository
+                        .findAllByConsultationRenewalDetailId(detail.getId());
+
+        List<ConsultationRenewalInterest> interests =
+                consultationRenewalInterestRepository
+                        .findAllByConsultationRenewalDetailId(detail.getId());
+
+        return RenewalDetailResponse.from(
+                detail,
+                premiumChangeReasons,
+                interests
         );
     }
 

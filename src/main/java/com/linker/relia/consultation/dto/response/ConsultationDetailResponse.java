@@ -32,12 +32,14 @@ public class ConsultationDetailResponse {
     private NewDetailResponse newDetail;
     private RenewalDetailResponse renewalDetail;
     private ClaimDetailResponse claimDetail;
+    private CancelDetailResponse cancelDetail;
 
     public static ConsultationDetailResponse from(
             Consultation consultation,
             NewDetailResponse newDetail,
             RenewalDetailResponse renewalDetail,
-            ClaimDetailResponse claimDetail
+            ClaimDetailResponse claimDetail,
+            CancelDetailResponse cancelDetail
     ) {
         return ConsultationDetailResponse.builder()
                 .consultationId(consultation.getId())
@@ -57,6 +59,7 @@ public class ConsultationDetailResponse {
                 .newDetail(newDetail)
                 .renewalDetail(renewalDetail)
                 .claimDetail(claimDetail)
+                .cancelDetail(cancelDetail)
                 .build();
     }
 }

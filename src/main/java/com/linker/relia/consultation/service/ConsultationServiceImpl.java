@@ -14,6 +14,7 @@ import com.linker.relia.consultation.domain.ConsultationRenewalInterest;
 import com.linker.relia.consultation.domain.ConsultationRenewalPremiumChangeReason;
 import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
+import com.linker.relia.consultation.dto.response.CancelDetailResponse;
 import com.linker.relia.consultation.dto.response.ClaimDetailResponse;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
 import com.linker.relia.consultation.dto.response.ConsultationDetailResponse;
@@ -153,6 +154,7 @@ public class ConsultationServiceImpl implements ConsultationService {
         NewDetailResponse newDetail = null;
         RenewalDetailResponse renewalDetail = null;
         ClaimDetailResponse claimDetail = null;
+        CancelDetailResponse cancelDetail = null;
 
         if (consultation.getConsultationType() == ConsultationType.NEW_CONTRACT) {
             newDetail = getNewDetailResponse(consultationId);
@@ -165,11 +167,17 @@ public class ConsultationServiceImpl implements ConsultationService {
         if(consultation.getConsultationType() == ConsultationType.CLAIM){
             claimDetail = getClaimDetailResponse(consultationId);
         }
+
+        if(consultation.getConsultationType() == ConsultationType.TERMINATION){
+            cancelDetail = getCancelDetailResponse(consultationId);
+        }
+
         return ConsultationDetailResponse.from(
                 consultation,
                 newDetail,
                 renewalDetail,
-                claimDetail
+                claimDetail,
+                cancelDetail
         );
     }
 
@@ -247,6 +255,19 @@ public class ConsultationServiceImpl implements ConsultationService {
                 claimTypes,
                 reviewItems
         );
+    }
+
+    private CancelDetailResponse getCancelDetailResponse(UUID consultationId) {
+        ConsultationCancelDetail detail =
+                consultationCancelDetailRepository
+                        .findByConsultationId(consultationId)
+                        .orElse(null);
+
+        if (detail == null) {
+            return null;
+        }
+
+        return CancelDetailResponse.from(detail);
     }
 
     private void saveConsultationDetail(

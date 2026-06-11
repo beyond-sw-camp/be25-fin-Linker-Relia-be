@@ -14,8 +14,13 @@ import com.linker.relia.consultation.domain.ConsultationRenewalInterest;
 import com.linker.relia.consultation.domain.ConsultationRenewalPremiumChangeReason;
 import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
+import com.linker.relia.consultation.dto.response.CancelDetailResponse;
+import com.linker.relia.consultation.dto.response.ClaimDetailResponse;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
+import com.linker.relia.consultation.dto.response.ConsultationDetailResponse;
 import com.linker.relia.consultation.dto.response.ConsultationListResponse;
+import com.linker.relia.consultation.dto.response.NewDetailResponse;
+import com.linker.relia.consultation.dto.response.RenewalDetailResponse;
 import com.linker.relia.consultation.exception.ConsultationErrorCode;
 import com.linker.relia.consultation.repository.ConsultationCancelDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimDetailRepository;
@@ -42,6 +47,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -132,6 +138,159 @@ public class ConsultationServiceImpl implements ConsultationService {
     public Page<ConsultationListResponse> getConsultations(Pageable pageable){
         return consultationRepository.findAllByDeletedAtIsNull(pageable)
                 .map(ConsultationListResponse::from);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ConsultationDetailResponse getConsultationDetail(
+            UUID consultationId,
+            User fp
+    ){
+        Consultation consultation = consultationRepository
+                .findByIdAndDeletedAtIsNull(consultationId)
+                .orElseThrow(() ->
+                        new BusinessException(ConsultationErrorCode.CONSULTATION_NOT_FOUND)
+                );
+        validateConsultationAccess(consultation, fp);
+
+        NewDetailResponse newDetail = null;
+        RenewalDetailResponse renewalDetail = null;
+        ClaimDetailResponse claimDetail = null;
+        CancelDetailResponse cancelDetail = null;
+
+        if (consultation.getConsultationType() == ConsultationType.NEW_CONTRACT) {
+            newDetail = getNewDetailResponse(consultationId);
+        }
+
+        if (consultation.getConsultationType() == ConsultationType.RENEWAL) {
+            renewalDetail = getRenewalDetailResponse(consultationId);
+        }
+
+        if(consultation.getConsultationType() == ConsultationType.CLAIM){
+            claimDetail = getClaimDetailResponse(consultationId);
+        }
+
+        if(consultation.getConsultationType() == ConsultationType.TERMINATION){
+            cancelDetail = getCancelDetailResponse(consultationId);
+        }
+
+        return ConsultationDetailResponse.from(
+                consultation,
+                newDetail,
+                renewalDetail,
+                claimDetail,
+                cancelDetail
+        );
+    }
+
+    private NewDetailResponse getNewDetailResponse(UUID consultationId) {
+        ConsultationNewDetail detail = consultationNewDetailRepository
+                .findByConsultationId(consultationId)
+                .orElse(null);
+
+        if (detail == null) {
+            return null;
+        }
+
+        List<ConsultationNewCoverageNeed> coverageNeeds =
+                consultationNewCoverageNeedRepository
+                        .findAllByConsultationNewDetailId(detail.getId());
+
+        List<ConsultationNewProposedProduct> proposedProducts =
+                consultationNewProposedProductRepository
+                        .findAllByConsultationNewDetailId(detail.getId());
+
+        return NewDetailResponse.from(
+                detail,
+                coverageNeeds,
+                proposedProducts
+        );
+    }
+
+    private void validateConsultationAccess(Consultation consultation, User fp) {
+        switch (fp.getUserRole()) {
+            case HQ_MANAGER -> {
+                return;
+            }
+            case BRANCH_MANAGER -> {
+                if (!consultation.getCustomer().getCustomerFp().getOrganization().getId()
+                        .equals(fp.getOrganization().getId())) {
+                    throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
+                }
+            }
+            case FP -> {
+                if (!consultation.getCustomer().getCustomerFp().getId()
+                        .equals(fp.getId())) {
+                    throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
+                }
+            }
+            default -> throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
+        }
+    }
+
+    private RenewalDetailResponse getRenewalDetailResponse(UUID consultationId) {
+
+        ConsultationRenewalDetail detail =
+                consultationRenewalDetailRepository
+                        .findByConsultationId(consultationId)
+                        .orElse(null);
+
+        if (detail == null) {
+            return null;
+        }
+
+        List<ConsultationRenewalPremiumChangeReason> premiumChangeReasons =
+                consultationRenewalPremiumChangeReasonRepository
+                        .findAllByConsultationRenewalDetailId(detail.getId());
+
+        List<ConsultationRenewalInterest> interests =
+                consultationRenewalInterestRepository
+                        .findAllByConsultationRenewalDetailId(detail.getId());
+
+        return RenewalDetailResponse.from(
+                detail,
+                premiumChangeReasons,
+                interests
+        );
+    }
+
+    private ClaimDetailResponse getClaimDetailResponse(UUID consultationId) {
+
+        ConsultationClaimDetail detail =
+                consultationClaimDetailRepository
+                        .findByConsultationId(consultationId)
+                        .orElse(null);
+
+        if (detail == null) {
+            return null;
+        }
+
+        List<ConsultationClaimType> claimTypes =
+                consultationClaimTypeRepository
+                        .findAllByConsultationClaimDetailId(detail.getId());
+
+        List<ConsultationClaimReviewItem> reviewItems =
+                consultationClaimReviewItemRepository
+                        .findAllByConsultationClaimDetailId(detail.getId());
+
+        return ClaimDetailResponse.from(
+                detail,
+                claimTypes,
+                reviewItems
+        );
+    }
+
+    private CancelDetailResponse getCancelDetailResponse(UUID consultationId) {
+        ConsultationCancelDetail detail =
+                consultationCancelDetailRepository
+                        .findByConsultationId(consultationId)
+                        .orElse(null);
+
+        if (detail == null) {
+            return null;
+        }
+
+        return CancelDetailResponse.from(detail);
     }
 
     private void saveConsultationDetail(
@@ -311,7 +470,11 @@ public class ConsultationServiceImpl implements ConsultationService {
                         ConsultationRenewalPremiumChangeReason.builder()
                                 .consultationRenewalDetail(detail)
                                 .reasonType(reasonType)
-                                .otherReason(request.getRenewalDetail().getOtherReason())
+                                .otherReason(
+                                        "OTHER".equals(reasonType)
+                                                ? request.getRenewalDetail().getOtherReason()
+                                                : null
+                                )
                                 .createdAt(now)
                                 .createdBy(fp.getId())
                                 .updatedAt(now)

@@ -3,6 +3,7 @@ package com.linker.relia.consultation.controller;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
+import com.linker.relia.consultation.dto.response.ConsultationDetailResponse;
 import com.linker.relia.consultation.dto.response.ConsultationListResponse;
 import com.linker.relia.consultation.service.ConsultationService;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -21,10 +22,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -179,6 +183,24 @@ public class ConsultationController {
         return ApiResponse.success(
                 HttpStatus.OK,
                 "상담일지 목록 조회에 성공했습니다.",
+                response
+        );
+    }
+
+    @Operation(summary = "상담일지 상세조회")
+    @GetMapping("/{consultationId}")
+    public ResponseEntity<ApiResponse<ConsultationDetailResponse>> getConsultationDetail(
+            @PathVariable UUID consultationId,
+            @AuthenticationPrincipal PrincipalDetails principalDetails
+    ) {
+        User fp = principalDetails.getUser();
+
+        ConsultationDetailResponse response =
+                consultationService.getConsultationDetail(consultationId, fp);
+
+        return ApiResponse.success(
+                HttpStatus.OK,
+                "상담일지 상세 조회에 성공했습니다.",
                 response
         );
     }

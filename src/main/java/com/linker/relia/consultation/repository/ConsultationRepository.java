@@ -20,4 +20,6 @@ public interface ConsultationRepository extends JpaRepository<Consultation, UUID
     Optional<Integer> findMaxSequenceByCustomerId(UUID customerId);
 
     Page<Consultation> findAllByDeletedAtIsNull(Pageable pageable);
+
+    Optional<Consultation> findByIdAndDeletedAtIsNull(UUID consultationId);
 }

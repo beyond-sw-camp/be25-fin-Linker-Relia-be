@@ -1334,6 +1334,13 @@ JOIN (
 SET cs.consultation_sequence = resequenced.consultation_sequence,
     cs.updated_by = @SYSTEM_USER_ID;
 
+UPDATE consultations cs
+JOIN customers c ON c.id = cs.customer_id
+SET cs.next_scheduled_at = NULL,
+    cs.updated_by = @SYSTEM_USER_ID
+WHERE c.customer_status IN ('COMPLETED', 'TERMINATED')
+  AND cs.next_scheduled_at IS NOT NULL;
+
 INSERT INTO consultation_new_details (
     id,
     consultation_id,
@@ -1550,8 +1557,8 @@ SELECT
     customer_id,
     current_fp_id,
     CASE
-        WHEN MOD(seq_no, 4) = 0 THEN '해촉'
-        ELSE '일반이관'
+        WHEN MOD(seq_no, 4) = 0 THEN 'RESIGNATION'
+        ELSE 'VOLUNTARY'
     END AS request_type,
     CASE
         WHEN seq_no <= 30 THEN 'COMPLETED'

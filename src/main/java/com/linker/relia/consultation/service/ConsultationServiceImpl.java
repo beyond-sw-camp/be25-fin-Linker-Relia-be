@@ -15,6 +15,7 @@ import com.linker.relia.consultation.domain.ConsultationRenewalPremiumChangeReas
 import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
+import com.linker.relia.consultation.dto.response.ConsultationListResponse;
 import com.linker.relia.consultation.exception.ConsultationErrorCode;
 import com.linker.relia.consultation.repository.ConsultationCancelDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimDetailRepository;
@@ -35,6 +36,8 @@ import com.linker.relia.insurance.domain.InsuranceProduct;
 import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import com.linker.relia.user.domain.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -122,6 +125,13 @@ public class ConsultationServiceImpl implements ConsultationService {
                 consultation.getId()
         );
 
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ConsultationListResponse> getConsultations(Pageable pageable){
+        return consultationRepository.findAllByDeletedAtIsNull(pageable)
+                .map(ConsultationListResponse::from);
     }
 
     private void saveConsultationDetail(

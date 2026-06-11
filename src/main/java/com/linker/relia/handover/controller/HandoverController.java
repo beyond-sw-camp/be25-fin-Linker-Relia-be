@@ -1,17 +1,27 @@
 package com.linker.relia.handover.controller;
 
+import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.handover.domain.RequestStatus;
+import com.linker.relia.handover.domain.RequestType;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
+import com.linker.relia.handover.dto.response.HandoverListResponse;
 import com.linker.relia.handover.service.HandoverService;
 import com.linker.relia.security.principal.PrincipalDetails;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -23,10 +33,27 @@ public class HandoverController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<HandoverCreateResponse>> createHandover(
-            @AuthenticationPrincipal PrincipalDetails principal,
             @RequestBody HandoverCreateRequest request) {
 
         HandoverCreateResponse response = handoverService.createHandover(request);
         return ApiResponse.success(HttpStatus.CREATED, "인수인계 요청 생성 성공", response);
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<HandoverListResponse>> getHandoverList(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(required = false) RequestStatus status,
+            @RequestParam(required = false) RequestType requestType,
+            @RequestParam(required = false) String customerName,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "10") @Min(1) int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        HandoverListResponse response = handoverService
+                .getHandoverList(principal, status, requestType, customerName, pageable);
+
+        return ApiResponse.success(HttpStatus.OK, "인수인계 요청 목록 조회 성공", response);
     }
 }

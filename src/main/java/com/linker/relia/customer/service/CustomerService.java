@@ -7,6 +7,8 @@ import com.linker.relia.customer.dto.CustomerAiBriefingResponse;
 import com.linker.relia.customer.dto.CustomerDetailResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryItemResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryRequest;
+import com.linker.relia.customer.dto.CustomerInterestListRequest;
+import com.linker.relia.customer.dto.CustomerInterestListResponse;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
@@ -17,6 +19,8 @@ import java.util.UUID;
 
 public interface CustomerService {
     CustomerListResponse getCustomers(PrincipalDetails principalDetails, CustomerListRequest request);
+
+    CustomerInterestListResponse getInterestCustomers(PrincipalDetails principalDetails, CustomerInterestListRequest request);
 
     CustomerDetailResponse getCustomerDetail(PrincipalDetails principalDetails, UUID customerId);
 

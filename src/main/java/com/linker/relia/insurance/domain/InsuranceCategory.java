@@ -32,6 +32,8 @@ public class InsuranceCategory {
     @Column(name = "insurance_category_name")
     private String insuranceCategoryName;
 
+    @Column(name = "insurance_category_status")
+    private String insuranceCategoryStatus;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

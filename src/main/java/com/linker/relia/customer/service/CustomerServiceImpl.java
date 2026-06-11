@@ -14,6 +14,10 @@ import com.linker.relia.customer.dto.CustomerDetailQueryResult;
 import com.linker.relia.customer.dto.CustomerDetailResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryItemResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryRequest;
+import com.linker.relia.customer.dto.CustomerInterestItemResponse;
+import com.linker.relia.customer.dto.CustomerInterestListRequest;
+import com.linker.relia.customer.dto.CustomerInterestListResponse;
+import com.linker.relia.customer.dto.CustomerInterestSummaryResponse;
 import com.linker.relia.customer.dto.CustomerListItemResponse;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
@@ -65,6 +69,37 @@ public class CustomerServiceImpl implements CustomerService {
         );
 
         return CustomerListResponse.builder()
+                .summary(summary)
+                .customers(PageResponse.from(customerPage))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerInterestListResponse getInterestCustomers(PrincipalDetails principalDetails,
+                                                             CustomerInterestListRequest request) {
+        AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
+        Pageable pageable = request.toPageable();
+        String customerName = normalizeNullable(request.getCustomerName());
+        String organizationCode = normalizeNullable(request.getOrganizationCode());
+        String interestReason = request.getInterestReason() == null ? null : request.getInterestReason().name();
+
+        customerAccessService.validateOrganizationCodeFilter(accessScope, organizationCode);
+
+        CustomerInterestSummaryResponse summary = customerRepository.summarizeInterestCustomers(
+                accessScope,
+                organizationCode
+        );
+
+        Page<CustomerInterestItemResponse> customerPage = customerRepository.searchInterestCustomers(
+                accessScope,
+                customerName,
+                organizationCode,
+                interestReason,
+                pageable
+        );
+
+        return CustomerInterestListResponse.builder()
                 .summary(summary)
                 .customers(PageResponse.from(customerPage))
                 .build();

@@ -75,7 +75,12 @@ public class HandoverService {
 
         User user = principal.getUser();
         AccessScope accessScope = switch (user.getUserRole()){
-            case BRANCH_MANAGER -> new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            case BRANCH_MANAGER -> {
+                if (user.getOrganization() == null) {
+                    throw new BusinessException(AuthErrorCode.INVALID_USER_STATE);
+                }
+                yield new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            }
             default -> new AccessScope(AccessScopeType.ALL, user.getId(),null);
         };
 

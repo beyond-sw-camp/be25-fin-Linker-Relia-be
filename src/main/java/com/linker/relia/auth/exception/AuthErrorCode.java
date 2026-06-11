@@ -8,6 +8,7 @@ public enum AuthErrorCode implements ErrorCode {
     USER_FORBIDDEN("USER_AUTH_002", "접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
     INVALID_LOGIN_CREDENTIALS("USER_AUTH_003", "아이디 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED),
     INVALID_LOGIN_REQUEST("USER_AUTH_005", "로그인 요청 파싱 실패", HttpStatus.UNAUTHORIZED),
+    INVALID_USER_STATE("USER_AUTH_006", "유효하지 않은 사용자 상태입니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     ACCESS_TOKEN_NOT_FOUND("AUTH_ACCESS_001", "Access Token을 요청받지 못했습니다.", HttpStatus.UNAUTHORIZED),
     ACCESS_TOKEN_EXPIRED("AUTH_ACCESS_002", "만료된 Access Token입니다.", HttpStatus.UNAUTHORIZED),

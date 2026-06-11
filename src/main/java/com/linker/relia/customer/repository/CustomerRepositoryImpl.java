@@ -1,6 +1,7 @@
 package com.linker.relia.customer.repository;
 
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.customer.domain.CustomerGrade;
 import com.linker.relia.customer.domain.InterestReason;
 import com.linker.relia.customer.domain.CustomerStatus;
 import com.linker.relia.customer.dto.CustomerDetailQueryResult;
@@ -346,59 +347,152 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
     @Override
     public Optional<CustomerDetailQueryResult> findCustomerDetail(AccessScope accessScope,
                                                                   UUID customerId) {
-        String detailJpql = """
-                select new com.linker.relia.customer.dto.CustomerDetailQueryResult(
+        String detailSql = """
+                select
                     c.id,
-                    c.customerName,
-                    c.customerStatus,
-                    c.interestYn,
-                    c.customerGrade,
-                    c.customerBirthDate,
-                    c.customerGender,
-                    c.customerPhone,
-                    c.customerEmail,
+                    c.customer_name,
+                    c.customer_status,
+                    c.interest_yn,
+                    c.interest_reason,
+                    c.customer_grade,
+                    c.customer_birth_date,
+                    c.customer_gender,
+                    c.customer_phone,
+                    c.customer_email,
                     case
-                        when c.customerAddressDetail is null or c.customerAddressDetail = ''
-                            then c.customerAddressRoad
-                        else concat(c.customerAddressRoad, ', ', c.customerAddressDetail)
-                    end,
-                    c.customerJob,
-                    c.customerCompanyName,
+                        when c.customer_address_detail is null or c.customer_address_detail = ''
+                            then c.customer_address_road
+                        else concat(c.customer_address_road, ', ', c.customer_address_detail)
+                    end as customer_address,
+                    c.customer_job,
+                    c.customer_company_name,
                     fp.id,
-                    fp.userName,
-                    org.organizationCode,
-                    org.organizationName,
-                    (select max(cs.consultedAt)
-                        from Consultation cs
-                       where cs.customer = c
-                         and cs.deletedAt is null),
+                    fp.user_name,
+                    org.organization_code,
+                    org.organization_name,
+                    (
+                        select max(cs.consulted_at)
+                        from consultations cs
+                        where cs.customer_id = c.id
+                          and cs.deleted_at is null
+                    ) as last_consulted_at,
                     case
-                        when c.customerStatus in (
-                            com.linker.relia.customer.domain.CustomerStatus.COMPLETED,
-                            com.linker.relia.customer.domain.CustomerStatus.TERMINATED
-                        ) then null
+                        when c.customer_status in ('COMPLETED', 'TERMINATED') then null
                         else (
-                            select min(cs.nextScheduledAt)
-                            from Consultation cs
-                           where cs.customer = c
-                             and cs.deletedAt is null
-                             and cs.nextScheduledAt is not null
-                             and cs.nextScheduledAt >= current_timestamp
+                            select min(cs.next_scheduled_at)
+                            from consultations cs
+                            where cs.customer_id = c.id
+                              and cs.deleted_at is null
+                              and cs.next_scheduled_at is not null
+                              and cs.next_scheduled_at >= current_timestamp
                         )
-                    end
-                )
-                from Customer c
-                join c.customerFp fp
-                join fp.organization org
-                """ + buildDetailWhereClause(accessScope);
+                    end as next_consulted_at,
+                    case
+                        when c.interest_reason = 'UNPAID' then (
+                            select min(ct.contract_end_date)
+                            from contracts ct
+                            join contract_monthly_closing cmc on cmc.contract_id = ct.id
+                            where ct.customer_id = c.id
+                              and ct.deleted_at is null
+                              and cmc.contract_status = 'MAINTENANCE'
+                              and cmc.payment_status = 'UNPAID'
+                              and cmc.closing_month = (
+                                  select max(cmc2.closing_month)
+                                  from contract_monthly_closing cmc2
+                                  join contracts ct2 on ct2.id = cmc2.contract_id
+                                  where cmc2.contract_id = cmc.contract_id
+                                    and ct2.deleted_at is null
+                              )
+                        )
+                        when c.interest_reason = 'RENEWAL_DUE' then (
+                            select min(ct.contract_end_date)
+                            from contracts ct
+                            join insurance_products ip on ip.id = ct.insurance_product_id
+                            where ct.customer_id = c.id
+                              and ct.deleted_at is null
+                              and ip.deleted_at is null
+                              and ct.contract_status = 'MAINTENANCE'
+                              and ip.is_renewable = true
+                              and ct.contract_end_date between current_date and date_add(current_date, interval 30 day)
+                        )
+                        when c.interest_reason = 'MATURITY_DUE' then (
+                            select min(ct.contract_end_date)
+                            from contracts ct
+                            join insurance_products ip on ip.id = ct.insurance_product_id
+                            where ct.customer_id = c.id
+                              and ct.deleted_at is null
+                              and ip.deleted_at is null
+                              and ct.contract_status = 'MAINTENANCE'
+                              and ip.is_renewable = false
+                              and ct.contract_end_date between current_date and date_add(current_date, interval 30 day)
+                        )
+                        else null
+                    end as contract_end_date,
+                    case
+                        when c.interest_reason = 'UNPAID' then (
+                            select max(cmc.current_payment_round)
+                            from contract_monthly_closing cmc
+                            join contracts ct on ct.id = cmc.contract_id
+                            where cmc.customer_id = c.id
+                              and ct.deleted_at is null
+                              and cmc.contract_status = 'MAINTENANCE'
+                              and cmc.payment_status = 'UNPAID'
+                              and cmc.closing_month = (
+                                  select max(cmc2.closing_month)
+                                  from contract_monthly_closing cmc2
+                                  join contracts ct2 on ct2.id = cmc2.contract_id
+                                  where cmc2.contract_id = cmc.contract_id
+                                    and ct2.deleted_at is null
+                              )
+                        )
+                        else null
+                    end as unpaid_installment_count,
+                    case
+                        when c.interest_reason = 'RENEWAL_DUE' then (
+                            select min(datediff(ct.contract_end_date, current_date))
+                            from contracts ct
+                            join insurance_products ip on ip.id = ct.insurance_product_id
+                            where ct.customer_id = c.id
+                              and ct.deleted_at is null
+                              and ip.deleted_at is null
+                              and ct.contract_status = 'MAINTENANCE'
+                              and ip.is_renewable = true
+                              and ct.contract_end_date between current_date and date_add(current_date, interval 30 day)
+                        )
+                        else null
+                    end as renewal_d_day,
+                    case
+                        when c.interest_reason = 'MATURITY_DUE' then (
+                            select min(datediff(ct.contract_end_date, current_date))
+                            from contracts ct
+                            join insurance_products ip on ip.id = ct.insurance_product_id
+                            where ct.customer_id = c.id
+                              and ct.deleted_at is null
+                              and ip.deleted_at is null
+                              and ct.contract_status = 'MAINTENANCE'
+                              and ip.is_renewable = false
+                              and ct.contract_end_date between current_date and date_add(current_date, interval 30 day)
+                        )
+                        else null
+                    end as maturity_d_day
+                from customers c
+                join users fp on fp.id = c.customer_fp_id
+                join organizations org on org.id = fp.organization_id
+                where c.deleted_at is null
+                  and fp.deleted_at is null
+                  and org.deleted_at is null
+                  and c.id = :customerId
+                """ + buildInterestAccessScopeWhereClause(accessScope);
 
-        TypedQuery<CustomerDetailQueryResult> detailQuery =
-                entityManager.createQuery(detailJpql, CustomerDetailQueryResult.class);
+        Query detailQuery = entityManager.createNativeQuery(detailSql);
+        detailQuery.setParameter("customerId", customerId.toString());
         bindAccessScope(detailQuery, accessScope);
-        detailQuery.setParameter("customerId", customerId);
 
-        List<CustomerDetailQueryResult> results = detailQuery.getResultList();
-        return results.stream().findFirst();
+        @SuppressWarnings("unchecked")
+        List<Object[]> results = detailQuery.getResultList();
+        return results.stream()
+                .findFirst()
+                .map(this::toCustomerDetailQueryResult);
     }
 
     private void bindAccessScope(TypedQuery<?> query, AccessScope accessScope) {
@@ -515,12 +609,52 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 .build();
     }
 
+    private CustomerDetailQueryResult toCustomerDetailQueryResult(Object[] row) {
+        return new CustomerDetailQueryResult(
+                toUuid(row[0]),
+                (String) row[1],
+                toCustomerStatus(row[2]),
+                toBoolean(row[3]),
+                toInterestReason(row[4]),
+                toCustomerGrade(row[5]),
+                toLocalDate(row[6]),
+                (String) row[7],
+                (String) row[8],
+                (String) row[9],
+                (String) row[10],
+                (String) row[11],
+                (String) row[12],
+                toUuid(row[13]),
+                (String) row[14],
+                (String) row[15],
+                (String) row[16],
+                toLocalDateTime(row[17]),
+                toLocalDateTime(row[18]),
+                toLocalDate(row[19]),
+                toInteger(row[20]),
+                toInteger(row[21]),
+                toInteger(row[22])
+        );
+    }
+
     private long toLong(Object value) {
         return ((Number) Objects.requireNonNull(value)).longValue();
     }
 
     private Integer toInteger(Object value) {
         return value == null ? null : ((Number) value).intValue();
+    }
+
+    private boolean toBoolean(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+
+        if (value instanceof Number number) {
+            return number.intValue() != 0;
+        }
+
+        return value != null && Boolean.parseBoolean(value.toString());
     }
 
     private UUID toUuid(Object value) {
@@ -553,6 +687,10 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
 
     private CustomerStatus toCustomerStatus(Object value) {
         return value == null ? null : CustomerStatus.valueOf(value.toString());
+    }
+
+    private CustomerGrade toCustomerGrade(Object value) {
+        return value == null ? null : CustomerGrade.valueOf(value.toString());
     }
 
     private InterestReason toInterestReason(Object value) {

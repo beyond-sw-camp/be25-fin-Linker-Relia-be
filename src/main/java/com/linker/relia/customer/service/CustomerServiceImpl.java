@@ -125,6 +125,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .customerName(customerDetail.customerName())
                 .customerStatus(customerDetail.customerStatus())
                 .interestYn(customerDetail.interestYn())
+                .interestReason(customerDetail.interestReason())
                 .customerGrade(customerDetail.customerGrade())
                 .customerBirthDate(customerDetail.customerBirthDate())
                 .customerGender(customerDetail.customerGender())
@@ -139,6 +140,10 @@ public class CustomerServiceImpl implements CustomerService {
                 .organizationName(customerDetail.organizationName())
                 .lastConsultedAt(toLocalDate(customerDetail.lastConsultedAt()))
                 .nextConsultedAt(toLocalDate(customerDetail.nextConsultedAt()))
+                .contractEndDate(customerDetail.contractEndDate())
+                .unpaidInstallmentCount(customerDetail.unpaidInstallmentCount())
+                .renewalDDay(customerDetail.renewalDDay())
+                .maturityDDay(customerDetail.maturityDDay())
                 .contractSummary(contractSummary == null ? CustomerContractSummaryResponse.empty() : contractSummary)
                 .build();
     }

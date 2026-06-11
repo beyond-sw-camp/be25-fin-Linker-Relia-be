@@ -27,21 +27,21 @@ public class InsuranceController {
     private final InsuranceService insuranceService;
 
     @GetMapping("/companies")
-    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<InsuranceCompanyResponse>>> getInsuranceCompanies() {
         List<InsuranceCompanyResponse> responseDto = insuranceService.getInsuranceCompanies();
         return ApiResponse.success(HttpStatus.OK, "보험사 목록 조회 성공", responseDto);
     }
 
     @GetMapping("/categories")
-    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<InsuranceCategoryResponse>>> getInsuranceCategories() {
         List<InsuranceCategoryResponse> responseDto = insuranceService.getInsuranceCategories();
         return ApiResponse.success(HttpStatus.OK, "보종 목록 조회 성공", responseDto);
     }
 
     @GetMapping("/products")
-    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<InsuranceProductResponse>>> getInsuranceProducts(
             @Valid @ModelAttribute InsuranceProductListRequest request
     ) {

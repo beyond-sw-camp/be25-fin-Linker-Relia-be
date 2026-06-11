@@ -27,6 +27,9 @@ public class InsuranceCompany {
     @Column(name = "id")
     private UUID id;
 
+    @Column(name = "insurance_company_code")
+    private String insuranceCompanyCode;
+
     @Column(name = "insurance_company_name")
     private String insuranceCompanyName;
 

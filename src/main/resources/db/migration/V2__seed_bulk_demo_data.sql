@@ -1334,6 +1334,13 @@ JOIN (
 SET cs.consultation_sequence = resequenced.consultation_sequence,
     cs.updated_by = @SYSTEM_USER_ID;
 
+UPDATE consultations cs
+JOIN customers c ON c.id = cs.customer_id
+SET cs.next_scheduled_at = NULL,
+    cs.updated_by = @SYSTEM_USER_ID
+WHERE c.customer_status IN ('COMPLETED', 'TERMINATED')
+  AND cs.next_scheduled_at IS NOT NULL;
+
 INSERT INTO consultation_new_details (
     id,
     consultation_id,

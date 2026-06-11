@@ -30,6 +30,9 @@ public class InsuranceProduct {
     @Column(name = "id")
     private UUID id;
 
+    @Column(name = "insurance_product_code")
+    private String insuranceProductCode;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "insurance_company_id")
     private InsuranceCompany insuranceCompany;
@@ -40,6 +43,9 @@ public class InsuranceProduct {
 
     @Column(name = "insurance_product_name")
     private String insuranceProductName;
+
+    @Column(name = "insurance_product_status")
+    private String insuranceProductStatus;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

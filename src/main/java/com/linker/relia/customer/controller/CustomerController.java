@@ -8,6 +8,8 @@ import com.linker.relia.customer.dto.CustomerAiBriefingResponse;
 import com.linker.relia.customer.dto.CustomerDetailResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryItemResponse;
 import com.linker.relia.customer.dto.CustomerFpHistoryRequest;
+import com.linker.relia.customer.dto.CustomerInterestListRequest;
+import com.linker.relia.customer.dto.CustomerInterestListResponse;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
@@ -40,6 +42,14 @@ public class CustomerController {
                                                                           @Valid @ModelAttribute CustomerListRequest request) {
         CustomerListResponse responseDto = customerService.getCustomers(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "고객 목록 조회 성공", responseDto);
+    }
+
+    @GetMapping("/interests")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<CustomerInterestListResponse>> getInterestCustomers(@AuthenticationPrincipal PrincipalDetails principalDetails,
+                                                                                          @Valid @ModelAttribute CustomerInterestListRequest request) {
+        CustomerInterestListResponse responseDto = customerService.getInterestCustomers(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "관심 고객 목록 조회 성공", responseDto);
     }
 
     @GetMapping("/{customerId}")

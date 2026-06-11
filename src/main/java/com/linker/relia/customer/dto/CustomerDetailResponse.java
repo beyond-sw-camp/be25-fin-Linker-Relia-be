@@ -1,6 +1,7 @@
 package com.linker.relia.customer.dto;
 
 import com.linker.relia.customer.domain.CustomerGrade;
+import com.linker.relia.customer.domain.InterestReason;
 import com.linker.relia.customer.domain.CustomerStatus;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,6 +16,7 @@ public class CustomerDetailResponse {
     private String customerName;
     private CustomerStatus customerStatus;
     private boolean interestYn;
+    private InterestReason interestReason;
     private CustomerGrade customerGrade;
     private LocalDate customerBirthDate;
     private String customerGender;
@@ -29,5 +31,9 @@ public class CustomerDetailResponse {
     private String organizationName;
     private LocalDate lastConsultedAt;
     private LocalDate nextConsultedAt;
+    private LocalDate contractEndDate;
+    private Integer unpaidInstallmentCount;
+    private Integer renewalDDay;
+    private Integer maturityDDay;
     private CustomerContractSummaryResponse contractSummary;
 }

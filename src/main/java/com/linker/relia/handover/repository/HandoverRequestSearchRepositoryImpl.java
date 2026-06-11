@@ -87,10 +87,8 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
                   AND (:requestType IS NULL OR h.requestType = :requestType)
                 """);
 
-        if (accessScope.isOwnScope()) {
-            where.append("\n  AND cfp.id = :userId");
-        } else if (accessScope.isBranchScope()) {
-            where.append("\n  AND org.id = :organizationId");
+        if (accessScope.isBranchScope()) {
+            where.append("\n  AND org.id = :organizationId\n");
         }
 
         return where.toString();
@@ -103,9 +101,7 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
         query.setParameter("status", status);
         query.setParameter("requestType", requestType);
 
-        if (accessScope.isOwnScope()) {
-            query.setParameter("userId", accessScope.userId());
-        } else if (accessScope.isBranchScope()) {
+        if (accessScope.isBranchScope()) {
             query.setParameter("organizationId", accessScope.organizationId());
         }
     }

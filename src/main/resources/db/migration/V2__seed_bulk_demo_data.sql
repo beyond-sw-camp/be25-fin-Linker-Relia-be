@@ -1034,16 +1034,22 @@ SELECT
         WHEN unpaid_targets.contract_id IS NOT NULL THEN 'UNPAID'
         ELSE 'PAID'
     END AS payment_status,
-    LEAST(
-        ct.payment_period_years * 12,
-        GREATEST(1, TIMESTAMPDIFF(MONTH, ct.contract_start_date, '2026-05-31') + 1)
-    ) AS current_payment_round,
+    CASE
+        WHEN unpaid_targets.contract_id IS NOT NULL THEN unpaid_targets.unpaid_installment_count
+        ELSE LEAST(
+            ct.payment_period_years * 12,
+            GREATEST(1, TIMESTAMPDIFF(MONTH, ct.contract_start_date, '2026-05-31') + 1)
+        )
+    END AS current_payment_round,
     CASE
         WHEN ct.contract_status = 'MAINTENANCE'
-            THEN LEAST(
-                ct.payment_period_years * 12,
-                GREATEST(1, TIMESTAMPDIFF(MONTH, ct.contract_start_date, '2026-05-31') + 1)
-            )
+            THEN CASE
+                WHEN unpaid_targets.contract_id IS NOT NULL THEN unpaid_targets.unpaid_installment_count
+                ELSE LEAST(
+                    ct.payment_period_years * 12,
+                    GREATEST(1, TIMESTAMPDIFF(MONTH, ct.contract_start_date, '2026-05-31') + 1)
+                )
+            END
         ELSE NULL
     END AS maintenance_round,
     CASE WHEN ct.contract_status = 'LAPSED' THEN TRUE ELSE FALSE END AS lapse_yn,
@@ -1064,7 +1070,20 @@ SELECT
     '2026-05-31 18:00:00' AS closed_at
 FROM contracts ct
 LEFT JOIN (
-    SELECT contract_id
+    SELECT
+        contract_id,
+        CASE MOD(seq_no, 10)
+            WHEN 0 THEN 1
+            WHEN 1 THEN 1
+            WHEN 2 THEN 1
+            WHEN 3 THEN 2
+            WHEN 4 THEN 2
+            WHEN 5 THEN 2
+            WHEN 6 THEN 2
+            WHEN 7 THEN 3
+            WHEN 8 THEN 3
+            ELSE 3
+        END AS unpaid_installment_count
     FROM (
         SELECT
             ROW_NUMBER() OVER (ORDER BY ct.contract_code DESC) AS seq_no,
@@ -1334,6 +1353,13 @@ JOIN (
 SET cs.consultation_sequence = resequenced.consultation_sequence,
     cs.updated_by = @SYSTEM_USER_ID;
 
+UPDATE consultations cs
+JOIN customers c ON c.id = cs.customer_id
+SET cs.next_scheduled_at = NULL,
+    cs.updated_by = @SYSTEM_USER_ID
+WHERE c.customer_status IN ('COMPLETED', 'TERMINATED')
+  AND cs.next_scheduled_at IS NOT NULL;
+
 INSERT INTO consultation_new_details (
     id,
     consultation_id,
@@ -1550,8 +1576,8 @@ SELECT
     customer_id,
     current_fp_id,
     CASE
-        WHEN MOD(seq_no, 4) = 0 THEN '해촉'
-        ELSE '일반이관'
+        WHEN MOD(seq_no, 4) = 0 THEN 'RESIGNATION'
+        ELSE 'VOLUNTARY'
     END AS request_type,
     CASE
         WHEN seq_no <= 30 THEN 'COMPLETED'

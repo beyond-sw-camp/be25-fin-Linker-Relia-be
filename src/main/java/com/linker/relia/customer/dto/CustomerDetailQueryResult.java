@@ -1,6 +1,7 @@
 package com.linker.relia.customer.dto;
 
 import com.linker.relia.customer.domain.CustomerGrade;
+import com.linker.relia.customer.domain.InterestReason;
 import com.linker.relia.customer.domain.CustomerStatus;
 
 import java.time.LocalDate;
@@ -12,6 +13,7 @@ public record CustomerDetailQueryResult(
         String customerName,
         CustomerStatus customerStatus,
         boolean interestYn,
+        InterestReason interestReason,
         CustomerGrade customerGrade,
         LocalDate customerBirthDate,
         String customerGender,
@@ -25,6 +27,10 @@ public record CustomerDetailQueryResult(
         String organizationCode,
         String organizationName,
         LocalDateTime lastConsultedAt,
-        LocalDateTime nextConsultedAt
+        LocalDateTime nextConsultedAt,
+        LocalDate contractEndDate,
+        Integer unpaidInstallmentCount,
+        Integer renewalDDay,
+        Integer maturityDDay
 ) {
 }

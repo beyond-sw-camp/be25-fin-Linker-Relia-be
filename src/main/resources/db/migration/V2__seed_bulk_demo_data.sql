@@ -1557,8 +1557,8 @@ SELECT
     customer_id,
     current_fp_id,
     CASE
-        WHEN MOD(seq_no, 4) = 0 THEN '해촉'
-        ELSE '일반이관'
+        WHEN MOD(seq_no, 4) = 0 THEN 'RESIGNATION'
+        ELSE 'VOLUNTARY'
     END AS request_type,
     CASE
         WHEN seq_no <= 30 THEN 'COMPLETED'

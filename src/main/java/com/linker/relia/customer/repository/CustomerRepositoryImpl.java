@@ -90,11 +90,19 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                         else null
                     end,
                     (select max(cs.consultedAt) from Consultation cs where cs.customer = c and cs.deletedAt is null),
-                    (select min(cs.nextScheduledAt) from Consultation cs
-                        where cs.customer = c
-                          and cs.deletedAt is null
-                          and cs.nextScheduledAt is not null
-                          and cs.nextScheduledAt >= current_timestamp),
+                    case
+                        when c.customerStatus in (
+                            com.linker.relia.customer.domain.CustomerStatus.COMPLETED,
+                            com.linker.relia.customer.domain.CustomerStatus.TERMINATED
+                        ) then null
+                        else (
+                            select min(cs.nextScheduledAt) from Consultation cs
+                            where cs.customer = c
+                              and cs.deletedAt is null
+                              and cs.nextScheduledAt is not null
+                              and cs.nextScheduledAt >= current_timestamp
+                        )
+                    end,
                     c.customerGrade,
                     c.customerStatus,
                     org.id,
@@ -178,12 +186,20 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                         from Consultation cs
                        where cs.customer = c
                          and cs.deletedAt is null),
-                    (select min(cs.nextScheduledAt)
-                        from Consultation cs
-                       where cs.customer = c
-                         and cs.deletedAt is null
-                         and cs.nextScheduledAt is not null
-                         and cs.nextScheduledAt >= current_timestamp)
+                    case
+                        when c.customerStatus in (
+                            com.linker.relia.customer.domain.CustomerStatus.COMPLETED,
+                            com.linker.relia.customer.domain.CustomerStatus.TERMINATED
+                        ) then null
+                        else (
+                            select min(cs.nextScheduledAt)
+                            from Consultation cs
+                           where cs.customer = c
+                             and cs.deletedAt is null
+                             and cs.nextScheduledAt is not null
+                             and cs.nextScheduledAt >= current_timestamp
+                        )
+                    end
                 )
                 from Customer c
                 join c.customerFp fp

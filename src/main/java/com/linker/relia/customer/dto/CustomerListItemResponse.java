@@ -24,13 +24,8 @@ public class CustomerListItemResponse {
     private final BigDecimal monthlyPremium;
     private final LocalDate contractEndDate;
     private final LocalDate terminatedAt;
-
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private final LocalDateTime lastConsultedAt;
-
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private final LocalDateTime nextConsultedAt;
-
     private final CustomerGrade customerGrade;
     private final CustomerStatus customerStatus;
     private final UUID organizationId;

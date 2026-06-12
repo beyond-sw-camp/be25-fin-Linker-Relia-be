@@ -492,8 +492,7 @@ INSERT INTO customers (
     customer_marital_status,
     customer_dependents_count,
     created_by,
-    updated_by,
-    deleted_by
+    updated_by
 )
 SELECT
     CONCAT('40000000-0000-0000-0000-', LPAD(customer_no, 12, '0')) AS id,
@@ -624,7 +623,6 @@ SELECT
         WHEN MOD(customer_no, 3) = 0 THEN MOD(customer_no, 3) + 1
         ELSE 0
     END AS customer_dependents_count,
-    @SYSTEM_USER_ID,
     @SYSTEM_USER_ID,
     @SYSTEM_USER_ID
 FROM (

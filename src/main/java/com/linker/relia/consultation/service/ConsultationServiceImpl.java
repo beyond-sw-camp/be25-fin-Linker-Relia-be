@@ -63,7 +63,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional
 public class ConsultationServiceImpl implements ConsultationService {
-    private static final String CUSTOMER_CODE_PREFIX = "CUS";
+    private static final String CUSTOMER_CODE_PREFIX = "CUS-";
 
     private final ConsultationRepository consultationRepository;
     private final CustomerRepository customerRepository;
@@ -266,8 +266,8 @@ public class ConsultationServiceImpl implements ConsultationService {
     }
 
     private String generateCustomerCode() {
-        long nextSequence = customerRepository.findMaxCustomerCodeSequence() + 1;
-        return CUSTOMER_CODE_PREFIX + String.format("%06d", nextSequence);
+        long nextSequence = customerRepository.getNextCustomerCodeSequence();
+        return CUSTOMER_CODE_PREFIX + nextSequence;
     }
 
     private NewDetailResponse getNewDetailResponse(UUID consultationId) {

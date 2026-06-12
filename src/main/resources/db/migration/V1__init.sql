@@ -198,6 +198,10 @@ CREATE TABLE customers (
                            CONSTRAINT chk_customers_interest_reason CHECK (interest_reason IS NULL OR interest_reason IN ('UNPAID', 'RENEWAL_DUE', 'MATURITY_DUE')),
                            CONSTRAINT fk_customers_fp FOREIGN KEY (customer_fp_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE SEQUENCE customer_code_seq
+    START WITH 1
+    INCREMENT BY 1
+    MINVALUE 1;
 CREATE TABLE disease_codes (
                                id CHAR(36) NOT NULL,
                                disease_code VARCHAR(50) NOT NULL,

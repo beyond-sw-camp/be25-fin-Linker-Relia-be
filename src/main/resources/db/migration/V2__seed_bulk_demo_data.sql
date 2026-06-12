@@ -496,7 +496,7 @@ INSERT INTO customers (
 )
 SELECT
     CONCAT('40000000-0000-0000-0000-', LPAD(customer_no, 12, '0')) AS id,
-    CONCAT('CUS', LPAD(customer_no, 6, '0')) AS customer_code,
+    CONCAT('CUS-', customer_no) AS customer_code,
     customer_fp_id,
     CASE
         WHEN MOD(customer_no * 7 + 3, 10) < 7 THEN 'CONTRACTED'
@@ -661,6 +661,8 @@ FROM (
         ON slots.slot_no <= fp.customer_quota
 ) customer_seed;
 
+ALTER SEQUENCE customer_code_seq RESTART WITH 751;
+
 INSERT INTO customer_underlying_diseases (
     id,
     customer_id,
@@ -785,19 +787,19 @@ FROM (
             id AS customer_id,
             customer_fp_id AS fp_id,
             ROW_NUMBER() OVER (
-                ORDER BY MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 37, 101),
-                         MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 13, 53),
+                ORDER BY MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 37, 101),
+                         MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 13, 53),
                          customer_code
             ) AS contracted_customer_rank,
             CASE
                 WHEN ROW_NUMBER() OVER (
-                    ORDER BY MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 37, 101),
-                             MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 13, 53),
+                    ORDER BY MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 37, 101),
+                             MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 13, 53),
                              customer_code
                 ) <= 260 THEN 1
                 WHEN ROW_NUMBER() OVER (
-                    ORDER BY MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 37, 101),
-                             MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 13, 53),
+                    ORDER BY MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 37, 101),
+                             MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 13, 53),
                              customer_code
                 ) <= 440 THEN 2
                 ELSE 3
@@ -1282,12 +1284,12 @@ SELECT
     @SYSTEM_USER_ID
 FROM (
     SELECT
-        ROW_NUMBER() OVER (ORDER BY customer_code) AS seq_no,
+        ROW_NUMBER() OVER (ORDER BY CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED)) AS seq_no,
         id AS customer_id,
         customer_fp_id AS fp_id
     FROM customers
     WHERE customer_status = 'PROSPECT'
-    ORDER BY customer_code
+    ORDER BY CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED)
     LIMIT 225
 ) new_consultation_seed;
 
@@ -1685,12 +1687,12 @@ SELECT
     current_fp_id
 FROM (
     SELECT
-        ROW_NUMBER() OVER (ORDER BY c.customer_code) AS seq_no,
+        ROW_NUMBER() OVER (ORDER BY CAST(SUBSTRING_INDEX(c.customer_code, '-', -1) AS UNSIGNED)) AS seq_no,
         c.id AS customer_id,
         c.customer_fp_id AS current_fp_id
     FROM customers c
     WHERE c.customer_status = 'CONTRACTED'
-    ORDER BY c.customer_code
+    ORDER BY CAST(SUBSTRING_INDEX(c.customer_code, '-', -1) AS UNSIGNED)
     LIMIT 50
 ) handover_request_seed;
 

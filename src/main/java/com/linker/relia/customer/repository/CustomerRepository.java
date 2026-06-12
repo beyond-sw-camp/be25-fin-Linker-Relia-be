@@ -10,11 +10,9 @@ import java.util.UUID;
 
 public interface CustomerRepository extends JpaRepository<Customer, UUID>, CustomerRepositoryCustom {
     @Query(value = """
-            select coalesce(max(cast(substring(customer_code, 4) as unsigned)), 0)
-            from customers
-            where customer_code regexp '^CUS[0-9]+$'
+            select next value for customer_code_seq
             """, nativeQuery = true)
-    long findMaxCustomerCodeSequence();
+    long getNextCustomerCodeSequence();
 
     boolean existsByIdAndDeletedAtIsNull(UUID customerId);
 

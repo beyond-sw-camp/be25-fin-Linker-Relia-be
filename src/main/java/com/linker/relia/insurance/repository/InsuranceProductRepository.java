@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface InsuranceProductRepository extends JpaRepository<InsuranceProduct, UUID> {
@@ -28,5 +29,10 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
             @Param("insuranceCompanyCode") String insuranceCompanyCode,
             @Param("insuranceCategoryCode") String insuranceCategoryCode,
             @Param("activeStatus") String activeStatus
+    );
+
+    Optional<InsuranceProduct> findByIdAndInsuranceProductStatusAndDeletedAtIsNull(
+            UUID insuranceProductId,
+            String insuranceProductStatus
     );
 }

@@ -2,6 +2,8 @@ package com.linker.relia.contract.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.dto.response.PageResponse;
+import com.linker.relia.contract.dto.ContractCreateRequest;
+import com.linker.relia.contract.dto.ContractCreateResponse;
 import com.linker.relia.contract.dto.ContractDetailResponse;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListRequest;
@@ -21,7 +23,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -33,6 +37,16 @@ import java.util.UUID;
 @SecurityRequirement(name = "Bearer Authentication")
 public class ContractController {
     private final ContractService contractService;
+
+    @PostMapping
+    @PreAuthorize("hasRole('FP')")
+    public ResponseEntity<ApiResponse<ContractCreateResponse>> createContract(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @RequestBody ContractCreateRequest request
+    ) {
+        ContractCreateResponse responseDto = contractService.createContract(principalDetails, request);
+        return ApiResponse.success(HttpStatus.CREATED, "계약 등록 성공", responseDto);
+    }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")

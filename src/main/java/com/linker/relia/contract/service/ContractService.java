@@ -1,6 +1,8 @@
 package com.linker.relia.contract.service;
 
 import com.linker.relia.common.dto.response.PageResponse;
+import com.linker.relia.contract.dto.ContractCreateRequest;
+import com.linker.relia.contract.dto.ContractCreateResponse;
 import com.linker.relia.contract.dto.ContractDetailResponse;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListRequest;
@@ -14,6 +16,9 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ContractService {
+    ContractCreateResponse createContract(PrincipalDetails principalDetails,
+                                          ContractCreateRequest request);
+
     ContractSummaryResponse getContractSummary(PrincipalDetails principalDetails,
                                                ContractSummaryRequest request);
 

@@ -29,18 +29,39 @@ public class HandoverRecommendationQueryRepository { //추천 계산에 필요�
     }
 
     public String findMainChannel(UUID customerId) {
-        List<ConsultationChannel> result = (List<ConsultationChannel>) entityManager.createQuery("""
+        List<ConsultationChannel> result = entityManager.createQuery("""
             SELECT c.consultationChannel
             FROM Consultation c
             WHERE c.customer.id = :customerId
             AND c.deletedAt IS NULL
             GROUP BY c.consultationChannel
             ORDER BY COUNT(c.id) DESC
-            """)
+            """, ConsultationChannel.class)
                 .setParameter("customerId", customerId)
                 .setMaxResults(1)
                 .getResultList();
 
         return result.isEmpty() ? null : result.get(0).name();
+    }
+
+    public List<String> findCustomerHistoryFpEmpCodes(UUID customerId) {
+        return entityManager.createQuery("""
+            SELECT DISTINCT u.empCode
+            FROM User u
+            WHERE u.id IN (
+                SELECT h.beforeFpId
+                FROM CustomerFpHistory h
+                WHERE h.customer.id = :customerId
+                  AND h.beforeFpId IS NOT NULL
+            )
+            OR u.id IN (
+                SELECT h.afterFpId
+                FROM CustomerFpHistory h
+                WHERE h.customer.id = :customerId
+                  AND h.afterFpId IS NOT NULL
+            )
+            """, String.class)
+                .setParameter("customerId", customerId)
+                .getResultList();
     }
 }

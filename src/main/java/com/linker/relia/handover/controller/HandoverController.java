@@ -6,6 +6,7 @@ import com.linker.relia.handover.domain.RequestStatus;
 import com.linker.relia.handover.domain.RequestType;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
+import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListResponse;
 import com.linker.relia.handover.service.HandoverService;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -18,11 +19,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/handovers")
@@ -32,10 +36,12 @@ public class HandoverController {
     private final HandoverService handoverService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<HandoverCreateResponse>> createHandover(
+            @AuthenticationPrincipal PrincipalDetails principal,
             @RequestBody HandoverCreateRequest request) {
 
-        HandoverCreateResponse response = handoverService.createHandover(request);
+        HandoverCreateResponse response = handoverService.createHandover(principal, request);
         return ApiResponse.success(HttpStatus.CREATED, "인수인계 요청 생성 성공", response);
     }
 
@@ -55,5 +61,17 @@ public class HandoverController {
                 .getHandoverList(principal, status, requestType, customerName, pageable);
 
         return ApiResponse.success(HttpStatus.OK, "인수인계 요청 목록 조회 성공", response);
+    }
+
+    @GetMapping("/{handoverRequestId}")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN', 'FP')")
+    public ResponseEntity<ApiResponse<HandoverDetailResponse>> getHandoverDetail(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @PathVariable UUID handoverRequestId) {
+
+        HandoverDetailResponse response = handoverService
+                .getHandoverDetail(principal, handoverRequestId);
+
+        return ApiResponse.success(HttpStatus.OK, "인수인계 요청 상세 조회 성공", response);
     }
 }

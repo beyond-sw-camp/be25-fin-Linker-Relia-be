@@ -13,6 +13,7 @@ import com.linker.relia.user.domain.User;
 import com.linker.relia.user.repository.FpMonthlyInfoRepository;
 import com.linker.relia.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,8 +22,10 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
@@ -47,8 +50,16 @@ public class RecommendationService {
         // 2. 같은 지점 설계사 목록 User-> Organization
         String organizationCode = customer.getCustomerFp()
                 .getOrganization().getOrganizationCode();
+        Set<String> excludedEmpCodes = new HashSet<>(
+                handoverRecommendationQueryRepository.findCustomerHistoryFpEmpCodes(customer.getId())
+        );
+        excludedEmpCodes.add(customer.getCustomerFp().getEmpCode());
+
         List<FpMonthlyInfo> candidates = fpMonthlyInfoRepository
-                .findLatestByOrganizationCode(organizationCode);
+                .findLatestByOrganizationCode(organizationCode)
+                .stream()
+                .filter(fp -> !excludedEmpCodes.contains(fp.getEmpCode()))
+                .toList();
 
         // 3. 지점 평균 계약수 계산 (계약수 페널티 기준)
         double avgContractCount = candidates.stream()
@@ -58,8 +69,8 @@ public class RecommendationService {
 
         // 4. 현재 pending 건수 맵 (추천 대기 페널티 기준)
         Map<String, Long> pendingCountMap = handoverRecommendationRepository
-                .findByHandoverRequestAndApprovalStatus(
-                        handoverRequest, ApprovalStatus.PENDING)
+                .findLatestByHandoverRequestAndApprovalStatus(
+                        handoverRequest, ApprovalStatus.PENDING, PageRequest.of(0, 1))
                 .stream()
                 .collect(groupingBy(
                         r -> r.getRecommendedFp().getEmpCode(),

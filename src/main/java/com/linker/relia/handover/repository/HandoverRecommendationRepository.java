@@ -3,17 +3,27 @@ package com.linker.relia.handover.repository;
 import com.linker.relia.handover.domain.ApprovalStatus;
 import com.linker.relia.handover.domain.HandoverRecommendation;
 import com.linker.relia.handover.domain.HandoverRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-import java.util.Optional;
+import java.util.List;
+import java.util.UUID;
 
-public interface HandoverRecommendationRepository // 추천 엔티티 저장/조회용 JPA repository
-        extends JpaRepository<HandoverRecommendation, String> {
+public interface HandoverRecommendationRepository
+        extends JpaRepository<HandoverRecommendation, UUID> {
 
-    // 특정 요청의 추천 설계사 조회 (결재 화면에서 사용)
-    // ApprovalStatus.PENDING 으로 조회하면 현재 결재 대기 중인 추천 설계사 조회
-    Optional<HandoverRecommendation> findByHandoverRequestAndApprovalStatus(
-            HandoverRequest handoverRequest,
-            ApprovalStatus approvalStatus
+    @Query("""
+        SELECT r
+        FROM HandoverRecommendation r
+        WHERE r.handoverRequest = :handoverRequest
+          AND (:approvalStatus IS NULL OR r.approvalStatus = :approvalStatus)
+        ORDER BY r.createdAt DESC
+        """)
+    List<HandoverRecommendation> findLatestByHandoverRequestAndApprovalStatus(
+            @Param("handoverRequest") HandoverRequest handoverRequest,
+            @Param("approvalStatus") ApprovalStatus approvalStatus,
+            Pageable pageable
     );
 }

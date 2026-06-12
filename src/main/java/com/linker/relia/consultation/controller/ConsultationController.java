@@ -62,7 +62,7 @@ public class ConsultationController {
                                                         "existingInsuranceNote": null,
                                                         "insurancePriority": "보장 범위",
                                                         "coverageTypes": ["CANCER", "HEART"],
-                                                        "proposedProductIds": []
+                                                        "proposedProductCodes": []
                                                       }
                                                     }
                                                     """

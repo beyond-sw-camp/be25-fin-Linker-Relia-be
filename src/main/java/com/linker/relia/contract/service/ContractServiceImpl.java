@@ -28,7 +28,9 @@ import com.linker.relia.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -48,6 +50,7 @@ public class ContractServiceImpl implements ContractService {
     private static final String LAPSED_CONTRACT_STATUS = "LAPSED";
     private static final String MONTHLY_PAYMENT_CYCLE = "MONTHLY";
     private static final String CONTRACT_CODE_PREFIX = "CTR";
+    private static final int CONTRACT_CODE_GENERATION_MAX_RETRY = 3;
     private static final Collection<String> DUPLICATE_BLOCKING_CONTRACT_STATUSES = List.of(
             DEFAULT_CONTRACT_STATUS,
             LAPSED_CONTRACT_STATUS
@@ -57,10 +60,26 @@ public class ContractServiceImpl implements ContractService {
     private final CustomerRepository customerRepository;
     private final InsuranceProductRepository insuranceProductRepository;
     private final AccessScopeResolver accessScopeResolver;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
-    @Transactional
     public synchronized ContractCreateResponse createContract(PrincipalDetails principalDetails,
+                                                              ContractCreateRequest request) {
+        for (int attempt = 0; attempt < CONTRACT_CODE_GENERATION_MAX_RETRY; attempt++) {
+            try {
+                TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+                return transactionTemplate.execute(status -> createContractInTransaction(principalDetails, request));
+            } catch (DataIntegrityViolationException exception) {
+                if (attempt == CONTRACT_CODE_GENERATION_MAX_RETRY - 1) {
+                    throw new BusinessException(ContractErrorCode.DUPLICATE_CONTRACT_CODE);
+                }
+            }
+        }
+
+        throw new BusinessException(ContractErrorCode.DUPLICATE_CONTRACT_CODE);
+    }
+
+    private ContractCreateResponse createContractInTransaction(PrincipalDetails principalDetails,
                                                               ContractCreateRequest request) {
         User fp = principalDetails.getUser();
         Customer customer = customerRepository.findByIdAndDeletedAtIsNull(request.getCustomerId())
@@ -106,13 +125,7 @@ public class ContractServiceImpl implements ContractService {
                 .coverageSummary(normalizeNullable(request.getCoverageSummary()))
                 .build();
 
-        Contract savedContract;
-        try {
-            savedContract = contractRepository.saveAndFlush(contract);
-        } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ContractErrorCode.DUPLICATE_CONTRACT_CODE);
-        }
-
+        Contract savedContract = contractRepository.saveAndFlush(contract);
         return ContractCreateResponse.from(savedContract);
     }
 

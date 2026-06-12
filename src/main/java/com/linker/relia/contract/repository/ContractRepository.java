@@ -13,7 +13,7 @@ public interface ContractRepository extends JpaRepository<Contract, UUID>, Contr
     @Query(value = """
             select coalesce(max(cast(substring(contract_code, 4) as unsigned)), 0)
             from contracts
-            where contract_code regexp '^CTR[0-9]{6}$'
+            where contract_code regexp '^CTR[0-9]+$'
             """, nativeQuery = true)
     long findMaxContractCodeSequence();
 

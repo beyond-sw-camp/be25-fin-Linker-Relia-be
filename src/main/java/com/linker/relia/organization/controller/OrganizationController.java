@@ -29,12 +29,29 @@ import java.util.UUID;
 public class OrganizationController {
     private final OrganizationService organizationService;
 
+    /**
+     * Retrieve the list of branch organizations.
+     *
+     * @return ResponseEntity containing an ApiResponse with HTTP status 200, message "지점 목록 조회 성공",
+     *         and the list of BranchOrganizationResponse objects.
+     */
     @GetMapping("/branches")
     public ResponseEntity<ApiResponse<List<BranchOrganizationResponse>>> getBranchOrganizations() {
         List<BranchOrganizationResponse> responseDto = organizationService.getBranchOrganizations();
         return ApiResponse.success(HttpStatus.OK, "지점 목록 조회 성공", responseDto);
     }
 
+    /**
+     * Retrieve a paginated list of financial planners (FPs) filtered by optional criteria.
+     *
+     * @param principalDetails the authenticated principal initiating the request
+     * @param page              zero-based page index to return
+     * @param size              the number of items per page
+     * @param keyword           optional search keyword to filter FP names or metadata
+     * @param organizationId    optional organization UUID to restrict results to a specific organization
+     * @param closingMonth      optional closing month filter in string form
+     * @return                  an ApiResponse wrapping an FpListResponse with the matching FPs and pagination information
+     */
     @GetMapping("/fps")
     @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<FpListResponse>> getFps(
@@ -56,6 +73,12 @@ public class OrganizationController {
         return ApiResponse.success(HttpStatus.OK, "설계사 목록 조회 성공", responseDto);
     }
 
+    /**
+     * Retrieve the organization chart based on the provided request parameters.
+     *
+     * @param request validated OrganizationChartRequest containing filters and options for the chart
+     * @return a ResponseEntity containing an ApiResponse with the OrganizationChartResponse and HTTP 200 status
+     */
     @GetMapping
     @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<OrganizationChartResponse>> getOrganizationChart(

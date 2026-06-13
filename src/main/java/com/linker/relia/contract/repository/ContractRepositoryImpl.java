@@ -337,7 +337,6 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                   and org.deleted_at is null
                   and ip.deleted_at is null
                   and ic.deleted_at is null
-                  and icat.deleted_at is null
                 """ + buildContractDetailAccessScopeWhereClause(accessScope);
 
         Query query = entityManager.createNativeQuery(sql);

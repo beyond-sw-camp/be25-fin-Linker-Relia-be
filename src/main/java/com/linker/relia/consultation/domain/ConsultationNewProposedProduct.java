@@ -1,5 +1,6 @@
 package com.linker.relia.consultation.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
 import com.linker.relia.insurance.domain.InsuranceProduct;
 import jakarta.persistence.*;
 import lombok.*;
@@ -16,7 +17,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "consultation_new_proposed_products")
-public class ConsultationNewProposedProduct {
+public class ConsultationNewProposedProduct extends BaseEntity {
 
     @Id
     @UuidGenerator
@@ -34,20 +35,6 @@ public class ConsultationNewProposedProduct {
 
     @Column(name = "insurance_product_name", nullable = false, length = 200)
     private String insuranceProductName;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "created_by")
-    private UUID createdBy;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "updated_by")
-    private UUID updatedBy;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

@@ -137,6 +137,7 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
         String fromWhereSql = buildContractListFromWhereSql(accessScope, contractStatus);
         String contentSql = """
                 select
+                    ct.id,
                     c.customer_name,
                     ct.contract_code,
                     cmc.contract_date,
@@ -493,20 +494,21 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     private ContractListItemResponse toContractListItemResponse(Object[] row,
                                                                 ContractListStatus requestedStatus) {
         return ContractListItemResponse.builder()
-                .customerName((String) row[0])
-                .contractCode((String) row[1])
-                .contractDate(toLocalDate(row[2]))
-                .contractEndDate(toLocalDate(row[3]))
+                .contractId(UUID.fromString((String) row[0]))
+                .customerName((String) row[1])
+                .contractCode((String) row[2])
+                .contractDate(toLocalDate(row[3]))
+                .contractEndDate(toLocalDate(row[4]))
                 .contractStatus(resolveDisplayContractStatus(
-                        (String) row[4],
                         (String) row[5],
-                        toBoolean(row[6]),
-                        toLocalDate(row[3]),
+                        (String) row[6],
+                        toBoolean(row[7]),
+                        toLocalDate(row[4]),
                         requestedStatus
                 ))
-                .monthlyPremium((BigDecimal) row[7])
-                .insuranceProductName((String) row[8])
-                .insuranceCompanyName((String) row[9])
+                .monthlyPremium((BigDecimal) row[8])
+                .insuranceProductName((String) row[9])
+                .insuranceCompanyName((String) row[10])
                 .build();
     }
 

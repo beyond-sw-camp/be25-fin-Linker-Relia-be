@@ -126,6 +126,8 @@ public class ContractServiceImpl implements ContractService {
                 .build();
 
         Contract savedContract = contractRepository.saveAndFlush(contract);
+        customer.markAsContracted();
+
         return ContractCreateResponse.from(savedContract);
     }
 

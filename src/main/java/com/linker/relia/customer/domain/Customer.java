@@ -117,6 +117,12 @@ public class Customer extends BaseEntity {
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID deletedBy;
 
+    public void markAsContracted() {
+        if (CustomerStatus.PROSPECT == customerStatus) {
+            customerStatus = CustomerStatus.CONTRACTED;
+        }
+    }
+
     public void changeCustomerFp(User customerFp) {
         this.customerFp = customerFp;
     }

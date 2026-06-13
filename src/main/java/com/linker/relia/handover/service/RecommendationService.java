@@ -52,7 +52,10 @@ public class RecommendationService {
                 .getOrganization().getOrganizationCode();
         Set<String> excludedEmpCodes = new HashSet<>(
                 handoverRecommendationQueryRepository.findCustomerHistoryFpEmpCodes(customer.getId())
-        );
+        ); // 고객 설계사 변경 이력에 있는 설계사 제외
+        excludedEmpCodes.addAll(
+                handoverRecommendationQueryRepository.findRecommendedFpEmpCodes(handoverRequest.getId())
+        ); // 추천 거절된 설계사 제외
         excludedEmpCodes.add(customer.getCustomerFp().getEmpCode());
 
         List<FpMonthlyInfo> candidates = fpMonthlyInfoRepository
@@ -70,7 +73,10 @@ public class RecommendationService {
         // 4. 현재 pending 건수 맵 (추천 대기 페널티 기준)
         Map<String, Long> pendingCountMap = handoverRecommendationRepository
                 .findLatestByHandoverRequestAndApprovalStatus(
-                        handoverRequest, ApprovalStatus.PENDING, PageRequest.of(0, 1))
+                        handoverRequest,
+                        ApprovalStatus.PENDING,
+                        PageRequest.of(0, 1)
+                )
                 .stream()
                 .collect(groupingBy(
                         r -> r.getRecommendedFp().getEmpCode(),
@@ -166,4 +172,5 @@ public class RecommendationService {
             String mainChannel,
             int ageGroup
     ) {}
+
 }

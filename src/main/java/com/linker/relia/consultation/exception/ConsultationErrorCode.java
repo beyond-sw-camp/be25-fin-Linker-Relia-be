@@ -13,7 +13,7 @@ public enum ConsultationErrorCode implements ErrorCode {
 
     CONTRACT_NOT_ALLOWED(
             "CONSULTATION_002",
-            "신규 상담은 계약 정보를 가질 수 없습니다.",
+            "신규 계약 상담에는 계약 정보를 전달할 수 없습니다.",
             HttpStatus.BAD_REQUEST
     ),
 
@@ -24,15 +24,51 @@ public enum ConsultationErrorCode implements ErrorCode {
     ),
 
     CONSULTATION_NOT_FOUND(
-        "CONSULTATION_004",
-                "존재하지 않는 상담일지입니다.",
-        HttpStatus.NOT_FOUND
+            "CONSULTATION_004",
+            "존재하지 않는 상담일지입니다.",
+            HttpStatus.NOT_FOUND
     ),
 
     CONSULTATION_ACCESS_DENIED(
-        "CONSULTATION_005",
-                "상담일지 조회 권한이 없습니다.",
-        HttpStatus.FORBIDDEN
+            "CONSULTATION_005",
+            "상담일지 조회 권한이 없습니다.",
+            HttpStatus.FORBIDDEN
+    ),
+
+    CUSTOMER_TARGET_CONFLICT(
+            "CONSULTATION_006",
+            "customerId와 customerInfo를 동시에 전달할 수 없습니다.",
+            HttpStatus.BAD_REQUEST
+    ),
+
+    CUSTOMER_INFO_NOT_ALLOWED(
+            "CONSULTATION_007",
+            "customerInfo는 NEW_CONTRACT 상담에서만 사용할 수 있습니다.",
+            HttpStatus.BAD_REQUEST
+    ),
+
+    DUPLICATE_CUSTOMER_PHONE(
+            "CONSULTATION_008",
+            "동일한 휴대폰 번호의 고객이 이미 존재합니다.",
+            HttpStatus.CONFLICT
+    ),
+
+    INVALID_DISEASE_CODE(
+            "CONSULTATION_009",
+            "유효하지 않은 기저질환 코드가 포함되어 있습니다.",
+            HttpStatus.BAD_REQUEST
+    ),
+
+    CUSTOMER_TARGET_REQUIRED(
+            "CONSULTATION_010",
+            "NEW_CONTRACT 상담은 customerId 또는 customerInfo가 필요합니다.",
+            HttpStatus.BAD_REQUEST
+    ),
+
+    CUSTOMER_ID_REQUIRED(
+            "CONSULTATION_011",
+            "CLAIM, RENEWAL, TERMINATION 상담은 customerId가 필요합니다.",
+            HttpStatus.BAD_REQUEST
     );
 
     private final String code;

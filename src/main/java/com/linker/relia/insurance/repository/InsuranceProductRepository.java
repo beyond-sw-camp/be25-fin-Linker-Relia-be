@@ -35,4 +35,6 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
             UUID insuranceProductId,
             String insuranceProductStatus
     );
+
+    Optional<InsuranceProduct> findByInsuranceProductCodeAndDeletedAtIsNull(String insuranceProductCode);
 }

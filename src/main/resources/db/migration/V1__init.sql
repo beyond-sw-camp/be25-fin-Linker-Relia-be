@@ -193,6 +193,7 @@ CREATE TABLE customers (
                            deleted_by CHAR(36) NULL,
                            PRIMARY KEY (id),
                            UNIQUE KEY uk_customers_code (customer_code),
+                           UNIQUE KEY uk_customers_phone (customer_phone),
                            CONSTRAINT chk_customers_status CHECK (customer_status IN ('PROSPECT', 'CONTRACTED', 'COMPLETED', 'TERMINATED')),
                            CONSTRAINT chk_customers_grade CHECK (customer_grade IN ('GENERAL', 'GOLD', 'VIP')),
                            CONSTRAINT chk_customers_interest_reason CHECK (interest_reason IS NULL OR interest_reason IN ('UNPAID', 'RENEWAL_DUE', 'MATURITY_DUE')),

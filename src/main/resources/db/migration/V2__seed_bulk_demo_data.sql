@@ -564,7 +564,7 @@ SELECT
         ELSE 'MALE'
     END AS customer_gender,
     DATE_ADD('1975-01-01', INTERVAL MOD(customer_no * 37, 11000) DAY) AS customer_birth_date,
-    CONCAT('010-5', LPAD(customer_no, 7, '0')) AS customer_phone,
+    CONCAT('0105', LPAD(customer_no, 7, '0')) AS customer_phone,
     CONCAT('customer', LPAD(customer_no, 4, '0'), '@relia.com') AS customer_email,
     LPAD(10000 + MOD(customer_no, 90000), 5, '0') AS customer_zipcode,
     CONCAT(

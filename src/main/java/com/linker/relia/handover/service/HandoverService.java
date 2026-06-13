@@ -14,7 +14,6 @@ import com.linker.relia.handover.domain.HandoverRecommendation;
 import com.linker.relia.handover.domain.HandoverRequest;
 import com.linker.relia.handover.domain.RequestStatus;
 import com.linker.relia.handover.domain.RequestType;
-import com.linker.relia.handover.dto.request.HandoverApprovalDecision;
 import com.linker.relia.handover.dto.request.HandoverApprovalRequest;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
@@ -226,7 +225,7 @@ public class HandoverService {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(HandoverErrorCode.RECOMMENDATION_NOT_FOUND));
 
-        if (request.approvalStatus() == HandoverApprovalDecision.APPROVED) {
+        if (request.approvalStatus() == ApprovalStatus.APPROVED) {
             // ── 승인 처리 ──
             // 4-1. 추천 승인
             recommendation.approve(user.getId());
@@ -249,7 +248,7 @@ public class HandoverService {
             // 4-4. 요청 완료
             handoverRequest.complete();
 
-        } else if (request.approvalStatus() == HandoverApprovalDecision.REJECTED) {
+        } else {
             // ── 반려 처리 ──
             // 4-1. 추천 반려
             recommendation.reject(user.getId());
@@ -263,8 +262,6 @@ public class HandoverService {
             // 4-3. 새 추천 자동 실행
             HandoverRecommendation newRecommendation = recommendationService.recommend(handoverRequest);
             handoverRecommendationRepository.save(newRecommendation);
-        } else {
-            throw new BusinessException(HandoverErrorCode.INVALID_APPROVAL_REQUEST);
         }
     }
 

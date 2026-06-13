@@ -57,8 +57,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -407,47 +410,47 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .monthlyInsurancePremium(request.getNewDetail().getMonthlyInsurancePremium())
                 .existingInsuranceNote(request.getNewDetail().getExistingInsuranceNote())
                 .insurancePriority(request.getNewDetail().getInsurancePriority())
-                .createdAt(now)
-                .createdBy(fp.getId())
-                .updatedAt(now)
-                .updatedBy(fp.getId())
                 .build();
 
         consultationNewDetailRepository.save(detail);
 
         if (request.getNewDetail().getCoverageTypes() != null) {
-            for (String coverageType : request.getNewDetail().getCoverageTypes()) {
-                consultationNewCoverageNeedRepository.save(
-                        ConsultationNewCoverageNeed.builder()
-                                .consultationNewDetail(detail)
-                                .coverageType(coverageType)
-                                .createdAt(now)
-                                .createdBy(fp.getId())
-                                .updatedAt(now)
-                                .updatedBy(fp.getId())
-                                .build()
-                );
-            }
+            List<ConsultationNewCoverageNeed> coverageNeeds = request.getNewDetail().getCoverageTypes().stream()
+                    .map(coverageType -> ConsultationNewCoverageNeed.builder()
+                            .consultationNewDetail(detail)
+                            .coverageType(coverageType)
+                            .build())
+                    .toList();
+
+            consultationNewCoverageNeedRepository.saveAll(coverageNeeds);
         }
 
         if (request.getNewDetail().getProposedProductCodes() != null) {
-            for (String productCode : request.getNewDetail().getProposedProductCodes()) {
-                InsuranceProduct product = insuranceProductRepository
-                        .findByInsuranceProductCodeAndDeletedAtIsNull(productCode)
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 보험 상품입니다."));
+            Set<String> requestedProductCodes = new LinkedHashSet<>(request.getNewDetail().getProposedProductCodes());
+            Map<String, InsuranceProduct> productByCode = insuranceProductRepository
+                    .findAllByInsuranceProductCodeInAndDeletedAtIsNull(requestedProductCodes)
+                    .stream()
+                    .collect(Collectors.toMap(
+                            InsuranceProduct::getInsuranceProductCode,
+                            Function.identity()
+                    ));
 
-                consultationNewProposedProductRepository.save(
-                        ConsultationNewProposedProduct.builder()
+            if (productByCode.size() != requestedProductCodes.size()) {
+                throw new IllegalArgumentException("존재하지 않는 보험 상품입니다.");
+            }
+
+            List<ConsultationNewProposedProduct> proposedProducts = request.getNewDetail().getProposedProductCodes().stream()
+                    .map(productCode -> {
+                        InsuranceProduct product = productByCode.get(productCode);
+                        return ConsultationNewProposedProduct.builder()
                                 .consultationNewDetail(detail)
                                 .insuranceProduct(product)
                                 .insuranceProductName(product.getInsuranceProductName())
-                                .createdAt(now)
-                                .createdBy(fp.getId())
-                                .updatedAt(now)
-                                .updatedBy(fp.getId())
-                                .build()
-                );
-            }
+                                .build();
+                    })
+                    .toList();
+
+            consultationNewProposedProductRepository.saveAll(proposedProducts);
         }
     }
 

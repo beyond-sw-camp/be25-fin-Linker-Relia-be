@@ -64,4 +64,14 @@ public class HandoverRecommendationQueryRepository { //추천 계산에 필요�
                 .setParameter("customerId", customerId)
                 .getResultList();
     }
+
+    public List<String> findRecommendedFpEmpCodes(UUID handoverRequestId) {
+        return entityManager.createQuery("""
+            SELECT DISTINCT r.recommendedFp.empCode
+            FROM HandoverRecommendation r
+            WHERE r.handoverRequest.id = :handoverRequestId
+            """, String.class)
+                .setParameter("handoverRequestId", handoverRequestId)
+                .getResultList();
+    }
 }

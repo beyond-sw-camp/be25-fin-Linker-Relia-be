@@ -116,4 +116,8 @@ public class Customer extends BaseEntity {
     @Column(name = "deleted_by")
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID deletedBy;
+
+    public void changeCustomerFp(User customerFp) {
+        this.customerFp = customerFp;
+    }
 }

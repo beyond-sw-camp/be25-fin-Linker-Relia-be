@@ -83,4 +83,8 @@ public class HandoverRecommendation {
         this.reviewedBy = reviewedBy;
         this.rejectedAt = LocalDateTime.now();
     }
+
+    public void setRejectionReason(String rejectionReason) {
+        this.rejectionReason = rejectionReason;
+    }
 }

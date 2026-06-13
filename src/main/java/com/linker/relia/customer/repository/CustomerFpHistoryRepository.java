@@ -32,4 +32,11 @@ public interface CustomerFpHistoryRepository extends JpaRepository<CustomerFpHis
                     """
     )
     Page<CustomerFpHistoryItemResponse> findCustomerFpHistories(@Param("customerId") UUID customerId, Pageable pageable);
+
+    @Query("""
+            select coalesce(max(h.customerFpSequence), 0)
+            from CustomerFpHistory h
+            where h.customer.id = :customerId
+            """)
+    int findMaxCustomerFpSequence(@Param("customerId") UUID customerId);
 }

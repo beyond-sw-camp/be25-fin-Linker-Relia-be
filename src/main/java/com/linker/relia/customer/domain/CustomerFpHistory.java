@@ -1,5 +1,6 @@
 package com.linker.relia.customer.domain;
 
+import com.linker.relia.user.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -64,4 +65,29 @@ public class CustomerFpHistory {
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "changed_by")
     private UUID changedBy;
+
+    public static CustomerFpHistory create(
+            Customer customer,
+            UUID handoverRequestId,
+            User beforeFp,
+            User afterFp,
+            String changedReason
+    ) {
+        CustomerFpHistory history = new CustomerFpHistory();
+        history.id = UUID.randomUUID();
+        history.customer = customer;
+        history.handoverRequestId = handoverRequestId;
+        history.beforeFpId = beforeFp != null ? beforeFp.getId() : null;
+        history.beforeFpName = beforeFp != null ? beforeFp.getUserName() : null;
+        history.afterFpId = afterFp != null ? afterFp.getId() : null;
+        history.afterFpName = afterFp != null ? afterFp.getUserName() : null;
+        history.changedReason = changedReason;
+        history.changedAt = LocalDateTime.now();
+        return history;
+    }
+
+    public void applyChangeMetadata(UUID changedBy, int customerFpSequence) {
+        this.changedBy = changedBy;
+        this.customerFpSequence = customerFpSequence;
+    }
 }

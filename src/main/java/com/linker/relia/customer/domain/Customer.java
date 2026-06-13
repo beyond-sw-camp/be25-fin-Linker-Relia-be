@@ -122,4 +122,8 @@ public class Customer extends BaseEntity {
             customerStatus = CustomerStatus.CONTRACTED;
         }
     }
+
+    public void changeCustomerFp(User customerFp) {
+        this.customerFp = customerFp;
+    }
 }

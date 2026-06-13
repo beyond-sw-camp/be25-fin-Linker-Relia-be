@@ -6,11 +6,15 @@ import com.linker.relia.common.access.AccessScopeType;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.consultation.domain.ConsultationChannel;
 import com.linker.relia.customer.domain.Customer;
+import com.linker.relia.customer.domain.CustomerFpHistory;
+import com.linker.relia.customer.repository.CustomerFpHistoryRepository;
 import com.linker.relia.customer.repository.CustomerRepository;
+import com.linker.relia.handover.domain.ApprovalStatus;
 import com.linker.relia.handover.domain.HandoverRecommendation;
 import com.linker.relia.handover.domain.HandoverRequest;
 import com.linker.relia.handover.domain.RequestStatus;
 import com.linker.relia.handover.domain.RequestType;
+import com.linker.relia.handover.dto.request.HandoverApprovalRequest;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
@@ -25,8 +29,8 @@ import com.linker.relia.user.domain.FpMonthlyInfo;
 import com.linker.relia.user.domain.User;
 import com.linker.relia.user.domain.UserRole;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,9 +49,11 @@ public class HandoverService {
     private final HandoverRequestRepository handoverRequestRepository;
     private final HandoverRecommendationRepository handoverRecommendationRepository;
     private final CustomerRepository customerRepository;
+    private final CustomerFpHistoryRepository customerFpHistoryRepository;
     private final HandoverDetailQueryRepository handoverDetailQueryRepository;
     private final RecommendationService recommendationService;
 
+    // 인수인계 요청 생성
     public HandoverCreateResponse createHandover(PrincipalDetails principal, HandoverCreateRequest request) {
         Customer customer = customerRepository.findById(request.customerId())
                 .orElseThrow(() -> new BusinessException(HandoverErrorCode.CUSTOMER_NOT_FOUND));
@@ -71,6 +77,7 @@ public class HandoverService {
         return HandoverCreateResponse.from(handoverRequest);
     }
 
+    // 인수인계 요청 조회
     @Transactional(readOnly = true)
     public HandoverListResponse getHandoverList(PrincipalDetails principal,
                                                 RequestStatus status,
@@ -95,6 +102,8 @@ public class HandoverService {
         return HandoverListResponse.of(page);
     }
 
+
+    // 인수인계 상세 조회
     @Transactional(readOnly = true)
     public HandoverDetailResponse getHandoverDetail(PrincipalDetails principal, UUID handoverRequestId) {
         User user = principal.getUser();
@@ -153,7 +162,8 @@ public class HandoverService {
                 rejectedFpName
         );
 
-        boolean canApprove = user.getUserRole() == UserRole.BRANCH_MANAGER;
+        boolean canApprove = user.getUserRole() == UserRole.BRANCH_MANAGER
+                && isApprovalProcessable(handoverRequest);
 
         return new HandoverDetailResponse(
                 handoverRequest.getId(),
@@ -165,6 +175,116 @@ public class HandoverService {
                 recommendationInfo,
                 canApprove
         );
+    }
+
+
+    // 지점장 인수인계 결재
+    @Transactional
+    public void processApproval(PrincipalDetails principal,
+                                UUID handoverRequestId,
+                                HandoverApprovalRequest request) {
+
+        if (request == null || request.approvalStatus() == null) {
+            throw new BusinessException(HandoverErrorCode.INVALID_APPROVAL_REQUEST);
+        }
+
+        User user = principal.getUser();
+
+        // 1. 요청 조회
+        HandoverRequest handoverRequest = handoverRequestRepository.findById(handoverRequestId)
+                .orElseThrow(() -> new BusinessException(HandoverErrorCode.HANDOVER_REQUEST_NOT_FOUND));
+
+        // 2. 권한 체크 (BRANCH_MANAGER만 결재 가능)
+        validateApprovalProcessTarget(handoverRequest);
+
+        if (user.getUserRole() != UserRole.BRANCH_MANAGER) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
+        if (user.getOrganization() == null) {
+            throw new BusinessException(AuthErrorCode.INVALID_USER_STATE);
+        }
+
+        Customer customer = handoverRequest.getCustomer();
+        User customerFp = customer.getCustomerFp();
+        if (customerFp == null || customerFp.getOrganization() == null) {
+            throw new BusinessException(HandoverErrorCode.INVALID_HANDOVER_APPROVAL_TARGET);
+        }
+
+        if (!customerFp.getOrganization().getId().equals(user.getOrganization().getId())) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
+
+        // 3. 현재 PENDING 추천 조회
+        HandoverRecommendation recommendation = handoverRecommendationRepository
+                .findLatestByHandoverRequestAndApprovalStatus(
+                        handoverRequest,
+                        ApprovalStatus.PENDING,
+                        PageRequest.of(0, 1)
+                )
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(HandoverErrorCode.RECOMMENDATION_NOT_FOUND));
+
+        if (request.approvalStatus() == ApprovalStatus.APPROVED) {
+            // ── 승인 처리 ──
+            // 4-1. 추천 승인
+            recommendation.approve(user.getId());
+
+            // 4-2. 담당 설계사 변경
+            customer.changeCustomerFp(recommendation.getRecommendedFp());
+
+            // 4-3. 이력 저장
+            int nextSequence = customerFpHistoryRepository.findMaxCustomerFpSequence(customer.getId()) + 1;
+            CustomerFpHistory history = CustomerFpHistory.create(
+                    customer,
+                    handoverRequest.getId(),
+                    handoverRequest.getCurrentFp(),
+                    recommendation.getRecommendedFp(),
+                    "인수인계 승인"
+            );
+            history.applyChangeMetadata(user.getId(), nextSequence);
+            customerFpHistoryRepository.save(history);
+
+            // 4-4. 요청 완료
+            handoverRequest.complete();
+
+        } else {
+            // ── 반려 처리 ──
+            // 4-1. 추천 반려
+            recommendation.reject(user.getId());
+            if (request.rejectionReason() != null) {
+                recommendation.setRejectionReason(request.rejectionReason());
+            }
+
+            // 4-2. 요청 재추천 대기
+            handoverRequest.retry();
+
+            // 4-3. 새 추천 자동 실행
+            HandoverRecommendation newRecommendation = recommendationService.recommend(handoverRequest);
+            handoverRecommendationRepository.save(newRecommendation);
+        }
+    }
+
+
+
+
+
+
+
+    // 인수인계 상세 조회 접근
+    private void validateApprovalProcessTarget(HandoverRequest handoverRequest) {
+        if (handoverRequest.getRequestStatus() == RequestStatus.COMPLETED) {
+            throw new BusinessException(HandoverErrorCode.HANDOVER_ALREADY_COMPLETED);
+        }
+
+        if (!isApprovalProcessable(handoverRequest)) {
+            throw new BusinessException(HandoverErrorCode.INVALID_HANDOVER_APPROVAL_TARGET);
+        }
+    }
+
+    private boolean isApprovalProcessable(HandoverRequest handoverRequest) {
+        return handoverRequest.getRequestStatus() == RequestStatus.MANAGER_PENDING
+                || handoverRequest.getRequestStatus() == RequestStatus.RETRY;
     }
 
     private void validateHandoverDetailAccess(
@@ -180,6 +300,8 @@ public class HandoverService {
         }
     }
 
+
+    // 인수인계 요청 생성 접근
     private void validateHandoverCreateAccess(User user, Customer customer) {
         if (user.getUserRole() != UserRole.BRANCH_MANAGER) {
             return;
@@ -199,6 +321,7 @@ public class HandoverService {
         }
     }
 
+    // 지점장 접근
     private void validateBranchManagerAccess(User user, HandoverRequest handoverRequest) {
         if (user.getOrganization() == null) {
             throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "지점장 사용자에 조직 정보가 없습니다.");
@@ -216,6 +339,7 @@ public class HandoverService {
         }
     }
 
+    // Fp 접근
     private void validateFpAccess(
             User user,
             HandoverRequest handoverRequest,
@@ -230,4 +354,5 @@ public class HandoverService {
             throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
         }
     }
+
 }

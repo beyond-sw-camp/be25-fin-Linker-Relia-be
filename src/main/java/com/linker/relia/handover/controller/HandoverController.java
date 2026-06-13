@@ -4,6 +4,7 @@ import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.handover.domain.RequestStatus;
 import com.linker.relia.handover.domain.RequestType;
+import com.linker.relia.handover.dto.request.HandoverApprovalRequest;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
@@ -19,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,6 +37,7 @@ public class HandoverController {
 
     private final HandoverService handoverService;
 
+    // 인수인계 요청 생성
     @PostMapping
     @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<HandoverCreateResponse>> createHandover(
@@ -45,6 +48,7 @@ public class HandoverController {
         return ApiResponse.success(HttpStatus.CREATED, "인수인계 요청 생성 성공", response);
     }
 
+    // 인수인계 요청 목록 조회
     @GetMapping
     @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<HandoverListResponse>> getHandoverList(
@@ -63,6 +67,7 @@ public class HandoverController {
         return ApiResponse.success(HttpStatus.OK, "인수인계 요청 목록 조회 성공", response);
     }
 
+    //인수인계 상세 조회
     @GetMapping("/{handoverRequestId}")
     @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN', 'FP')")
     public ResponseEntity<ApiResponse<HandoverDetailResponse>> getHandoverDetail(
@@ -74,4 +79,18 @@ public class HandoverController {
 
         return ApiResponse.success(HttpStatus.OK, "인수인계 요청 상세 조회 성공", response);
     }
+
+    // 인수인계 지점장 결재
+    @PatchMapping("/{handoverRequestId}/approval")
+    @PreAuthorize("hasRole('BRANCH_MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> processApproval(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @PathVariable UUID handoverRequestId,
+            @RequestBody HandoverApprovalRequest request) {
+
+        handoverService.processApproval(principal, handoverRequestId, request);
+        return ApiResponse.success(HttpStatus.OK, "결재 처리 완료", null);
+    }
+
+
 }

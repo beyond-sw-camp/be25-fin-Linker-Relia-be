@@ -21,7 +21,9 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.List;
 import java.util.Optional;
@@ -291,6 +293,8 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                                                                   UUID contractId) {
         String sql = """
                 select
+                    ct.contract_code,
+                    ct.contract_status,
                     c.customer_name,
                     c.customer_status,
                     c.customer_gender,
@@ -302,23 +306,38 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                             then c.customer_address_road
                         else concat(c.customer_address_road, ', ', c.customer_address_detail)
                     end as customer_address,
+                    c.customer_job,
+                    c.customer_company_name,
                     ic.insurance_company_name,
+                    icat.insurance_category_name,
                     ip.insurance_product_name,
+                    ct.contract_date,
                     ct.contract_start_date,
                     ct.contract_end_date,
                     ct.coverage_start_date,
                     ct.coverage_end_date,
                     ct.payment_period_years,
-                    ct.payment_cycle
+                    ct.payment_cycle,
+                    ct.monthly_premium,
+                    ct.coverage_summary,
+                    fp.user_name,
+                    org.organization_name,
+                    ct.created_at
                 from contracts ct
                 join customers c on c.id = ct.customer_id
                 join users fp on fp.id = ct.fp_id
                 join organizations org on org.id = fp.organization_id
                 join insurance_products ip on ip.id = ct.insurance_product_id
                 join insurance_companies ic on ic.id = ip.insurance_company_id
+                join insurance_categories icat on icat.id = ip.insurance_category_id
                 where ct.id = :contractId
                   and ct.deleted_at is null
+                  and c.deleted_at is null
                   and fp.deleted_at is null
+                  and org.deleted_at is null
+                  and ip.deleted_at is null
+                  and ic.deleted_at is null
+                  and icat.deleted_at is null
                 """ + buildContractDetailAccessScopeWhereClause(accessScope);
 
         Query query = entityManager.createNativeQuery(sql);
@@ -534,6 +553,14 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
         return (LocalDate) value;
     }
 
+    private LocalDateTime toLocalDateTime(Object value) {
+        if (value instanceof Timestamp timestamp) {
+            return timestamp.toLocalDateTime();
+        }
+
+        return (LocalDateTime) value;
+    }
+
     private boolean toBoolean(Object value) {
         if (value instanceof Boolean booleanValue) {
             return booleanValue;
@@ -547,18 +574,29 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 (String) row[0],
                 (String) row[1],
                 (String) row[2],
-                toLocalDate(row[3]),
+                (String) row[3],
                 (String) row[4],
-                (String) row[5],
+                toLocalDate(row[5]),
                 (String) row[6],
                 (String) row[7],
                 (String) row[8],
-                toLocalDate(row[9]),
-                toLocalDate(row[10]),
-                toLocalDate(row[11]),
-                toLocalDate(row[12]),
-                ((Number) row[13]).intValue(),
-                (String) row[14]
+                (String) row[9],
+                (String) row[10],
+                (String) row[11],
+                (String) row[12],
+                (String) row[13],
+                toLocalDate(row[14]),
+                toLocalDate(row[15]),
+                toLocalDate(row[16]),
+                toLocalDate(row[17]),
+                toLocalDate(row[18]),
+                ((Number) row[19]).intValue(),
+                (String) row[20],
+                (BigDecimal) row[21],
+                (String) row[22],
+                (String) row[23],
+                (String) row[24],
+                toLocalDateTime(row[25])
         );
     }
   

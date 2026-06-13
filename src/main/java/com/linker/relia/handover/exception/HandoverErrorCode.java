@@ -6,11 +6,14 @@ import org.springframework.http.HttpStatus;
 public enum HandoverErrorCode implements ErrorCode {
 
     CUSTOMER_NOT_FOUND("HANDOVER_001", "존재하지 않는 고객입니다.", HttpStatus.NOT_FOUND),
-    HANDOVER_REQUEST_NOT_FOUND("HANDOVER_002", "인수인계 요청을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),  // 추가
-    HANDOVER_REQUEST_ALREADY_EXISTS("HANDOVER_003", "이미 진행 중인 인수인계 요청이 존재합니다.", HttpStatus.CONFLICT),  // 이름 변경
-    NO_AVAILABLE_FP("HANDOVER_004", "추천 가능한 설계사가 없습니다.", HttpStatus.BAD_REQUEST),  // 422 → 400
+    HANDOVER_REQUEST_NOT_FOUND("HANDOVER_002", "인수인계 요청을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    HANDOVER_REQUEST_ALREADY_EXISTS("HANDOVER_003", "이미 진행 중인 인수인계 요청이 존재합니다.", HttpStatus.CONFLICT),
+    NO_AVAILABLE_FP("HANDOVER_004", "추천 가능한 설계사가 없습니다.", HttpStatus.BAD_REQUEST),
     FP_NOT_FOUND("HANDOVER_005", "존재하지 않는 설계사입니다.", HttpStatus.NOT_FOUND),
-    RECOMMENDATION_NOT_FOUND("HANDOVER_006", "추천 결과를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);  // 추가
+    RECOMMENDATION_NOT_FOUND("HANDOVER_006", "추천 결과를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    INVALID_APPROVAL_REQUEST("HANDOVER_007", "결재 요청 값이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
+    HANDOVER_ALREADY_COMPLETED("HANDOVER_008", "이미 완료된 인수인계 요청입니다.", HttpStatus.CONFLICT),
+    INVALID_HANDOVER_APPROVAL_TARGET("HANDOVER_009", "결재할 수 없는 인수인계 요청 상태입니다.", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;
@@ -22,7 +25,18 @@ public enum HandoverErrorCode implements ErrorCode {
         this.status = status;
     }
 
-    @Override public String getCode() { return code; }
-    @Override public String getMessage() { return message; }
-    @Override public HttpStatus getStatus() { return status; }
+    @Override
+    public String getCode() {
+        return code;
+    }
+
+    @Override
+    public String getMessage() {
+        return message;
+    }
+
+    @Override
+    public HttpStatus getStatus() {
+        return status;
+    }
 }

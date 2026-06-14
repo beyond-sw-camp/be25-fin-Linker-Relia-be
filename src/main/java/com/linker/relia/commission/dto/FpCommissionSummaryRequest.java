@@ -8,7 +8,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class FpCommissionSummaryRequest {
-    @NotBlank(message = "closingMonth is required.")
-    @Pattern(regexp = "^\\d{4}-(0[1-9]|1[0-2])$", message = "closingMonth must be in YYYY-MM format.")
+    @NotBlank(message = "조회할 마감 월은 필수입니다.")
+    @Pattern(regexp = "^\\d{4}-(0[1-9]|1[0-2])$", message = "마감 월은 yyyy-MM 형식이어야 합니다.")
     private String closingMonth;
 }

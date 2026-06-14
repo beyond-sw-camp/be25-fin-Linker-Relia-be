@@ -492,12 +492,11 @@ INSERT INTO customers (
     customer_marital_status,
     customer_dependents_count,
     created_by,
-    updated_by,
-    deleted_by
+    updated_by
 )
 SELECT
     CONCAT('40000000-0000-0000-0000-', LPAD(customer_no, 12, '0')) AS id,
-    CONCAT('CUS', LPAD(customer_no, 6, '0')) AS customer_code,
+    CONCAT('CUS-', customer_no) AS customer_code,
     customer_fp_id,
     CASE
         WHEN MOD(customer_no * 7 + 3, 10) < 7 THEN 'CONTRACTED'
@@ -565,7 +564,7 @@ SELECT
         ELSE 'MALE'
     END AS customer_gender,
     DATE_ADD('1975-01-01', INTERVAL MOD(customer_no * 37, 11000) DAY) AS customer_birth_date,
-    CONCAT('010-5', LPAD(customer_no, 7, '0')) AS customer_phone,
+    CONCAT('0105', LPAD(customer_no, 7, '0')) AS customer_phone,
     CONCAT('customer', LPAD(customer_no, 4, '0'), '@relia.com') AS customer_email,
     LPAD(10000 + MOD(customer_no, 90000), 5, '0') AS customer_zipcode,
     CONCAT(
@@ -625,7 +624,6 @@ SELECT
         ELSE 0
     END AS customer_dependents_count,
     @SYSTEM_USER_ID,
-    @SYSTEM_USER_ID,
     @SYSTEM_USER_ID
 FROM (
     SELECT
@@ -662,6 +660,8 @@ FROM (
     ) slots
         ON slots.slot_no <= fp.customer_quota
 ) customer_seed;
+
+ALTER SEQUENCE customer_code_seq RESTART WITH 751;
 
 INSERT INTO customer_underlying_diseases (
     id,
@@ -787,19 +787,19 @@ FROM (
             id AS customer_id,
             customer_fp_id AS fp_id,
             ROW_NUMBER() OVER (
-                ORDER BY MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 37, 101),
-                         MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 13, 53),
+                ORDER BY MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 37, 101),
+                         MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 13, 53),
                          customer_code
             ) AS contracted_customer_rank,
             CASE
                 WHEN ROW_NUMBER() OVER (
-                    ORDER BY MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 37, 101),
-                             MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 13, 53),
+                    ORDER BY MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 37, 101),
+                             MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 13, 53),
                              customer_code
                 ) <= 260 THEN 1
                 WHEN ROW_NUMBER() OVER (
-                    ORDER BY MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 37, 101),
-                             MOD(CAST(RIGHT(customer_code, 6) AS UNSIGNED) * 13, 53),
+                    ORDER BY MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 37, 101),
+                             MOD(CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED) * 13, 53),
                              customer_code
                 ) <= 440 THEN 2
                 ELSE 3
@@ -1026,76 +1026,175 @@ INSERT INTO contract_monthly_closing (
     closed_at
 )
 SELECT
-    CONCAT('60500000-0000-0000-0000-', LPAD(ROW_NUMBER() OVER (ORDER BY ct.contract_code), 12, '0')) AS id,
-    '2026-05' AS closing_month,
-    ct.id AS contract_id,
-    ct.contract_status,
+    CONCAT(
+        '60500000-0000-0000-0000-',
+        LPAD(ROW_NUMBER() OVER (ORDER BY closing_seed.closing_month, closing_seed.contract_code), 12, '0')
+    ) AS id,
+    closing_seed.closing_month,
+    closing_seed.contract_id,
+    closing_seed.snapshot_contract_status,
+    closing_seed.payment_status,
+    closing_seed.scheduled_payment_round AS current_payment_round,
     CASE
-        WHEN unpaid_targets.contract_id IS NOT NULL THEN 'UNPAID'
-        ELSE 'PAID'
-    END AS payment_status,
-    CASE
-        WHEN unpaid_targets.contract_id IS NOT NULL THEN unpaid_targets.unpaid_installment_count
-        ELSE LEAST(
-            ct.payment_period_years * 12,
-            GREATEST(1, TIMESTAMPDIFF(MONTH, ct.contract_start_date, '2026-05-31') + 1)
-        )
-    END AS current_payment_round,
-    CASE
-        WHEN ct.contract_status = 'MAINTENANCE'
-            THEN CASE
-                WHEN unpaid_targets.contract_id IS NOT NULL THEN unpaid_targets.unpaid_installment_count
-                ELSE LEAST(
-                    ct.payment_period_years * 12,
-                    GREATEST(1, TIMESTAMPDIFF(MONTH, ct.contract_start_date, '2026-05-31') + 1)
-                )
-            END
+        WHEN closing_seed.snapshot_contract_status = 'MAINTENANCE'
+            THEN closing_seed.scheduled_payment_round
         ELSE NULL
     END AS maintenance_round,
-    CASE WHEN ct.contract_status = 'LAPSED' THEN TRUE ELSE FALSE END AS lapse_yn,
-    CASE WHEN ct.contract_status = 'LAPSED' THEN DATE_SUB('2026-05-31', INTERVAL 5 DAY) ELSE NULL END AS lapse_at,
-    CASE WHEN ct.contract_status = 'TERMINATED' THEN TRUE ELSE FALSE END AS terminated_yn,
-    CASE WHEN ct.contract_status = 'TERMINATED' THEN DATE_SUB('2026-05-31', INTERVAL 3 DAY) ELSE NULL END AS terminated_at,
-    ct.customer_id,
-    ct.fp_id,
-    ct.contract_date,
-    ct.contract_start_date,
-    ct.contract_end_date,
-    ct.payment_period_years,
-    ct.payment_cycle,
-    ct.monthly_premium,
-    ct.coverage_start_date,
-    ct.coverage_end_date,
-    ct.coverage_summary,
-    '2026-05-31 18:00:00' AS closed_at
-FROM contracts ct
-LEFT JOIN (
+    CASE WHEN closing_seed.snapshot_contract_status = 'LAPSED' THEN TRUE ELSE FALSE END AS lapse_yn,
+    CASE
+        WHEN closing_seed.snapshot_contract_status = 'LAPSED'
+            THEN closing_seed.lapse_at
+        ELSE NULL
+    END AS lapse_at,
+    CASE WHEN closing_seed.snapshot_contract_status = 'TERMINATED' THEN TRUE ELSE FALSE END AS terminated_yn,
+    CASE
+        WHEN closing_seed.snapshot_contract_status = 'TERMINATED'
+            THEN closing_seed.terminated_at
+        ELSE NULL
+    END AS terminated_at,
+    closing_seed.customer_id,
+    closing_seed.fp_id,
+    closing_seed.contract_date,
+    closing_seed.contract_start_date,
+    closing_seed.contract_end_date,
+    closing_seed.payment_period_years,
+    closing_seed.payment_cycle,
+    closing_seed.monthly_premium,
+    closing_seed.coverage_start_date,
+    closing_seed.coverage_end_date,
+    closing_seed.coverage_summary,
+    TIMESTAMP(closing_seed.closing_date, '18:00:00') AS closed_at
+FROM (
     SELECT
-        contract_id,
-        CASE MOD(seq_no, 10)
-            WHEN 0 THEN 1
-            WHEN 1 THEN 1
-            WHEN 2 THEN 1
-            WHEN 3 THEN 2
-            WHEN 4 THEN 2
-            WHEN 5 THEN 2
-            WHEN 6 THEN 2
-            WHEN 7 THEN 3
-            WHEN 8 THEN 3
-            ELSE 3
-        END AS unpaid_installment_count
+        base_seed.*,
+        CASE
+            WHEN base_seed.snapshot_contract_status = 'MAINTENANCE'
+                 AND base_seed.unpaid_installment_count IS NOT NULL
+                 AND base_seed.month_seq >= 6 - base_seed.unpaid_installment_count
+                THEN 'UNPAID'
+            ELSE 'PAID'
+        END AS payment_status
     FROM (
         SELECT
-            ROW_NUMBER() OVER (ORDER BY ct.contract_code DESC) AS seq_no,
-            ct.id AS contract_id
+            months.month_seq,
+            months.closing_month,
+            months.closing_date,
+            ct.contract_code,
+            ct.id AS contract_id,
+            CASE
+                WHEN terminated_targets.event_month_seq IS NOT NULL
+                     AND months.month_seq >= terminated_targets.event_month_seq THEN 'TERMINATED'
+                WHEN lapsed_targets.event_month_seq IS NOT NULL
+                     AND months.month_seq >= lapsed_targets.event_month_seq THEN 'LAPSED'
+                WHEN ct.contract_end_date < months.closing_date THEN 'COMPLETED'
+                ELSE 'MAINTENANCE'
+            END AS snapshot_contract_status,
+            LEAST(
+                ct.payment_period_years * 12,
+                GREATEST(1, TIMESTAMPDIFF(MONTH, ct.contract_start_date, months.closing_date) + 1)
+            ) AS scheduled_payment_round,
+            unpaid_targets.unpaid_installment_count,
+            CASE
+                WHEN lapsed_targets.event_month_seq IS NOT NULL
+                     AND months.month_seq >= lapsed_targets.event_month_seq
+                    THEN lapsed_targets.event_date
+                ELSE NULL
+            END AS lapse_at,
+            CASE
+                WHEN terminated_targets.event_month_seq IS NOT NULL
+                     AND months.month_seq >= terminated_targets.event_month_seq
+                    THEN terminated_targets.event_date
+                ELSE NULL
+            END AS terminated_at,
+            ct.customer_id,
+            ct.fp_id,
+            ct.contract_date,
+            ct.contract_start_date,
+            ct.contract_end_date,
+            ct.payment_period_years,
+            ct.payment_cycle,
+            ct.monthly_premium,
+            ct.coverage_start_date,
+            ct.coverage_end_date,
+            ct.coverage_summary
         FROM contracts ct
-        WHERE ct.contract_status = 'MAINTENANCE'
-        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 59, 251) DESC,
-                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 113) DESC,
-                 ct.contract_code DESC
-        LIMIT 32
-    ) unpaid_seed
-) unpaid_targets ON unpaid_targets.contract_id = ct.id;
+        JOIN (
+            SELECT 1 AS month_seq, '2026-01' AS closing_month, DATE('2026-01-31') AS closing_date
+            UNION ALL SELECT 2, '2026-02', DATE('2026-02-28')
+            UNION ALL SELECT 3, '2026-03', DATE('2026-03-31')
+            UNION ALL SELECT 4, '2026-04', DATE('2026-04-30')
+            UNION ALL SELECT 5, '2026-05', DATE('2026-05-31')
+        ) months
+            ON ct.contract_start_date <= months.closing_date
+        LEFT JOIN (
+            SELECT
+                contract_id,
+                CASE MOD(seq_no, 10)
+                    WHEN 0 THEN 1
+                    WHEN 1 THEN 1
+                    WHEN 2 THEN 1
+                    WHEN 3 THEN 2
+                    WHEN 4 THEN 2
+                    WHEN 5 THEN 2
+                    WHEN 6 THEN 2
+                    WHEN 7 THEN 3
+                    WHEN 8 THEN 3
+                    ELSE 3
+                END AS unpaid_installment_count
+            FROM (
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY ct.contract_code DESC) AS seq_no,
+                    ct.id AS contract_id
+                FROM contracts ct
+                WHERE ct.contract_status = 'MAINTENANCE'
+                  AND ct.contract_code LIKE 'CTR%'
+                ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 59, 251) DESC,
+                         MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 113) DESC,
+                         ct.contract_code DESC
+                LIMIT 32
+            ) unpaid_seed
+        ) unpaid_targets ON unpaid_targets.contract_id = ct.id
+        LEFT JOIN (
+            SELECT
+                target.contract_id,
+                MOD(target.seq_no - 1, 4) + 2 AS event_month_seq,
+                CASE MOD(target.seq_no - 1, 4)
+                    WHEN 0 THEN DATE('2026-02-25')
+                    WHEN 1 THEN DATE('2026-03-26')
+                    WHEN 2 THEN DATE('2026-04-25')
+                    ELSE DATE('2026-05-26')
+                END AS event_date
+            FROM (
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
+                    ct.id AS contract_id
+                FROM contracts ct
+                WHERE ct.contract_status = 'LAPSED'
+                  AND ct.contract_code LIKE 'CTR%'
+            ) target
+        ) lapsed_targets ON lapsed_targets.contract_id = ct.id
+        LEFT JOIN (
+            SELECT
+                target.contract_id,
+                MOD(target.seq_no - 1, 4) + 2 AS event_month_seq,
+                CASE MOD(target.seq_no - 1, 4)
+                    WHEN 0 THEN DATE('2026-02-27')
+                    WHEN 1 THEN DATE('2026-03-28')
+                    WHEN 2 THEN DATE('2026-04-27')
+                    ELSE DATE('2026-05-28')
+                END AS event_date
+            FROM (
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
+                    ct.id AS contract_id
+                FROM contracts ct
+                WHERE ct.contract_status = 'TERMINATED'
+                  AND ct.contract_code LIKE 'CTR%'
+            ) target
+        ) terminated_targets ON terminated_targets.contract_id = ct.id
+        WHERE ct.contract_code LIKE 'CTR%'
+    ) base_seed
+) closing_seed;
 
 UPDATE customers c
 LEFT JOIN (
@@ -1185,12 +1284,12 @@ SELECT
     @SYSTEM_USER_ID
 FROM (
     SELECT
-        ROW_NUMBER() OVER (ORDER BY customer_code) AS seq_no,
+        ROW_NUMBER() OVER (ORDER BY CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED)) AS seq_no,
         id AS customer_id,
         customer_fp_id AS fp_id
     FROM customers
     WHERE customer_status = 'PROSPECT'
-    ORDER BY customer_code
+    ORDER BY CAST(SUBSTRING_INDEX(customer_code, '-', -1) AS UNSIGNED)
     LIMIT 225
 ) new_consultation_seed;
 
@@ -1588,12 +1687,12 @@ SELECT
     current_fp_id
 FROM (
     SELECT
-        ROW_NUMBER() OVER (ORDER BY c.customer_code) AS seq_no,
+        ROW_NUMBER() OVER (ORDER BY CAST(SUBSTRING_INDEX(c.customer_code, '-', -1) AS UNSIGNED)) AS seq_no,
         c.id AS customer_id,
         c.customer_fp_id AS current_fp_id
     FROM customers c
     WHERE c.customer_status = 'CONTRACTED'
-    ORDER BY c.customer_code
+    ORDER BY CAST(SUBSTRING_INDEX(c.customer_code, '-', -1) AS UNSIGNED)
     LIMIT 50
 ) handover_request_seed;
 
@@ -1745,42 +1844,87 @@ INSERT INTO gross_commission_records (
     created_by
 )
 SELECT
-    CONCAT('90000000-0000-0000-0000-', LPAD(seq_no, 12, '0')) AS id,
-    CASE MOD(seq_no, 3)
-        WHEN 0 THEN '2026-03'
-        WHEN 1 THEN '2026-04'
-        ELSE '2026-05'
-    END AS commission_month,
-    contract_id,
-    insurance_company_id,
-    insurance_product_id,
-    CASE MOD(seq_no, 6)
-        WHEN 0 THEN 'RECOVERY'
-        WHEN 1 THEN 'INITIAL'
-        WHEN 2 THEN 'MAINTENANCE'
-        WHEN 3 THEN 'INITIAL'
-        WHEN 4 THEN 'MAINTENANCE'
-        ELSE 'INITIAL'
-    END AS commission_type,
-    CASE MOD(seq_no, 6)
-        WHEN 0 THEN ROUND(monthly_premium * 0.80, 2)
-        WHEN 1 THEN ROUND(monthly_premium * 12.00, 2)
-        WHEN 2 THEN ROUND(monthly_premium * 1.00, 2)
-        WHEN 3 THEN ROUND(monthly_premium * 10.00, 2)
-        WHEN 4 THEN ROUND(monthly_premium * 0.90, 2)
-        ELSE ROUND(monthly_premium * 8.00, 2)
-    END AS gross_commission_amount,
+    CONCAT('90000000-0000-0000-0000-', LPAD(ROW_NUMBER() OVER (
+        ORDER BY commission_source.sort_order, commission_source.contract_code, commission_source.commission_month
+    ), 12, '0')) AS id,
+    commission_source.commission_month,
+    commission_source.contract_id,
+    commission_source.insurance_company_id,
+    commission_source.insurance_product_id,
+    commission_source.commission_type,
+    commission_source.gross_commission_amount,
     @SYSTEM_USER_ID
 FROM (
     SELECT
-        ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
-        ct.id AS contract_id,
-        ct.insurance_product_id,
+        1 AS sort_order,
+        ct.contract_code,
+        cmc.contract_id,
         ip.insurance_company_id,
-        ct.monthly_premium
-    FROM contracts ct
+        ct.insurance_product_id,
+        cmc.closing_month AS commission_month,
+        CASE
+            WHEN cmc.current_payment_round <= 24 THEN 'INITIAL'
+            ELSE 'MAINTENANCE'
+        END AS commission_type,
+        CASE
+            WHEN cmc.current_payment_round <= 24 THEN ROUND(
+                cmc.monthly_premium * (
+                    CASE ct.payment_period_years
+                        WHEN 10 THEN 4.80
+                        WHEN 15 THEN 5.40
+                        ELSE 6.00
+                    END
+                    + (MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED), 3) * 0.30)
+                ),
+                2
+            )
+            ELSE ROUND(
+                cmc.monthly_premium * (
+                    CASE ct.payment_period_years
+                        WHEN 10 THEN 0.90
+                        WHEN 15 THEN 1.00
+                        ELSE 1.10
+                    END
+                    + (MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED), 2) * 0.10)
+                ),
+                2
+            )
+        END AS gross_commission_amount
+    FROM contract_monthly_closing cmc
+    JOIN contracts ct ON ct.id = cmc.contract_id
     JOIN insurance_products ip ON ip.id = ct.insurance_product_id
-) gross_seed;
+    WHERE cmc.contract_status = 'MAINTENANCE'
+      AND cmc.payment_status = 'PAID'
+      AND ct.contract_code LIKE 'CTR%'
+
+    UNION ALL
+
+    SELECT
+        2 AS sort_order,
+        ct.contract_code,
+        ct.id AS contract_id,
+        ip.insurance_company_id,
+        ct.insurance_product_id,
+        cmc.closing_month AS commission_month,
+        'RECOVERY' AS commission_type,
+        CASE cmc.contract_status
+            WHEN 'TERMINATED' THEN ROUND(ct.monthly_premium * 1.20, 2)
+            ELSE ROUND(ct.monthly_premium * 0.80, 2)
+        END AS gross_commission_amount
+    FROM contract_monthly_closing cmc
+    JOIN contracts ct ON ct.id = cmc.contract_id
+    JOIN insurance_products ip ON ip.id = ct.insurance_product_id
+    WHERE ((
+            cmc.contract_status = 'LAPSED'
+        AND cmc.lapse_yn = TRUE
+        AND DATE_FORMAT(cmc.lapse_at, '%Y-%m') = cmc.closing_month
+    ) OR (
+            cmc.contract_status = 'TERMINATED'
+        AND cmc.terminated_yn = TRUE
+        AND DATE_FORMAT(cmc.terminated_at, '%Y-%m') = cmc.closing_month
+    ))
+      AND ct.contract_code LIKE 'CTR%'
+) commission_source;
 
 INSERT INTO payment_commission_records (
     id,
@@ -1827,13 +1971,7 @@ FROM (
         gcr.insurance_product_id,
         gcr.commission_type AS gross_type,
         gcr.gross_commission_amount,
-        CASE MOD(ROW_NUMBER() OVER (ORDER BY gcr.id), 5)
-            WHEN 0 THEN 55.00
-            WHEN 1 THEN 60.00
-            WHEN 2 THEN 65.00
-            WHEN 3 THEN 70.00
-            ELSE 75.00
-        END AS fp_payment_rate
+        CAST(55 + (MOD(CAST(RIGHT(fp.emp_code, 3) AS UNSIGNED) - 1, 5) * 5) AS DECIMAL(5,2)) AS fp_payment_rate
     FROM gross_commission_records gcr
     JOIN contracts ct ON ct.id = gcr.contract_id
     JOIN users fp ON fp.id = ct.fp_id
@@ -1862,6 +2000,6 @@ FROM (
 -- - handover_requests inserted (50 rows)
 -- - handover_recommendations inserted (100 rows)
 -- - customer_fp_history inserted (30 rows)
--- - gross_commission_records inserted (~875 rows)
--- - payment_commission_records inserted (~875 rows)
+-- - gross_commission_records inserted from monthly closing + recovery events
+-- - payment_commission_records inserted 1:1 from gross commission records
 -- ----------------------------------------------------------------------------

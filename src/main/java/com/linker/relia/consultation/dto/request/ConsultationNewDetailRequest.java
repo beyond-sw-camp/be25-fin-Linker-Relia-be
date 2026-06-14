@@ -5,7 +5,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
 
 @Getter
 @NoArgsConstructor
@@ -22,5 +21,5 @@ public class ConsultationNewDetailRequest {
 
     private List<String> coverageTypes;
 
-    private List<UUID> proposedProductIds;
+    private List<String> proposedProductCodes;
 }

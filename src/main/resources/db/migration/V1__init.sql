@@ -190,14 +190,19 @@ CREATE TABLE customers (
                            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                            updated_by CHAR(36) NOT NULL,
                            deleted_at DATETIME NULL,
-                           deleted_by CHAR(36) NOT NULL,
+                           deleted_by CHAR(36) NULL,
                            PRIMARY KEY (id),
                            UNIQUE KEY uk_customers_code (customer_code),
+                           UNIQUE KEY uk_customers_phone (customer_phone),
                            CONSTRAINT chk_customers_status CHECK (customer_status IN ('PROSPECT', 'CONTRACTED', 'COMPLETED', 'TERMINATED')),
                            CONSTRAINT chk_customers_grade CHECK (customer_grade IN ('GENERAL', 'GOLD', 'VIP')),
                            CONSTRAINT chk_customers_interest_reason CHECK (interest_reason IS NULL OR interest_reason IN ('UNPAID', 'RENEWAL_DUE', 'MATURITY_DUE')),
                            CONSTRAINT fk_customers_fp FOREIGN KEY (customer_fp_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE SEQUENCE customer_code_seq
+    START WITH 1
+    INCREMENT BY 1
+    MINVALUE 1;
 CREATE TABLE disease_codes (
                                id CHAR(36) NOT NULL,
                                disease_code VARCHAR(50) NOT NULL,

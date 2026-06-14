@@ -5,10 +5,12 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Getter
 @Builder
 public class ContractListItemResponse {
+    private final UUID contractId;
     private final String customerName;
     private final String contractCode;
     private final LocalDate contractDate;

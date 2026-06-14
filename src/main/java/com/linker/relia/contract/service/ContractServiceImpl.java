@@ -329,14 +329,18 @@ public class ContractServiceImpl implements ContractService {
     private ContractDetailResponse toContractDetailResponse(ContractDetailQueryResult queryResult) {
         String customerStatus = toCustomerStatusLabel(queryResult.customerStatus());
         String customerGender = toCustomerGenderLabel(queryResult.customerGender());
+        String contractStatus = toContractStatusLabel(queryResult.contractStatus());
         String paymentCycle = toPaymentCycleLabel(queryResult.paymentCycle());
 
         return ContractDetailResponse.builder()
                 .contractSummary(ContractDetailResponse.ContractSummary.builder()
+                        .contractCode(queryResult.contractCode())
                         .customerName(queryResult.customerName())
                         .customerStatus(customerStatus)
                         .insuranceCompanyName(queryResult.insuranceCompanyName())
                         .insuranceProductName(queryResult.insuranceProductName())
+                        .contractStatus(contractStatus)
+                        .monthlyPremium(queryResult.monthlyPremium())
                         .contractStartDate(queryResult.contractStartDate())
                         .contractEndDate(queryResult.contractEndDate())
                         .paymentPeriodYears(queryResult.paymentPeriodYears())
@@ -349,16 +353,27 @@ public class ContractServiceImpl implements ContractService {
                         .customerPhone(queryResult.customerPhone())
                         .customerEmail(queryResult.customerEmail())
                         .customerAddress(queryResult.customerAddress())
+                        .customerJob(queryResult.customerJob())
+                        .customerCompanyName(queryResult.customerCompanyName())
                         .build())
                 .contractInfo(ContractDetailResponse.ContractInfo.builder()
                         .insuranceCompanyName(queryResult.insuranceCompanyName())
+                        .insuranceCategoryName(queryResult.insuranceCategoryName())
                         .insuranceProductName(queryResult.insuranceProductName())
+                        .contractDate(queryResult.contractDate())
                         .contractStartDate(queryResult.contractStartDate())
                         .contractEndDate(queryResult.contractEndDate())
                         .coverageStartDate(queryResult.coverageStartDate())
                         .coverageEndDate(queryResult.coverageEndDate())
                         .paymentPeriodYears(queryResult.paymentPeriodYears())
                         .paymentCycle(paymentCycle)
+                        .monthlyPremium(queryResult.monthlyPremium())
+                        .fpName(queryResult.fpName())
+                        .fpOrganizationName(queryResult.fpOrganizationName())
+                        .createdAt(queryResult.createdAt())
+                        .build())
+                .coverageInfo(ContractDetailResponse.CoverageInfo.builder()
+                        .coverageSummary(queryResult.coverageSummary())
                         .build())
                 .build();
     }
@@ -373,6 +388,26 @@ public class ContractServiceImpl implements ContractService {
         }
 
         return customerStatus;
+    }
+
+    private String toContractStatusLabel(String contractStatus) {
+        if ("MAINTENANCE".equals(contractStatus)) {
+            return "유지";
+        }
+
+        if ("LAPSED".equals(contractStatus)) {
+            return "실효";
+        }
+
+        if ("COMPLETED".equals(contractStatus)) {
+            return "만기";
+        }
+
+        if ("TERMINATED".equals(contractStatus)) {
+            return "해지";
+        }
+
+        return contractStatus;
     }
 
     private String toCustomerGenderLabel(String customerGender) {

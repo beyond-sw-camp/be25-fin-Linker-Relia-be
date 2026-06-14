@@ -84,7 +84,11 @@ public class CommissionServiceImpl implements CommissionService {
         String organizationCode = request.getOrganizationCode();
 
         if (accessScope.isOwnScope()) {
-            commissionAccessService.validateOrganizationCodeFilter(accessScope, organizationCode, null);
+            commissionAccessService.validateOrganizationCodeFilter(
+                    accessScope,
+                    organizationCode,
+                    principalDetails.getUser().getOrganization().getOrganizationCode()
+            );
             return getFpPaymentTypeSummary(closingMonth, accessScope.userId());
         }
 

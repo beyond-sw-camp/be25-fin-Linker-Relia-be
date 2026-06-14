@@ -29,10 +29,6 @@ public class CommissionAccessServiceImpl implements CommissionAccessService {
             return;
         }
 
-        if (accessScope.isOwnScope()) {
-            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "설계사 조회에서는 organizationCode를 사용할 수 없습니다.");
-        }
-
         if (accessScope.isAllScope()) {
             return;
         }

@@ -3,9 +3,10 @@ package com.linker.relia.commission.controller;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
+import com.linker.relia.commission.dto.OrganizationCommissionSummaryRequest;
+import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
 import com.linker.relia.commission.service.CommissionService;
 import com.linker.relia.security.principal.PrincipalDetails;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,14 @@ public class CommissionController {
     public ResponseEntity<ApiResponse<FpCommissionSummaryResponse>> getFpCommissionSummary(@AuthenticationPrincipal PrincipalDetails principalDetails,
                                                                                            @Valid @ModelAttribute FpCommissionSummaryRequest request) {
         FpCommissionSummaryResponse response = commissionService.getFpCommissionSummary(principalDetails, request);
-        return ApiResponse.success(HttpStatus.OK, "FP commission summary retrieved successfully.", response);
+        return ApiResponse.success(HttpStatus.OK, "설계사 수수료 요약 조회에 성공하였습니다.", response);
+    }
+
+    @GetMapping("/organization-summary")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<OrganizationCommissionSummaryResponse>> getOrganizationCommissionSummary(@AuthenticationPrincipal PrincipalDetails principalDetails,
+                                                                                                               @Valid @ModelAttribute OrganizationCommissionSummaryRequest request) {
+        OrganizationCommissionSummaryResponse response = commissionService.getOrganizationCommissionSummary(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "조직 수수료 요약 조회에 성공하였습니다.", response);
     }
 }

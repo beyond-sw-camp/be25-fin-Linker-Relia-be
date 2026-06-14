@@ -1,6 +1,8 @@
 package com.linker.relia.commission.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.commission.dto.CommissionPaymentTypeSummaryRequest;
+import com.linker.relia.commission.dto.CommissionPaymentTypeSummaryResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionSummaryRequest;
@@ -29,7 +31,7 @@ public class CommissionController {
     public ResponseEntity<ApiResponse<FpCommissionSummaryResponse>> getFpCommissionSummary(@AuthenticationPrincipal PrincipalDetails principalDetails,
                                                                                            @Valid @ModelAttribute FpCommissionSummaryRequest request) {
         FpCommissionSummaryResponse response = commissionService.getFpCommissionSummary(principalDetails, request);
-        return ApiResponse.success(HttpStatus.OK, "설계사 수수료 요약 조회에 성공하였습니다.", response);
+        return ApiResponse.success(HttpStatus.OK, "설계사 수수료 요약 조회를 성공하였습니다.", response);
     }
 
     @GetMapping("/organization-summary")
@@ -37,6 +39,14 @@ public class CommissionController {
     public ResponseEntity<ApiResponse<OrganizationCommissionSummaryResponse>> getOrganizationCommissionSummary(@AuthenticationPrincipal PrincipalDetails principalDetails,
                                                                                                                @Valid @ModelAttribute OrganizationCommissionSummaryRequest request) {
         OrganizationCommissionSummaryResponse response = commissionService.getOrganizationCommissionSummary(principalDetails, request);
-        return ApiResponse.success(HttpStatus.OK, "조직 수수료 요약 조회에 성공하였습니다.", response);
+        return ApiResponse.success(HttpStatus.OK, "조직 수수료 요약 조회를 성공하였습니다.", response);
+    }
+
+    @GetMapping("/payment-types/summary")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<CommissionPaymentTypeSummaryResponse>> getCommissionPaymentTypeSummary(@AuthenticationPrincipal PrincipalDetails principalDetails,
+                                                                                                             @Valid @ModelAttribute CommissionPaymentTypeSummaryRequest request) {
+        CommissionPaymentTypeSummaryResponse response = commissionService.getCommissionPaymentTypeSummary(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "지급 구분 요약 조회를 성공하였습니다.", response);
     }
 }

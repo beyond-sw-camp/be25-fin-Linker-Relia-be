@@ -4,6 +4,7 @@ import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeResolver;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.exception.OrganizationErrorCode;
 import com.linker.relia.organization.repository.OrganizationRepository;
@@ -24,8 +25,12 @@ public class CommissionAccessServiceImpl implements CommissionAccessService {
 
     @Override
     public void validateOrganizationCodeFilter(AccessScope accessScope, String organizationCode, String userOrganizationCode) {
-        if (organizationCode == null) {
+        if (organizationCode == null || organizationCode.isBlank()) {
             return;
+        }
+
+        if (accessScope.isOwnScope()) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "설계사 조회에서는 organizationCode를 사용할 수 없습니다.");
         }
 
         if (accessScope.isAllScope()) {

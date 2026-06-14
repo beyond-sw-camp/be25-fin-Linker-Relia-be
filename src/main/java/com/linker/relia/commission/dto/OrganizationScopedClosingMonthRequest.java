@@ -5,6 +5,6 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public abstract class OrganizationScopedClosingMonthRequest extends ClosingMonthRequest {
+public class OrganizationScopedClosingMonthRequest extends ClosingMonthRequest {
     private String organizationCode;
 }

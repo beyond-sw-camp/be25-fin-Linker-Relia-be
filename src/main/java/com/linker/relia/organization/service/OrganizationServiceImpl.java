@@ -9,6 +9,8 @@ import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.domain.OrganizationStatus;
 import com.linker.relia.organization.domain.OrganizationType;
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
+import com.linker.relia.organization.dto.FpContractListRequest;
+import com.linker.relia.organization.dto.FpContractListResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
@@ -110,6 +112,31 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         return organizationFpRepository.findFpDetail(accessScope, fpId, normalizedClosingMonth)
                 .orElseThrow(() -> resolveFpDetailNotFoundException(fpId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FpContractListResponse getFpContracts(PrincipalDetails principalDetails,
+                                                 UUID fpId,
+                                                 FpContractListRequest request) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateFpAccessible(accessScope, fpId);
+
+        return FpContractListResponse.from(organizationFpRepository.findFpContracts(
+                accessScope,
+                fpId,
+                request.toPageable()
+        ));
+    }
+
+    private void validateFpAccessible(AccessScope accessScope, UUID fpId) {
+        if (!organizationFpRepository.existsFp(fpId)) {
+            throw new BusinessException(OrganizationErrorCode.FP_NOT_FOUND);
+        }
+
+        if (!organizationFpRepository.existsFpInScope(accessScope, fpId)) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
     }
 
     private BusinessException resolveFpDetailNotFoundException(UUID fpId) {

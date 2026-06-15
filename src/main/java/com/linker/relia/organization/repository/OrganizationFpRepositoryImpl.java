@@ -1,6 +1,7 @@
 package com.linker.relia.organization.repository;
 
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.organization.dto.FpContractListItemResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListItemResponse;
 import jakarta.persistence.EntityManager;
@@ -182,6 +183,74 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
         return toLong(query.getSingleResult()) > 0;
     }
 
+    @Override
+    public boolean existsFpInScope(AccessScope accessScope, UUID fpId) {
+        Query query = entityManager.createNativeQuery("""
+                select count(*)
+                from users fp
+                join organizations org on org.id = fp.organization_id
+                where fp.id = :fpId
+                  and fp.user_role = 'FP'
+                  and fp.deleted_at is null
+                  and org.deleted_at is null
+                """ + buildAccessScopeWhereClause(accessScope));
+        query.setParameter("fpId", fpId.toString());
+        bindAccessScopeParameters(query, accessScope);
+
+        return toLong(query.getSingleResult()) > 0;
+    }
+
+    @Override
+    public Page<FpContractListItemResponse> findFpContracts(AccessScope accessScope,
+                                                            UUID fpId,
+                                                            Pageable pageable) {
+        String fromWhereSql = """
+                from contracts ct
+                join customers c on c.id = ct.customer_id
+                join users fp on fp.id = ct.fp_id
+                join organizations org on org.id = fp.organization_id
+                join insurance_products ip on ip.id = ct.insurance_product_id
+                join insurance_companies ic on ic.id = ip.insurance_company_id
+                join insurance_categories icat on icat.id = ip.insurance_category_id
+                where fp.id = :fpId
+                  and ct.deleted_at is null
+                  and c.deleted_at is null
+                  and fp.deleted_at is null
+                  and org.deleted_at is null
+                  and ip.deleted_at is null
+                  and ic.deleted_at is null
+                  and icat.deleted_at is null
+                """ + buildAccessScopeWhereClause(accessScope);
+
+        String contentSql = """
+                select
+                    c.customer_name,
+                    icat.insurance_category_name,
+                    ic.insurance_company_name,
+                    ct.contract_date,
+                    ct.monthly_premium,
+                    ct.contract_status
+                """ + fromWhereSql + """
+                order by ct.contract_date desc, ct.contract_code desc
+                """;
+
+        Query contentQuery = entityManager.createNativeQuery(contentSql);
+        bindFpContractParameters(contentQuery, accessScope, fpId);
+        contentQuery.setFirstResult((int) pageable.getOffset());
+        contentQuery.setMaxResults(pageable.getPageSize());
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = contentQuery.getResultList();
+        List<FpContractListItemResponse> content = rows.stream()
+                .map(this::toFpContractListItemResponse)
+                .toList();
+
+        Query countQuery = entityManager.createNativeQuery("select count(*) " + fromWhereSql);
+        bindFpContractParameters(countQuery, accessScope, fpId);
+
+        return new PageImpl<>(content, pageable, toLong(countQuery.getSingleResult()));
+    }
+
     private String buildFromWhereSql(AccessScope accessScope) {
         return """
                 from users fp
@@ -239,6 +308,17 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
         query.setParameter("fpId", fpId.toString());
         query.setParameter("closingMonth", closingMonth);
 
+        bindAccessScopeParameters(query, accessScope);
+    }
+
+    private void bindFpContractParameters(Query query,
+                                          AccessScope accessScope,
+                                          UUID fpId) {
+        query.setParameter("fpId", fpId.toString());
+        bindAccessScopeParameters(query, accessScope);
+    }
+
+    private void bindAccessScopeParameters(Query query, AccessScope accessScope) {
         if (accessScope.isOwnScope()) {
             query.setParameter("userId", accessScope.userId().toString());
         } else if (accessScope.isBranchScope()) {
@@ -258,6 +338,37 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 .contractCount(toLong(row[7]))
                 .retentionRate(toBigDecimal(row[8]))
                 .build();
+    }
+
+    private FpContractListItemResponse toFpContractListItemResponse(Object[] row) {
+        return FpContractListItemResponse.builder()
+                .customerName((String) row[0])
+                .insuranceType((String) row[1])
+                .insuranceCompany((String) row[2])
+                .contractDate(toLocalDate(row[3]))
+                .monthlyPremium(toBigDecimal(row[4]))
+                .contractStatus(toContractStatusLabel((String) row[5]))
+                .build();
+    }
+
+    private String toContractStatusLabel(String contractStatus) {
+        if ("MAINTENANCE".equals(contractStatus)) {
+            return "유지";
+        }
+
+        if ("LAPSED".equals(contractStatus)) {
+            return "실효";
+        }
+
+        if ("TERMINATED".equals(contractStatus)) {
+            return "해지";
+        }
+
+        if ("COMPLETED".equals(contractStatus)) {
+            return "만기";
+        }
+
+        return contractStatus;
     }
 
     private FpDetailResponse toFpDetailResponse(Object[] row) {

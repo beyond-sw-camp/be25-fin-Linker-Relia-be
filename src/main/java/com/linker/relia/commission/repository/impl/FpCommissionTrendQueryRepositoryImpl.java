@@ -1,6 +1,7 @@
-package com.linker.relia.commission.repository;
+package com.linker.relia.commission.repository.impl;
 
 import com.linker.relia.commission.dto.FpCommissionMonthlyTrendQueryResult;
+import com.linker.relia.commission.repository.custom.FpCommissionTrendQueryRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;

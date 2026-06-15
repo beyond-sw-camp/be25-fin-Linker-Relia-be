@@ -9,6 +9,4 @@ import java.util.UUID;
 
 public interface IncomeCommissionMonthlyClosingRepository extends JpaRepository<IncomeCommissionMonthlyClosing, UUID> {
     Optional<IncomeCommissionMonthlyClosing> findByClosingMonth(String closingMonth);
-
-    List<IncomeCommissionMonthlyClosing> findAllByClosingMonthBetweenOrderByClosingMonthAsc(String startMonth, String endMonth);
 }

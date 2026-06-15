@@ -9,8 +9,4 @@ import java.util.UUID;
 
 public interface BranchCommissionMonthlyClosingRepository extends JpaRepository<BranchCommissionMonthlyClosing, UUID> {
     Optional<BranchCommissionMonthlyClosing> findByOrganization_IdAndClosingMonth(UUID organizationId, String closingMonth);
-
-    List<BranchCommissionMonthlyClosing> findAllByOrganization_IdAndClosingMonthBetweenOrderByClosingMonthAsc(UUID organizationId,
-                                                                                                              String startMonth,
-                                                                                                              String endMonth);
 }

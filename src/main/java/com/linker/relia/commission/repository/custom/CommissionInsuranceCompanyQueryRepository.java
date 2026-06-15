@@ -1,4 +1,4 @@
-package com.linker.relia.commission.repository;
+package com.linker.relia.commission.repository.custom;
 
 import com.linker.relia.commission.dto.InsuranceCompanyCommissionSummaryQueryResult;
 

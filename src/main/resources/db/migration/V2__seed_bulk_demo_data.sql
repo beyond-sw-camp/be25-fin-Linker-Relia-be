@@ -952,17 +952,31 @@ SET ct.contract_status = 'TERMINATED',
 UPDATE contracts ct
 JOIN (
     SELECT
-        target.contract_id
+        unpaid_seed.contract_id
     FROM (
         SELECT
-            ct.id AS contract_id
+            ct.id AS contract_id,
+            CASE MOD(ROW_NUMBER() OVER (ORDER BY ct.contract_code DESC), 10)
+                WHEN 0 THEN 1
+                WHEN 1 THEN 1
+                WHEN 2 THEN 1
+                WHEN 3 THEN 2
+                WHEN 4 THEN 2
+                WHEN 5 THEN 2
+                WHEN 6 THEN 2
+                WHEN 7 THEN 3
+                WHEN 8 THEN 3
+                ELSE 3
+            END AS unpaid_installment_count
         FROM contracts ct
         WHERE ct.contract_status = 'MAINTENANCE'
-        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 47, 241),
-                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 13, 109),
-                 ct.contract_code
+          AND ct.contract_code LIKE 'CTR%'
+        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 59, 251) DESC,
+                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 113) DESC,
+                 ct.contract_code DESC
         LIMIT 28
-    ) target
+    ) unpaid_seed
+    WHERE unpaid_seed.unpaid_installment_count = 3
 ) lapsed_targets ON lapsed_targets.contract_id = ct.id
 SET ct.contract_status = 'LAPSED',
     ct.updated_by = @SYSTEM_USER_ID;
@@ -1068,9 +1082,15 @@ FROM (
     SELECT
         base_seed.*,
         CASE
-            WHEN base_seed.snapshot_contract_status = 'MAINTENANCE'
-                 AND base_seed.unpaid_installment_count IS NOT NULL
+            WHEN base_seed.unpaid_installment_count IS NOT NULL
                  AND base_seed.month_seq >= 6 - base_seed.unpaid_installment_count
+                 AND (
+                    base_seed.snapshot_contract_status = 'MAINTENANCE'
+                    OR (
+                        base_seed.snapshot_contract_status = 'LAPSED'
+                        AND base_seed.month_seq = 5
+                    )
+                 )
                 THEN 'UNPAID'
             ELSE 'PAID'
         END AS payment_status
@@ -1157,16 +1177,10 @@ FROM (
         LEFT JOIN (
             SELECT
                 target.contract_id,
-                MOD(target.seq_no - 1, 4) + 2 AS event_month_seq,
-                CASE MOD(target.seq_no - 1, 4)
-                    WHEN 0 THEN DATE('2026-02-25')
-                    WHEN 1 THEN DATE('2026-03-26')
-                    WHEN 2 THEN DATE('2026-04-25')
-                    ELSE DATE('2026-05-26')
-                END AS event_date
+                5 AS event_month_seq,
+                DATE('2026-05-26') AS event_date
             FROM (
                 SELECT
-                    ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
                     ct.id AS contract_id
                 FROM contracts ct
                 WHERE ct.contract_status = 'LAPSED'

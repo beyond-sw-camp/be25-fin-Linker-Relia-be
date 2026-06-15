@@ -13,11 +13,11 @@ import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendRespons
 import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
 import com.linker.relia.commission.dto.OrganizationScopedClosingMonthRequest;
 import com.linker.relia.commission.repository.BranchCommissionMonthlyClosingRepository;
-import com.linker.relia.commission.repository.CommissionInsuranceCompanyQueryRepository;
+import com.linker.relia.commission.repository.custom.CommissionInsuranceCompanyQueryRepository;
 import com.linker.relia.commission.repository.FpCommissionMonthlyClosingRepository;
-import com.linker.relia.commission.repository.FpCommissionTrendQueryRepository;
+import com.linker.relia.commission.repository.custom.FpCommissionTrendQueryRepository;
 import com.linker.relia.commission.repository.IncomeCommissionMonthlyClosingRepository;
-import com.linker.relia.commission.repository.OrganizationCommissionTrendQueryRepository;
+import com.linker.relia.commission.repository.custom.OrganizationCommissionTrendQueryRepository;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.security.principal.PrincipalDetails;

@@ -1,9 +1,12 @@
 package com.linker.relia.handover.repository;
 
+import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.consultation.domain.ConsultationChannel;
+import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.user.domain.FpMonthlyInfo;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -123,5 +126,37 @@ public class HandoverDetailQueryRepository {
                 .setMaxResults(1)
                 .getResultList();
         return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
+    }
+
+    // 요청 요약 카드
+    public HandoverSummaryResponse findSummary(AccessScope accessScope) {
+        String jpql = """
+            SELECT new com.linker.relia.handover.dto.response.HandoverSummaryResponse(
+                SUM(CASE WHEN h.requestStatus = 'MANAGER_PENDING' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN h.requestStatus = 'COMPLETED'
+                    AND YEAR(h.updatedAt) = YEAR(CURRENT_DATE)
+                    AND MONTH(h.updatedAt) = MONTH(CURRENT_DATE) THEN 1 ELSE 0 END),
+                SUM(CASE WHEN YEAR(h.createdAt) = YEAR(CURRENT_DATE)
+                    AND MONTH(h.createdAt) = MONTH(CURRENT_DATE) THEN 1 ELSE 0 END)
+            )
+            FROM HandoverRequest h
+            JOIN h.customer c
+            JOIN c.customerFp cfp
+            JOIN cfp.organization org
+            WHERE h.deletedAt IS NULL
+            """;
+
+        if (accessScope.isBranchScope()) {
+            jpql += " AND org.id = :organizationId";
+        }
+
+        TypedQuery<HandoverSummaryResponse> query =
+                entityManager.createQuery(jpql, HandoverSummaryResponse.class);
+
+        if (accessScope.isBranchScope()) {
+            query.setParameter("organizationId", accessScope.organizationId());
+        }
+
+        return query.getSingleResult();
     }
 }

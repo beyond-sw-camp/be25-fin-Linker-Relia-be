@@ -1,6 +1,7 @@
 package com.linker.relia.organization.repository;
 
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListItemResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -11,8 +12,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.sql.Date;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -99,8 +103,10 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
 
         Query contentQuery = entityManager.createNativeQuery(contentSql);
         bindParameters(contentQuery, accessScope, keyword, organizationId, closingMonth);
-        contentQuery.setFirstResult((int) pageable.getOffset());
-        contentQuery.setMaxResults(pageable.getPageSize());
+        if (pageable.isPaged()) {
+            contentQuery.setFirstResult((int) pageable.getOffset());
+            contentQuery.setMaxResults(pageable.getPageSize());
+        }
 
         @SuppressWarnings("unchecked")
         List<Object[]> rows = contentQuery.getResultList();
@@ -112,6 +118,68 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
         bindParameters(countQuery, accessScope, keyword, organizationId, closingMonth);
 
         return new PageImpl<>(content, pageable, toLong(countQuery.getSingleResult()));
+    }
+
+    @Override
+    public Optional<FpDetailResponse> findFpDetail(AccessScope accessScope, UUID fpId, String closingMonth) {
+        String sql = """
+                select
+                    fp.id,
+                    fp.emp_code,
+                    fp.user_name,
+                    org.id as organization_id,
+                    org.organization_name,
+                    fp.phone,
+                    fp.email,
+                    fp.joined_at,
+                    fmpc.closing_month,
+                    fmpc.completed_contract_count,
+                    fmpc.new_contract_count,
+                    fmpc.retention_rate,
+                    fmpc.total_rank,
+                    fmpc.branch_rank
+                from users fp
+                join organizations org on org.id = fp.organization_id
+                left join fp_monthly_performance_closing fmpc
+                  on fmpc.fp_id = fp.id
+                 and fmpc.closing_month = coalesce(
+                     :closingMonth,
+                     (
+                         select max(fmpc2.closing_month)
+                         from fp_monthly_performance_closing fmpc2
+                         where fmpc2.fp_id = fp.id
+                     )
+                 )
+                where fp.id = :fpId
+                  and fp.user_role = 'FP'
+                  and fp.deleted_at is null
+                  and org.deleted_at is null
+                """ + buildAccessScopeWhereClause(accessScope);
+
+        Query query = entityManager.createNativeQuery(sql);
+        bindFpDetailParameters(query, accessScope, fpId, closingMonth);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream()
+                .findFirst()
+                .map(this::toFpDetailResponse);
+    }
+
+    @Override
+    public boolean existsFp(UUID fpId) {
+        Query query = entityManager.createNativeQuery("""
+                select count(*)
+                from users fp
+                join organizations org on org.id = fp.organization_id
+                where fp.id = :fpId
+                  and fp.user_role = 'FP'
+                  and fp.deleted_at is null
+                  and org.deleted_at is null
+                """);
+        query.setParameter("fpId", fpId.toString());
+
+        return toLong(query.getSingleResult()) > 0;
     }
 
     private String buildFromWhereSql(AccessScope accessScope) {
@@ -164,6 +232,20 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
         }
     }
 
+    private void bindFpDetailParameters(Query query,
+                                        AccessScope accessScope,
+                                        UUID fpId,
+                                        String closingMonth) {
+        query.setParameter("fpId", fpId.toString());
+        query.setParameter("closingMonth", closingMonth);
+
+        if (accessScope.isOwnScope()) {
+            query.setParameter("userId", accessScope.userId().toString());
+        } else if (accessScope.isBranchScope()) {
+            query.setParameter("accessOrganizationId", accessScope.organizationId().toString());
+        }
+    }
+
     private FpListItemResponse toFpListItemResponse(Object[] row) {
         return FpListItemResponse.builder()
                 .id(toUuid(row[0]))
@@ -178,12 +260,61 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 .build();
     }
 
+    private FpDetailResponse toFpDetailResponse(Object[] row) {
+        return FpDetailResponse.builder()
+                .fpId(toUuid(row[0]))
+                .empCode((String) row[1])
+                .fpName((String) row[2])
+                .organizationId(toUuid(row[3]))
+                .organizationName((String) row[4])
+                .phone((String) row[5])
+                .email((String) row[6])
+                .hireDate(toLocalDate(row[7]))
+                .performanceSummary(toPerformanceSummary(row))
+                .build();
+    }
+
+    private FpDetailResponse.PerformanceSummary toPerformanceSummary(Object[] row) {
+        if (row[8] == null) {
+            return null;
+        }
+
+        return FpDetailResponse.PerformanceSummary.builder()
+                .closingMonth((String) row[8])
+                .completedContractCount(toInt(row[9]))
+                .newContractCount(toInt(row[10]))
+                .retentionRate(toBigDecimal(row[11]))
+                .totalRank(toInt(row[12]))
+                .branchRank(toInt(row[13]))
+                .build();
+    }
+
     private UUID toUuid(Object value) {
         return value == null ? null : UUID.fromString(value.toString());
     }
 
+    private LocalDate toLocalDate(Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof Date date) {
+            return date.toLocalDate();
+        }
+
+        if (value instanceof LocalDate localDate) {
+            return localDate;
+        }
+
+        return LocalDate.parse(value.toString());
+    }
+
     private long toLong(Object value) {
         return ((Number) Objects.requireNonNull(value)).longValue();
+    }
+
+    private int toInt(Object value) {
+        return ((Number) Objects.requireNonNull(value)).intValue();
     }
 
     private BigDecimal toBigDecimal(Object value) {

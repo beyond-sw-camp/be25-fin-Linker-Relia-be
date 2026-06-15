@@ -1,0 +1,108 @@
+package com.linker.relia.commission.service;
+
+import com.linker.relia.auth.exception.AuthErrorCode;
+import com.linker.relia.commission.domain.BranchCommissionMonthlyClosing;
+import com.linker.relia.commission.domain.FpCommissionMonthlyClosing;
+import com.linker.relia.commission.domain.IncomeCommissionMonthlyClosing;
+import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
+import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
+import com.linker.relia.commission.dto.OrganizationCommissionSummaryRequest;
+import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
+import com.linker.relia.commission.repository.BranchCommissionMonthlyClosingRepository;
+import com.linker.relia.commission.repository.FpCommissionMonthlyClosingRepository;
+import com.linker.relia.commission.repository.IncomeCommissionMonthlyClosingRepository;
+import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.organization.domain.Organization;
+import com.linker.relia.security.principal.PrincipalDetails;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.YearMonth;
+
+@Service
+@RequiredArgsConstructor
+public class CommissionServiceImpl implements CommissionService {
+    private final CommissionAccessService commissionAccessService;
+    private final FpCommissionMonthlyClosingRepository fpCommissionMonthlyClosingRepository;
+    private final BranchCommissionMonthlyClosingRepository branchCommissionMonthlyClosingRepository;
+    private final IncomeCommissionMonthlyClosingRepository incomeCommissionMonthlyClosingRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public FpCommissionSummaryResponse getFpCommissionSummary(PrincipalDetails principalDetails, FpCommissionSummaryRequest request) {
+        AccessScope accessScope = commissionAccessService.resolveAccessScope(principalDetails);
+        String closingMonth = request.getClosingMonth().trim();
+        FpCommissionMonthlyClosing current = fpCommissionMonthlyClosingRepository
+                .findByFp_IdAndClosingMonth(accessScope.userId(), closingMonth)
+                .orElse(null);
+
+        if (current == null) {
+            return FpCommissionSummaryResponse.empty(closingMonth);
+        }
+
+        String previousClosingMonth = YearMonth.parse(closingMonth).minusMonths(1).toString();
+        FpCommissionMonthlyClosing previous = fpCommissionMonthlyClosingRepository
+                .findByFp_IdAndClosingMonth(accessScope.userId(), previousClosingMonth)
+                .orElse(null);
+
+        return FpCommissionSummaryResponse.of(current, previous);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationCommissionSummaryResponse getOrganizationCommissionSummary(PrincipalDetails principalDetails,
+                                                                                  OrganizationCommissionSummaryRequest request) {
+        AccessScope accessScope = commissionAccessService.resolveAccessScope(principalDetails);
+        String closingMonth = request.getClosingMonth().trim();
+        String organizationCode = request.getOrganizationCode();
+
+        if (accessScope.isBranchScope()) {
+            commissionAccessService.validateOrganizationCodeFilter(accessScope, organizationCode,
+                    principalDetails.getUser().getOrganization().getOrganizationCode()
+            );
+            return getBranchSummary(closingMonth, principalDetails.getUser().getOrganization());
+        }
+
+        if (organizationCode == null) {
+            return getHqSummary(closingMonth);
+        }
+
+        Organization organization = commissionAccessService.resolveOrganization(organizationCode);
+        return getBranchSummary(closingMonth, organization);
+    }
+
+    private OrganizationCommissionSummaryResponse getBranchSummary(String closingMonth, Organization organization) {
+        BranchCommissionMonthlyClosing current = branchCommissionMonthlyClosingRepository
+                .findByOrganization_IdAndClosingMonth(organization.getId(), closingMonth)
+                .orElse(null);
+
+        if (current == null) {
+            return OrganizationCommissionSummaryResponse.emptyBranch(closingMonth, organization);
+        }
+
+        String previousClosingMonth = YearMonth.parse(closingMonth).minusMonths(1).toString();
+        BranchCommissionMonthlyClosing previous = branchCommissionMonthlyClosingRepository
+                .findByOrganization_IdAndClosingMonth(organization.getId(), previousClosingMonth)
+                .orElse(null);
+
+        return OrganizationCommissionSummaryResponse.branchOf(current, previous);
+    }
+
+    private OrganizationCommissionSummaryResponse getHqSummary(String closingMonth) {
+        IncomeCommissionMonthlyClosing current = incomeCommissionMonthlyClosingRepository
+                .findByClosingMonth(closingMonth)
+                .orElse(null);
+
+        if (current == null) {
+            return OrganizationCommissionSummaryResponse.emptyHq(closingMonth);
+        }
+
+        String previousClosingMonth = YearMonth.parse(closingMonth).minusMonths(1).toString();
+        IncomeCommissionMonthlyClosing previous = incomeCommissionMonthlyClosingRepository
+                .findByClosingMonth(previousClosingMonth)
+                .orElse(null);
+
+        return OrganizationCommissionSummaryResponse.hqOf(current, previous);
+    }
+}

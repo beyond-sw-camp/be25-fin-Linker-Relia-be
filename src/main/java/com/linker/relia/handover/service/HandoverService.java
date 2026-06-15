@@ -21,6 +21,7 @@ import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
+import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.handover.exception.HandoverErrorCode;
 import com.linker.relia.handover.repository.HandoverDetailQueryRepository;
 import com.linker.relia.handover.repository.HandoverReceivedQueryRepository;
@@ -282,7 +283,16 @@ public class HandoverService {
         return PageResponse.from(page);
     }
 
-
+    // 인수인계 요청 뮥륙 요약
+    @Transactional(readOnly = true)
+    public HandoverSummaryResponse getSummary(PrincipalDetails principal) {
+        User user = principal.getUser();
+        AccessScope accessScope = switch (user.getUserRole()) {
+            case BRANCH_MANAGER -> new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
+        };
+        return handoverDetailQueryRepository.findSummary(accessScope);
+    }
 
 
     // 인수인계 상세 조회 접근

@@ -5,6 +5,7 @@ import com.linker.relia.schedule.dto.request.ConsultationScheduleCreateRequest;
 import com.linker.relia.schedule.dto.request.ConsultationScheduleUpdateRequest;
 import com.linker.relia.schedule.dto.response.ConsultationScheduleCreateResponse;
 import com.linker.relia.schedule.dto.response.ConsultationScheduleListResponse;
+import com.linker.relia.schedule.dto.response.ScheduleCalendarResponse;
 import com.linker.relia.schedule.service.ConsultationScheduleService;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
@@ -15,7 +16,15 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -94,6 +103,28 @@ public class ConsultationScheduleController {
                 HttpStatus.OK,
                 "상담 일정이 삭제되었습니다.",
                 null
+        );
+    }
+
+    @GetMapping("/calendar")
+    public ResponseEntity<ApiResponse<ScheduleCalendarResponse>> getMonthlyCalendar(
+            @RequestParam int year,
+            @RequestParam int month,
+            @AuthenticationPrincipal PrincipalDetails principalDetails
+    ) {
+        User fp = principalDetails.getUser();
+
+        ScheduleCalendarResponse response =
+                consultationScheduleService.getMonthlyCalendar(
+                        year,
+                        month,
+                        fp
+                );
+
+        return ApiResponse.success(
+                HttpStatus.OK,
+                "월간 일정 캘린더 조회에 성공했습니다.",
+                response
         );
     }
 }

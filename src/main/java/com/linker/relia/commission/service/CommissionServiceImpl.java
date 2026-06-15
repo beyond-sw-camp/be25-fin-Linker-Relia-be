@@ -1,6 +1,7 @@
 package com.linker.relia.commission.service;
 
 import com.linker.relia.commission.domain.BranchCommissionMonthlyClosing;
+import com.linker.relia.commission.domain.BranchIncomeCommissionMonthlyClosing;
 import com.linker.relia.commission.domain.FpCommissionMonthlyClosing;
 import com.linker.relia.commission.domain.IncomeCommissionMonthlyClosing;
 import com.linker.relia.commission.dto.CommissionPaymentTypeSummaryResponse;
@@ -12,6 +13,7 @@ import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendQueryRe
 import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
 import com.linker.relia.commission.dto.OrganizationScopedClosingMonthRequest;
+import com.linker.relia.commission.repository.BranchIncomeCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.BranchCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.custom.CommissionInsuranceCompanyQueryRepository;
 import com.linker.relia.commission.repository.FpCommissionMonthlyClosingRepository;
@@ -40,6 +42,7 @@ public class CommissionServiceImpl implements CommissionService {
     private final CommissionAccessService commissionAccessService;
     private final FpCommissionMonthlyClosingRepository fpCommissionMonthlyClosingRepository;
     private final FpCommissionTrendQueryRepository fpCommissionTrendQueryRepository;
+    private final BranchIncomeCommissionMonthlyClosingRepository branchIncomeCommissionMonthlyClosingRepository;
     private final BranchCommissionMonthlyClosingRepository branchCommissionMonthlyClosingRepository;
     private final IncomeCommissionMonthlyClosingRepository incomeCommissionMonthlyClosingRepository;
     private final CommissionInsuranceCompanyQueryRepository commissionInsuranceCompanyQueryRepository;
@@ -221,7 +224,7 @@ public class CommissionServiceImpl implements CommissionService {
     }
 
     private OrganizationCommissionSummaryResponse getBranchSummary(String closingMonth, Organization organization) {
-        BranchCommissionMonthlyClosing current = branchCommissionMonthlyClosingRepository
+        BranchIncomeCommissionMonthlyClosing current = branchIncomeCommissionMonthlyClosingRepository
                 .findByOrganization_IdAndClosingMonth(organization.getId(), closingMonth)
                 .orElse(null);
 
@@ -230,7 +233,7 @@ public class CommissionServiceImpl implements CommissionService {
         }
 
         String previousClosingMonth = YearMonth.parse(closingMonth).minusMonths(1).toString();
-        BranchCommissionMonthlyClosing previous = branchCommissionMonthlyClosingRepository
+        BranchIncomeCommissionMonthlyClosing previous = branchIncomeCommissionMonthlyClosingRepository
                 .findByOrganization_IdAndClosingMonth(organization.getId(), previousClosingMonth)
                 .orElse(null);
 

@@ -132,12 +132,12 @@ public class HandoverDetailQueryRepository {
     public HandoverSummaryResponse findSummary(AccessScope accessScope) {
         String jpql = """
             SELECT new com.linker.relia.handover.dto.response.HandoverSummaryResponse(
-                SUM(CASE WHEN h.requestStatus = 'MANAGER_PENDING' THEN 1 ELSE 0 END),
-                SUM(CASE WHEN h.requestStatus = 'COMPLETED'
+                COALESCE(SUM(CASE WHEN h.requestStatus = 'MANAGER_PENDING' THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN h.requestStatus = 'COMPLETED'
                     AND YEAR(h.updatedAt) = YEAR(CURRENT_DATE)
-                    AND MONTH(h.updatedAt) = MONTH(CURRENT_DATE) THEN 1 ELSE 0 END),
-                SUM(CASE WHEN YEAR(h.createdAt) = YEAR(CURRENT_DATE)
-                    AND MONTH(h.createdAt) = MONTH(CURRENT_DATE) THEN 1 ELSE 0 END)
+                    AND MONTH(h.updatedAt) = MONTH(CURRENT_DATE) THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN YEAR(h.createdAt) = YEAR(CURRENT_DATE)
+                    AND MONTH(h.createdAt) = MONTH(CURRENT_DATE) THEN 1 ELSE 0 END), 0)
             )
             FROM HandoverRequest h
             JOIN h.customer c

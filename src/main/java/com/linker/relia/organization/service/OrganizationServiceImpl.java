@@ -40,6 +40,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class OrganizationServiceImpl implements OrganizationService {
     private static final Pattern CLOSING_MONTH_PATTERN = Pattern.compile("^\\d{4}-(0[1-9]|1[0-2])$");
+    private static final int MAX_FP_CONTRACT_PAGE_SIZE = 200;
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationFpRepository organizationFpRepository;
@@ -121,12 +122,22 @@ public class OrganizationServiceImpl implements OrganizationService {
                                                  FpContractListRequest request) {
         AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
         validateFpAccessible(accessScope, fpId);
+        validateFpContractPageSize(request.getSize());
 
         return FpContractListResponse.from(organizationFpRepository.findFpContracts(
                 accessScope,
                 fpId,
                 request.toPageable()
         ));
+    }
+
+    private void validateFpContractPageSize(Integer size) {
+        if (size != null && size > MAX_FP_CONTRACT_PAGE_SIZE) {
+            throw new BusinessException(
+                    CommonErrorCode.INVALID_REQUEST,
+                    "size는 " + MAX_FP_CONTRACT_PAGE_SIZE + " 이하여야 합니다."
+            );
+        }
     }
 
     private void validateFpAccessible(AccessScope accessScope, UUID fpId) {

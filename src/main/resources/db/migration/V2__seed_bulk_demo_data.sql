@@ -1026,15 +1026,20 @@ JOIN (
         ) AS recent_contract_date
     FROM (
         SELECT
-            ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
-            ct.id AS contract_id
-        FROM contracts ct
-        WHERE ct.contract_status = 'MAINTENANCE'
-          AND ct.contract_code LIKE 'CTR%'
-        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 61, 257),
-                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 19, 127),
-                 ct.contract_code
-        LIMIT 25
+            ROW_NUMBER() OVER (ORDER BY selected_target.contract_code) AS seq_no,
+            selected_target.contract_id
+        FROM (
+            SELECT
+                ct.id AS contract_id,
+                ct.contract_code
+            FROM contracts ct
+            WHERE ct.contract_status = 'MAINTENANCE'
+              AND ct.contract_code LIKE 'CTR%'
+            ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 61, 257),
+                     MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 19, 127),
+                     ct.contract_code
+            LIMIT 25
+        ) selected_target
     ) target
 ) recent_contract_targets ON recent_contract_targets.contract_id = ct.id
 SET ct.contract_date = recent_contract_targets.recent_contract_date,
@@ -2258,7 +2263,10 @@ FROM (
             ROUND(SUM(CASE WHEN gcr.commission_type = 'INITIAL' THEN gcr.gross_commission_amount ELSE 0 END), 2) AS total_initial_gross_commission_amount,
             ROUND(SUM(CASE WHEN gcr.commission_type = 'MAINTENANCE' THEN gcr.gross_commission_amount ELSE 0 END), 2) AS total_maintenance_gross_commission_amount,
             ROUND(SUM(CASE WHEN gcr.commission_type = 'RECOVERY' THEN gcr.gross_commission_amount ELSE 0 END), 2) AS total_insurance_recovery_amount,
-            ROUND(SUM(gcr.gross_commission_amount), 2) AS total_gross_commission_amount,
+            ROUND(SUM(CASE
+                WHEN gcr.commission_type IN ('INITIAL', 'MAINTENANCE') THEN gcr.gross_commission_amount
+                ELSE 0
+            END), 2) AS total_gross_commission_amount,
             COUNT(DISTINCT gcr.contract_id) AS contract_count,
             COUNT(DISTINCT ct.fp_id) AS fp_count,
             COALESCE(

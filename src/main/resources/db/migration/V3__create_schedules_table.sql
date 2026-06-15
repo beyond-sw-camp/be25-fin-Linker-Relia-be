@@ -6,9 +6,13 @@ CREATE TABLE schedules (
                            contract_id CHAR(36) NULL COMMENT '계약 UUID',
                            consultation_id CHAR(36) NULL COMMENT '상담일지 UUID',
 
-                           schedule_type VARCHAR(30) NOT NULL COMMENT 'CONSULTATION, CONTRACT_EXPIRY, PERSONAL_MEMO',
+                           schedule_type VARCHAR(30) NOT NULL COMMENT 'CONSULTATION, CONTRACT_EXPIRY',
+
+                           consultation_type VARCHAR(30) NULL COMMENT 'NEW_CONTRACT, RENEWAL, CLAIM, TERMINATION',
+                           consultation_channel VARCHAR(30) NULL COMMENT 'VISIT, PHONE, MESSAGE',
+
                            title VARCHAR(100) NOT NULL COMMENT '일정 제목',
-                           content VARCHAR(500) NULL COMMENT '일정 메모',
+                           memo VARCHAR(500) NULL COMMENT '상담 일정 메모',
 
                            scheduled_at DATETIME NOT NULL COMMENT '일정 일시',
                            schedule_status VARCHAR(30) NOT NULL COMMENT 'SCHEDULED, COMPLETED, CANCELED',

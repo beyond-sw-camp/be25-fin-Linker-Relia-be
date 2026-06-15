@@ -12,6 +12,7 @@ import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
+import com.linker.relia.handover.dto.response.HandoverReceivedSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.handover.service.HandoverService;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -105,7 +106,7 @@ public class HandoverController {
         return ApiResponse.success(HttpStatus.OK, "인수받은 고객 목록 조회 성공", response);
     }
 
-    // 인수인계 요청 뮥륙 요약
+    // 인수인계 요청 목록 요약
     @GetMapping("/summary")
     @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<HandoverSummaryResponse>> getSummary(
@@ -115,5 +116,14 @@ public class HandoverController {
         return ApiResponse.success(HttpStatus.OK, "인수인계 요약 조회 성공", response);
     }
 
+    // 받은 인수인계 목록 요약
+    @GetMapping("/received/summary")
+    @PreAuthorize("hasRole('FP')")
+    public ResponseEntity<ApiResponse<HandoverReceivedSummaryResponse>> getReceivedSummary(
+            @AuthenticationPrincipal PrincipalDetails principal) {
+
+        HandoverReceivedSummaryResponse response = handoverService.getReceivedSummary(principal);
+        return ApiResponse.success(HttpStatus.OK, "인수받은 목록 요약 조회 성공", response);
+    }
 
 }

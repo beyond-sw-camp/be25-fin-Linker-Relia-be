@@ -1,6 +1,7 @@
 package com.linker.relia.handover.repository;
 
 import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
+import com.linker.relia.handover.dto.response.HandoverReceivedSummaryResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -61,5 +63,42 @@ public class HandoverReceivedQueryRepository {
                 .getSingleResult();
 
         return new PageImpl<>(content, pageable, total);
+    }
+
+    // 받은 인수인계 요약 카드
+    public HandoverReceivedSummaryResponse findReceivedSummary(UUID fpId) {
+
+        Long thisMonthCount = entityManager.createQuery("""
+            SELECT COUNT(cfh) FROM CustomerFpHistory cfh
+            WHERE cfh.afterFp.id = :fpId
+            AND YEAR(cfh.changedAt) = YEAR(CURRENT_DATE)
+            AND MONTH(cfh.changedAt) = MONTH(CURRENT_DATE)
+            """, Long.class)
+                .setParameter("fpId", fpId)
+                .getSingleResult();
+
+        Long totalCount = entityManager.createQuery("""
+            SELECT COUNT(cfh) FROM CustomerFpHistory cfh
+            WHERE cfh.afterFp.id = :fpId
+            """, Long.class)
+                .setParameter("fpId", fpId)
+                .getSingleResult();
+
+        Long maintainedCount = entityManager.createQuery("""
+            SELECT COUNT(DISTINCT c.id)
+            FROM CustomerFpHistory cfh
+            JOIN cfh.customer c
+            JOIN Contract ct ON ct.customer.id = c.id
+            WHERE cfh.afterFp.id = :fpId
+            AND ct.contractStatus = 'MAINTENANCE'
+            AND ct.deletedAt IS NULL
+            """, Long.class)
+                .setParameter("fpId", fpId)
+                .getSingleResult();
+
+        double successRate = totalCount == 0 ? 0.0
+                : Math.round((double) maintainedCount / totalCount * 1000.0) / 10.0;
+
+        return new HandoverReceivedSummaryResponse(thisMonthCount, totalCount, successRate);
     }
 }

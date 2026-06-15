@@ -21,6 +21,7 @@ import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
+import com.linker.relia.handover.dto.response.HandoverReceivedSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.handover.exception.HandoverErrorCode;
 import com.linker.relia.handover.repository.HandoverDetailQueryRepository;
@@ -294,6 +295,12 @@ public class HandoverService {
         return handoverDetailQueryRepository.findSummary(accessScope);
     }
 
+    // 받은 인수인계 목록 요약
+    @Transactional(readOnly = true)
+    public HandoverReceivedSummaryResponse getReceivedSummary(PrincipalDetails principal) {
+        UUID fpId = principal.getUser().getId();
+        return handoverReceivedQueryRepository.findReceivedSummary(fpId);
+    }
 
     // 인수인계 상세 조회 접근
     private void validateApprovalProcessTarget(HandoverRequest handoverRequest) {

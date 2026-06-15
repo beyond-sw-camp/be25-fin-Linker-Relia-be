@@ -4,6 +4,7 @@ import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeResolver;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.exception.OrganizationErrorCode;
 import com.linker.relia.organization.repository.OrganizationRepository;
@@ -24,7 +25,7 @@ public class CommissionAccessServiceImpl implements CommissionAccessService {
 
     @Override
     public void validateOrganizationCodeFilter(AccessScope accessScope, String organizationCode, String userOrganizationCode) {
-        if (organizationCode == null) {
+        if (organizationCode == null || organizationCode.isBlank()) {
             return;
         }
 

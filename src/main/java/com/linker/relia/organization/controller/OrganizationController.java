@@ -2,6 +2,7 @@ package com.linker.relia.organization.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
+import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
@@ -16,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,8 +41,8 @@ public class OrganizationController {
     @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<FpListResponse>> getFps(
             @AuthenticationPrincipal PrincipalDetails principalDetails,
-            @RequestParam Integer page,
-            @RequestParam Integer size,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) UUID organizationId,
             @RequestParam(required = false) String closingMonth
@@ -54,6 +56,17 @@ public class OrganizationController {
 
         FpListResponse responseDto = organizationService.getFps(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "설계사 목록 조회 성공", responseDto);
+    }
+
+    @GetMapping("/fps/{fpId}")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<FpDetailResponse>> getFpDetail(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @PathVariable UUID fpId,
+            @RequestParam(required = false) String closingMonth
+    ) {
+        FpDetailResponse responseDto = organizationService.getFpDetail(principalDetails, fpId, closingMonth);
+        return ApiResponse.success(HttpStatus.OK, "설계사 상세 정보 조회 성공", responseDto);
     }
 
     @GetMapping

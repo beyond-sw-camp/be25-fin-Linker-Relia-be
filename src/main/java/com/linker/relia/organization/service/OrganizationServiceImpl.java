@@ -1,5 +1,6 @@
 package com.linker.relia.organization.service;
 
+import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeResolver;
 import com.linker.relia.common.exception.BusinessException;
@@ -8,15 +9,18 @@ import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.domain.OrganizationStatus;
 import com.linker.relia.organization.domain.OrganizationType;
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
+import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
 import com.linker.relia.organization.dto.OrganizationChartItemResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
+import com.linker.relia.organization.exception.OrganizationErrorCode;
 import com.linker.relia.organization.repository.OrganizationFpRepository;
 import com.linker.relia.organization.repository.OrganizationRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,10 +88,9 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Override
     @Transactional(readOnly = true)
     public FpListResponse getFps(PrincipalDetails principalDetails, FpListRequest request) {
-        validatePageRequest(request);
+        Pageable pageable = resolvePageable(request);
         String closingMonth = normalizeClosingMonth(request.getClosingMonth());
         String keyword = normalizeNullable(request.getKeyword());
-        Pageable pageable = request.toPageable();
         AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
 
         return FpListResponse.from(organizationFpRepository.searchFps(
@@ -99,14 +102,45 @@ public class OrganizationServiceImpl implements OrganizationService {
         ));
     }
 
-    private void validatePageRequest(FpListRequest request) {
-        if (request.getPage() == null || request.getPage() < 1) {
+    @Override
+    @Transactional(readOnly = true)
+    public FpDetailResponse getFpDetail(PrincipalDetails principalDetails, UUID fpId, String closingMonth) {
+        String normalizedClosingMonth = normalizeClosingMonth(closingMonth);
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+
+        return organizationFpRepository.findFpDetail(accessScope, fpId, normalizedClosingMonth)
+                .orElseThrow(() -> resolveFpDetailNotFoundException(fpId));
+    }
+
+    private BusinessException resolveFpDetailNotFoundException(UUID fpId) {
+        if (!organizationFpRepository.existsFp(fpId)) {
+            return new BusinessException(OrganizationErrorCode.FP_NOT_FOUND);
+        }
+
+        return new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+    }
+
+    private Pageable resolvePageable(FpListRequest request) {
+        boolean pageMissing = request.getPage() == null;
+        boolean sizeMissing = request.getSize() == null;
+
+        if (pageMissing && sizeMissing) {
+            return Pageable.unpaged();
+        }
+
+        if (pageMissing || sizeMissing) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "page와 size는 함께 요청해야 합니다.");
+        }
+
+        if (request.getPage() < 1) {
             throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "page는 1 이상이어야 합니다.");
         }
 
-        if (request.getSize() == null || request.getSize() < 1) {
+        if (request.getSize() < 1) {
             throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "size는 1 이상이어야 합니다.");
         }
+
+        return PageRequest.of(request.getPage() - 1, request.getSize());
     }
 
     private String normalizeClosingMonth(String closingMonth) {

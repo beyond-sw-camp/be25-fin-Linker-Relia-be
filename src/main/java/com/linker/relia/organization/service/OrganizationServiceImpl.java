@@ -9,6 +9,8 @@ import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.domain.OrganizationStatus;
 import com.linker.relia.organization.domain.OrganizationType;
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
+import com.linker.relia.organization.dto.FpContractListRequest;
+import com.linker.relia.organization.dto.FpContractListResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
@@ -38,6 +40,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class OrganizationServiceImpl implements OrganizationService {
     private static final Pattern CLOSING_MONTH_PATTERN = Pattern.compile("^\\d{4}-(0[1-9]|1[0-2])$");
+    private static final int MAX_FP_CONTRACT_PAGE_SIZE = 200;
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationFpRepository organizationFpRepository;
@@ -110,6 +113,41 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         return organizationFpRepository.findFpDetail(accessScope, fpId, normalizedClosingMonth)
                 .orElseThrow(() -> resolveFpDetailNotFoundException(fpId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FpContractListResponse getFpContracts(PrincipalDetails principalDetails,
+                                                 UUID fpId,
+                                                 FpContractListRequest request) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateFpAccessible(accessScope, fpId);
+        validateFpContractPageSize(request.getSize());
+
+        return FpContractListResponse.from(organizationFpRepository.findFpContracts(
+                accessScope,
+                fpId,
+                request.toPageable()
+        ));
+    }
+
+    private void validateFpContractPageSize(Integer size) {
+        if (size != null && size > MAX_FP_CONTRACT_PAGE_SIZE) {
+            throw new BusinessException(
+                    CommonErrorCode.INVALID_REQUEST,
+                    "size는 " + MAX_FP_CONTRACT_PAGE_SIZE + " 이하여야 합니다."
+            );
+        }
+    }
+
+    private void validateFpAccessible(AccessScope accessScope, UUID fpId) {
+        if (!organizationFpRepository.existsFp(fpId)) {
+            throw new BusinessException(OrganizationErrorCode.FP_NOT_FOUND);
+        }
+
+        if (!organizationFpRepository.existsFpInScope(accessScope, fpId)) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
     }
 
     private BusinessException resolveFpDetailNotFoundException(UUID fpId) {

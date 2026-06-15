@@ -2,6 +2,8 @@ package com.linker.relia.organization.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
+import com.linker.relia.organization.dto.FpContractListRequest;
+import com.linker.relia.organization.dto.FpContractListResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
@@ -67,6 +69,17 @@ public class OrganizationController {
     ) {
         FpDetailResponse responseDto = organizationService.getFpDetail(principalDetails, fpId, closingMonth);
         return ApiResponse.success(HttpStatus.OK, "설계사 상세 정보 조회 성공", responseDto);
+    }
+
+    @GetMapping("/fps/{fpId}/contracts")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<FpContractListResponse>> getFpContracts(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @PathVariable UUID fpId,
+            @Valid @ModelAttribute FpContractListRequest request
+    ) {
+        FpContractListResponse responseDto = organizationService.getFpContracts(principalDetails, fpId, request);
+        return ApiResponse.success(HttpStatus.OK, "설계사 계약 목록 조회 성공", responseDto);
     }
 
     @GetMapping

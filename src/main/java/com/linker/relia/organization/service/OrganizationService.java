@@ -1,6 +1,8 @@
 package com.linker.relia.organization.service;
 
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
+import com.linker.relia.organization.dto.FpContractListRequest;
+import com.linker.relia.organization.dto.FpContractListResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
@@ -19,4 +21,8 @@ public interface OrganizationService {
     FpListResponse getFps(PrincipalDetails principalDetails, FpListRequest request);
 
     FpDetailResponse getFpDetail(PrincipalDetails principalDetails, UUID fpId, String closingMonth);
+
+    FpContractListResponse getFpContracts(PrincipalDetails principalDetails,
+                                          UUID fpId,
+                                          FpContractListRequest request);
 }

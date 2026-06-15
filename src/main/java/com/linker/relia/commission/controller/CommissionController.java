@@ -9,6 +9,8 @@ import com.linker.relia.commission.dto.FpCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
 import com.linker.relia.commission.dto.InsuranceCompanyCommissionSummaryResponse;
+import com.linker.relia.commission.dto.OrganizationCommissionListRequest;
+import com.linker.relia.commission.dto.OrganizationCommissionListResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
 import com.linker.relia.commission.dto.OrganizationScopedClosingMonthRequest;
@@ -53,7 +55,7 @@ public class CommissionController {
         return ApiResponse.success(HttpStatus.OK, "설계사 월별 수수료 추이 조회 성공", response);
     }
 
-    @GetMapping("/fps")
+    @GetMapping("/fp-list")
     @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<PageResponse<FpCommissionListResponse>>> getFpCommissionList(
             @AuthenticationPrincipal PrincipalDetails principalDetails,
@@ -83,6 +85,17 @@ public class CommissionController {
         List<OrganizationCommissionMonthlyTrendResponse> response =
                 commissionService.getOrganizationCommissionTrend(principalDetails, organizationCode);
         return ApiResponse.success(HttpStatus.OK, "조직 월별 수수료 추이 조회 성공", response);
+    }
+
+    @GetMapping("/organization-list")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<OrganizationCommissionListResponse>>> getOrganizationCommissionList(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute OrganizationCommissionListRequest request
+    ) {
+        PageResponse<OrganizationCommissionListResponse> response =
+                commissionService.getOrganizationCommissionList(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "조직별 월 수수료 현황 조회 성공", response);
     }
 
     @GetMapping("/payment-types/summary")

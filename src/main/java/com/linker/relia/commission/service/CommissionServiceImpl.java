@@ -12,6 +12,9 @@ import com.linker.relia.commission.dto.FpCommissionListResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
 import com.linker.relia.commission.dto.InsuranceCompanyCommissionSummaryResponse;
+import com.linker.relia.commission.dto.OrganizationCommissionListRequest;
+import com.linker.relia.commission.dto.OrganizationCommissionListQueryResult;
+import com.linker.relia.commission.dto.OrganizationCommissionListResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendQueryResult;
 import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
@@ -182,6 +185,47 @@ public class CommissionServiceImpl implements CommissionService {
 
         Organization organization = commissionAccessService.resolveOrganization(organizationCode.trim());
         return getBranchTrend(endMonth, organization);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<OrganizationCommissionListResponse> getOrganizationCommissionList(PrincipalDetails principalDetails,
+                                                                                          OrganizationCommissionListRequest request) {
+        AccessScope accessScope = commissionAccessService.resolveAccessScope(principalDetails);
+        String closingMonth = request.getClosingMonth().trim();
+        String organizationCode = request.getOrganizationCode();
+        Pageable pageable = request.toPageable();
+
+        if (accessScope.isBranchScope()) {
+            Organization organization = principalDetails.getUser().getOrganization();
+            commissionAccessService.validateOrganizationCodeFilter(
+                    accessScope,
+                    organizationCode,
+                    organization.getOrganizationCode()
+            );
+            return toOrganizationPageResponse(
+                    branchCommissionMonthlyClosingRepository.findBranchOrganizationCommissionList(
+                            closingMonth,
+                            organization.getId(),
+                            pageable
+                    )
+            );
+        }
+
+        if (organizationCode == null || organizationCode.isBlank()) {
+            return toOrganizationPageResponse(
+                    branchCommissionMonthlyClosingRepository.findHqOrganizationCommissionList(closingMonth, pageable)
+            );
+        }
+
+        Organization organization = commissionAccessService.resolveOrganization(organizationCode.trim());
+        return toOrganizationPageResponse(
+                branchCommissionMonthlyClosingRepository.findBranchOrganizationCommissionList(
+                        closingMonth,
+                        organization.getId(),
+                        pageable
+                )
+        );
     }
 
     @Override
@@ -384,6 +428,10 @@ public class CommissionServiceImpl implements CommissionService {
 
     private PageResponse<FpCommissionListResponse> toPageResponse(Page<FpCommissionListQueryResult> page) {
         return PageResponse.from(page.map(FpCommissionListResponse::from));
+    }
+
+    private PageResponse<OrganizationCommissionListResponse> toOrganizationPageResponse(Page<OrganizationCommissionListQueryResult> page) {
+        return PageResponse.from(page.map(OrganizationCommissionListResponse::from));
     }
 
 }

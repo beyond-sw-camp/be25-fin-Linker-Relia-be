@@ -7,6 +7,8 @@ import com.linker.relia.commission.dto.FpCommissionListResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
 import com.linker.relia.commission.dto.InsuranceCompanyCommissionSummaryResponse;
+import com.linker.relia.commission.dto.OrganizationCommissionListRequest;
+import com.linker.relia.commission.dto.OrganizationCommissionListResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
 import com.linker.relia.commission.dto.OrganizationScopedClosingMonthRequest;
@@ -28,6 +30,9 @@ public interface CommissionService {
 
     List<OrganizationCommissionMonthlyTrendResponse> getOrganizationCommissionTrend(PrincipalDetails principalDetails,
                                                                                     String organizationCode);
+
+    PageResponse<OrganizationCommissionListResponse> getOrganizationCommissionList(PrincipalDetails principalDetails,
+                                                                                   OrganizationCommissionListRequest request);
 
     CommissionPaymentTypeSummaryResponse getCommissionPaymentTypeSummary(PrincipalDetails principalDetails,
                                                                          OrganizationScopedClosingMonthRequest request);

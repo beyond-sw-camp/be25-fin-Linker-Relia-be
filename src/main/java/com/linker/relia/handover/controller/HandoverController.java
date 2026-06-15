@@ -12,6 +12,7 @@ import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
+import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.handover.service.HandoverService;
 import com.linker.relia.security.principal.PrincipalDetails;
 import jakarta.validation.Valid;
@@ -102,6 +103,16 @@ public class HandoverController {
                 .getReceivedList(principal, pageRequest.toPageable());
 
         return ApiResponse.success(HttpStatus.OK, "인수받은 고객 목록 조회 성공", response);
+    }
+
+    // 인수인계 요청 뮥륙 요약
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<HandoverSummaryResponse>> getSummary(
+            @AuthenticationPrincipal PrincipalDetails principal) {
+
+        HandoverSummaryResponse response = handoverService.getSummary(principal);
+        return ApiResponse.success(HttpStatus.OK, "인수인계 요약 조회 성공", response);
     }
 
 

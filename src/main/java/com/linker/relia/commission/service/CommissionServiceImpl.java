@@ -5,7 +5,10 @@ import com.linker.relia.commission.domain.BranchIncomeCommissionMonthlyClosing;
 import com.linker.relia.commission.domain.FpCommissionMonthlyClosing;
 import com.linker.relia.commission.domain.IncomeCommissionMonthlyClosing;
 import com.linker.relia.commission.dto.CommissionPaymentTypeSummaryResponse;
+import com.linker.relia.commission.dto.FpCommissionListRequest;
+import com.linker.relia.commission.dto.FpCommissionListQueryResult;
 import com.linker.relia.commission.dto.FpCommissionMonthlyTrendResponse;
+import com.linker.relia.commission.dto.FpCommissionListResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
 import com.linker.relia.commission.dto.InsuranceCompanyCommissionSummaryResponse;
@@ -13,17 +16,21 @@ import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendQueryRe
 import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
 import com.linker.relia.commission.dto.OrganizationScopedClosingMonthRequest;
-import com.linker.relia.commission.repository.BranchIncomeCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.BranchCommissionMonthlyClosingRepository;
-import com.linker.relia.commission.repository.custom.CommissionInsuranceCompanyQueryRepository;
+import com.linker.relia.commission.repository.BranchIncomeCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.FpCommissionMonthlyClosingRepository;
-import com.linker.relia.commission.repository.custom.FpCommissionTrendQueryRepository;
 import com.linker.relia.commission.repository.IncomeCommissionMonthlyClosingRepository;
+import com.linker.relia.commission.repository.custom.CommissionInsuranceCompanyQueryRepository;
+import com.linker.relia.commission.repository.custom.FpCommissionListQueryRepository;
+import com.linker.relia.commission.repository.custom.FpCommissionTrendQueryRepository;
 import com.linker.relia.commission.repository.custom.OrganizationCommissionTrendQueryRepository;
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.security.principal.PrincipalDetails;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +54,7 @@ public class CommissionServiceImpl implements CommissionService {
     private final IncomeCommissionMonthlyClosingRepository incomeCommissionMonthlyClosingRepository;
     private final CommissionInsuranceCompanyQueryRepository commissionInsuranceCompanyQueryRepository;
     private final OrganizationCommissionTrendQueryRepository organizationCommissionTrendQueryRepository;
+    private final FpCommissionListQueryRepository fpCommissionListQueryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -92,6 +100,38 @@ public class CommissionServiceImpl implements CommissionService {
                 .map(YearMonth::toString)
                 .map(month -> trendByMonth.getOrDefault(month, FpCommissionMonthlyTrendResponse.empty(month)))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<FpCommissionListResponse> getFpCommissionList(PrincipalDetails principalDetails,
+                                                                      FpCommissionListRequest request) {
+        AccessScope accessScope = commissionAccessService.resolveAccessScope(principalDetails);
+        String closingMonth = request.getClosingMonth().trim();
+        String organizationCode = request.getOrganizationCode();
+        Pageable pageable = request.toPageable();
+
+        if (accessScope.isBranchScope()) {
+            Organization organization = principalDetails.getUser().getOrganization();
+            commissionAccessService.validateOrganizationCodeFilter(
+                    accessScope,
+                    organizationCode,
+                    organization.getOrganizationCode()
+            );
+
+            return toPageResponse(
+                    fpCommissionListQueryRepository.findBranchFpCommissionList(closingMonth, organization.getId(), pageable)
+            );
+        }
+
+        if (organizationCode == null || organizationCode.isBlank()) {
+            return toPageResponse(fpCommissionListQueryRepository.findHqFpCommissionList(closingMonth, pageable));
+        }
+
+        Organization organization = commissionAccessService.resolveOrganization(organizationCode.trim());
+        return toPageResponse(
+                fpCommissionListQueryRepository.findBranchFpCommissionList(closingMonth, organization.getId(), pageable)
+        );
     }
 
     @Override
@@ -341,4 +381,9 @@ public class CommissionServiceImpl implements CommissionService {
 
         return CommissionPaymentTypeSummaryResponse.hqOf(current);
     }
+
+    private PageResponse<FpCommissionListResponse> toPageResponse(Page<FpCommissionListQueryResult> page) {
+        return PageResponse.from(page.map(FpCommissionListResponse::from));
+    }
+
 }

@@ -1,7 +1,10 @@
 package com.linker.relia.commission.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.commission.dto.CommissionPaymentTypeSummaryResponse;
+import com.linker.relia.commission.dto.FpCommissionListRequest;
+import com.linker.relia.commission.dto.FpCommissionListResponse;
 import com.linker.relia.commission.dto.FpCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
@@ -48,6 +51,17 @@ public class CommissionController {
     ) {
         List<FpCommissionMonthlyTrendResponse> response = commissionService.getFpCommissionTrend(principalDetails);
         return ApiResponse.success(HttpStatus.OK, "설계사 월별 수수료 추이 조회 성공", response);
+    }
+
+    @GetMapping("/fps")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<FpCommissionListResponse>>> getFpCommissionList(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute FpCommissionListRequest request
+    ) {
+        PageResponse<FpCommissionListResponse> response =
+                commissionService.getFpCommissionList(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "설계사별 월 수수료 현황 조회 성공", response);
     }
 
     @GetMapping("/organization-summary")

@@ -1680,8 +1680,7 @@ SELECT
     END AS request_type,
     CASE
         WHEN seq_no <= 30 THEN 'COMPLETED'
-        WHEN seq_no <= 40 THEN 'MANAGER_PENDING'
-        ELSE 'RETRY'
+        ELSE 'MANAGER_PENDING'
     END AS request_status,
     current_fp_id,
     current_fp_id

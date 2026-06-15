@@ -130,9 +130,9 @@ FROM (
         ROUND(
             gross_summary.total_initial_gross_commission_amount
             + gross_summary.total_maintenance_gross_commission_amount
-            + gross_summary.total_insurance_recovery_amount
             - payment_summary.total_payment_commission_amount
-            - payment_summary.total_fp_recovery_collection_amount,
+            - gross_summary.total_insurance_recovery_amount
+            + payment_summary.total_fp_recovery_collection_amount,
             2
         ) AS net_income_commission_amount,
         gross_summary.total_initial_gross_commission_amount,
@@ -209,9 +209,11 @@ FROM (
         gross_summary.closing_month,
         gross_summary.organization_id,
         ROUND(
-            gross_summary.total_gross_commission_amount
+            gross_summary.total_initial_gross_commission_amount
+            + gross_summary.total_maintenance_gross_commission_amount
             - payment_summary.total_payment_commission_amount
-            - payment_summary.total_fp_recovery_collection_amount,
+            - gross_summary.total_insurance_recovery_amount
+            + payment_summary.total_fp_recovery_collection_amount,
             2
         ) AS net_income_commission_amount,
         gross_summary.total_initial_gross_commission_amount,

@@ -22,64 +22,64 @@ public class InsuranceCompanyCommissionSummaryResponse {
     private final List<InsuranceCompanyItem> items;
 
     public static InsuranceCompanyCommissionSummaryResponse fpOf(String closingMonth,
-                                                                 List<InsuranceCompanyCommissionSummaryRow> rows) {
+                                                                 List<InsuranceCompanyCommissionSummaryQueryResult> queryResults) {
         return InsuranceCompanyCommissionSummaryResponse.builder()
-                .hasData(!rows.isEmpty())
+                .hasData(!queryResults.isEmpty())
                 .scope("FP")
                 .metricType("NET_COMMISSION")
                 .closingMonth(closingMonth)
                 .organizationId(null)
                 .organizationCode(null)
                 .organizationName(null)
-                .items(toItems(rows))
+                .items(toItems(queryResults))
                 .build();
     }
 
     public static InsuranceCompanyCommissionSummaryResponse branchOf(String closingMonth,
                                                                      Organization organization,
-                                                                     List<InsuranceCompanyCommissionSummaryRow> rows) {
+                                                                     List<InsuranceCompanyCommissionSummaryQueryResult> queryResults) {
         return InsuranceCompanyCommissionSummaryResponse.builder()
-                .hasData(!rows.isEmpty())
+                .hasData(!queryResults.isEmpty())
                 .scope("BRANCH")
                 .metricType("NET_COMMISSION")
                 .closingMonth(closingMonth)
                 .organizationId(organization.getId())
                 .organizationCode(organization.getOrganizationCode())
                 .organizationName(organization.getOrganizationName())
-                .items(toItems(rows))
+                .items(toItems(queryResults))
                 .build();
     }
 
     public static InsuranceCompanyCommissionSummaryResponse hqOf(String closingMonth,
-                                                                 List<InsuranceCompanyCommissionSummaryRow> rows) {
+                                                                 List<InsuranceCompanyCommissionSummaryQueryResult> queryResults) {
         return InsuranceCompanyCommissionSummaryResponse.builder()
-                .hasData(!rows.isEmpty())
+                .hasData(!queryResults.isEmpty())
                 .scope("HQ")
                 .metricType("NET_INCOME_COMMISSION")
                 .closingMonth(closingMonth)
                 .organizationId(null)
                 .organizationCode(null)
                 .organizationName(null)
-                .items(toItems(rows))
+                .items(toItems(queryResults))
                 .build();
     }
 
-    private static List<InsuranceCompanyItem> toItems(List<InsuranceCompanyCommissionSummaryRow> rows) {
-        BigDecimal totalPaymentAmount = rows.stream()
-                .map(InsuranceCompanyCommissionSummaryRow::getTotalPaymentAmount)
+    private static List<InsuranceCompanyItem> toItems(List<InsuranceCompanyCommissionSummaryQueryResult> queryResults) {
+        BigDecimal totalPaymentAmount = queryResults.stream()
+                .map(InsuranceCompanyCommissionSummaryQueryResult::getTotalPaymentAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        return rows.stream()
-                .map(row -> InsuranceCompanyItem.builder()
-                        .insuranceCompanyId(row.getInsuranceCompanyId())
-                        .insuranceCompanyName(row.getInsuranceCompanyName())
-                        .totalInitialAmount(row.getTotalInitialAmount())
-                        .totalMaintenanceAmount(row.getTotalMaintenanceAmount())
-                        .totalRecoveryAmount(row.getTotalRecoveryAmount())
-                        .totalPaymentAmount(row.getTotalPaymentAmount())
-                        .netAmount(row.getNetAmount())
-                        .contractCount(row.getContractCount())
-                        .ratio(toRatio(row.getTotalPaymentAmount(), totalPaymentAmount))
+        return queryResults.stream()
+                .map(queryResult -> InsuranceCompanyItem.builder()
+                        .insuranceCompanyId(queryResult.getInsuranceCompanyId())
+                        .insuranceCompanyName(queryResult.getInsuranceCompanyName())
+                        .totalInitialAmount(queryResult.getTotalInitialAmount())
+                        .totalMaintenanceAmount(queryResult.getTotalMaintenanceAmount())
+                        .totalRecoveryAmount(queryResult.getTotalRecoveryAmount())
+                        .totalPaymentAmount(queryResult.getTotalPaymentAmount())
+                        .netAmount(queryResult.getNetAmount())
+                        .contractCount(queryResult.getContractCount())
+                        .ratio(toRatio(queryResult.getTotalPaymentAmount(), totalPaymentAmount))
                         .build())
                 .toList();
     }

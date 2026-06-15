@@ -8,7 +8,7 @@ import java.util.UUID;
 
 @Getter
 @AllArgsConstructor
-public class InsuranceCompanyCommissionSummaryRow {
+public class InsuranceCompanyCommissionSummaryQueryResult {
     private final UUID insuranceCompanyId;
     private final String insuranceCompanyName;
     private final BigDecimal totalInitialAmount;

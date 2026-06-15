@@ -24,7 +24,6 @@ import com.linker.relia.commission.repository.BranchIncomeCommissionMonthlyClosi
 import com.linker.relia.commission.repository.FpCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.IncomeCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.custom.CommissionInsuranceCompanyQueryRepository;
-import com.linker.relia.commission.repository.custom.FpCommissionListQueryRepository;
 import com.linker.relia.commission.repository.custom.FpCommissionTrendQueryRepository;
 import com.linker.relia.commission.repository.custom.OrganizationCommissionTrendQueryRepository;
 import com.linker.relia.common.access.AccessScope;
@@ -57,7 +56,6 @@ public class CommissionServiceImpl implements CommissionService {
     private final IncomeCommissionMonthlyClosingRepository incomeCommissionMonthlyClosingRepository;
     private final CommissionInsuranceCompanyQueryRepository commissionInsuranceCompanyQueryRepository;
     private final OrganizationCommissionTrendQueryRepository organizationCommissionTrendQueryRepository;
-    private final FpCommissionListQueryRepository fpCommissionListQueryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -123,17 +121,17 @@ public class CommissionServiceImpl implements CommissionService {
             );
 
             return toPageResponse(
-                    fpCommissionListQueryRepository.findBranchFpCommissionList(closingMonth, organization.getId(), pageable)
+                    fpCommissionMonthlyClosingRepository.findBranchFpCommissionList(closingMonth, organization.getId(), pageable)
             );
         }
 
         if (organizationCode == null || organizationCode.isBlank()) {
-            return toPageResponse(fpCommissionListQueryRepository.findHqFpCommissionList(closingMonth, pageable));
+            return toPageResponse(fpCommissionMonthlyClosingRepository.findHqFpCommissionList(closingMonth, pageable));
         }
 
         Organization organization = commissionAccessService.resolveOrganization(organizationCode.trim());
         return toPageResponse(
-                fpCommissionListQueryRepository.findBranchFpCommissionList(closingMonth, organization.getId(), pageable)
+                fpCommissionMonthlyClosingRepository.findBranchFpCommissionList(closingMonth, organization.getId(), pageable)
         );
     }
 

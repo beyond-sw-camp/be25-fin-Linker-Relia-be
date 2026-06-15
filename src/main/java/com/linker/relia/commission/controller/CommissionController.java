@@ -2,6 +2,7 @@ package com.linker.relia.commission.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.commission.dto.CommissionPaymentTypeSummaryResponse;
+import com.linker.relia.commission.dto.FpCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
 import com.linker.relia.commission.dto.InsuranceCompanyCommissionSummaryResponse;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/commissions")
@@ -33,7 +36,16 @@ public class CommissionController {
             @Valid @ModelAttribute FpCommissionSummaryRequest request
     ) {
         FpCommissionSummaryResponse response = commissionService.getFpCommissionSummary(principalDetails, request);
-        return ApiResponse.success(HttpStatus.OK, "설계사 수수료 요약 조회를 성공하였습니다.", response);
+        return ApiResponse.success(HttpStatus.OK, "설계사 수수료 요약 조회 성공", response);
+    }
+
+    @GetMapping("/fp-trend")
+    @PreAuthorize("hasRole('FP')")
+    public ResponseEntity<ApiResponse<List<FpCommissionMonthlyTrendResponse>>> getFpCommissionTrend(
+            @AuthenticationPrincipal PrincipalDetails principalDetails
+    ) {
+        List<FpCommissionMonthlyTrendResponse> response = commissionService.getFpCommissionTrend(principalDetails);
+        return ApiResponse.success(HttpStatus.OK, "설계사 월별 수수료 추이 조회 성공", response);
     }
 
     @GetMapping("/organization-summary")
@@ -43,7 +55,7 @@ public class CommissionController {
             @Valid @ModelAttribute OrganizationScopedClosingMonthRequest request
     ) {
         OrganizationCommissionSummaryResponse response = commissionService.getOrganizationCommissionSummary(principalDetails, request);
-        return ApiResponse.success(HttpStatus.OK, "조직 수수료 요약 조회를 성공하였습니다.", response);
+        return ApiResponse.success(HttpStatus.OK, "조직 수수료 요약 조회 성공", response);
     }
 
     @GetMapping("/payment-types/summary")
@@ -53,7 +65,7 @@ public class CommissionController {
             @Valid @ModelAttribute OrganizationScopedClosingMonthRequest request
     ) {
         CommissionPaymentTypeSummaryResponse response = commissionService.getCommissionPaymentTypeSummary(principalDetails, request);
-        return ApiResponse.success(HttpStatus.OK, "지급 구분 요약 조회를 성공하였습니다.", response);
+        return ApiResponse.success(HttpStatus.OK, "지급 구분 요약 조회 성공", response);
     }
 
     @GetMapping("/insurance-companies/summary")
@@ -63,6 +75,6 @@ public class CommissionController {
             @Valid @ModelAttribute OrganizationScopedClosingMonthRequest request
     ) {
         InsuranceCompanyCommissionSummaryResponse response = commissionService.getInsuranceCompanyCommissionSummary(principalDetails, request);
-        return ApiResponse.success(HttpStatus.OK, "보험사별 수수료 현황 조회를 성공하였습니다.", response);
+        return ApiResponse.success(HttpStatus.OK, "보험사별 수수료 현황 조회 성공", response);
     }
 }

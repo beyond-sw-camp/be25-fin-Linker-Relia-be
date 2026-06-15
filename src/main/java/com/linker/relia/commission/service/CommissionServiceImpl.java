@@ -4,6 +4,7 @@ import com.linker.relia.commission.domain.BranchCommissionMonthlyClosing;
 import com.linker.relia.commission.domain.FpCommissionMonthlyClosing;
 import com.linker.relia.commission.domain.IncomeCommissionMonthlyClosing;
 import com.linker.relia.commission.dto.CommissionPaymentTypeSummaryResponse;
+import com.linker.relia.commission.dto.FpCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
 import com.linker.relia.commission.dto.InsuranceCompanyCommissionSummaryResponse;
@@ -12,6 +13,7 @@ import com.linker.relia.commission.dto.OrganizationScopedClosingMonthRequest;
 import com.linker.relia.commission.repository.BranchCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.CommissionInsuranceCompanyQueryRepository;
 import com.linker.relia.commission.repository.FpCommissionMonthlyClosingRepository;
+import com.linker.relia.commission.repository.FpCommissionTrendQueryRepository;
 import com.linker.relia.commission.repository.IncomeCommissionMonthlyClosingRepository;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.organization.domain.Organization;
@@ -21,6 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.YearMonth;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -28,6 +33,7 @@ import java.util.UUID;
 public class CommissionServiceImpl implements CommissionService {
     private final CommissionAccessService commissionAccessService;
     private final FpCommissionMonthlyClosingRepository fpCommissionMonthlyClosingRepository;
+    private final FpCommissionTrendQueryRepository fpCommissionTrendQueryRepository;
     private final BranchCommissionMonthlyClosingRepository branchCommissionMonthlyClosingRepository;
     private final IncomeCommissionMonthlyClosingRepository incomeCommissionMonthlyClosingRepository;
     private final CommissionInsuranceCompanyQueryRepository commissionInsuranceCompanyQueryRepository;
@@ -51,6 +57,31 @@ public class CommissionServiceImpl implements CommissionService {
                 .orElse(null);
 
         return FpCommissionSummaryResponse.of(current, previous);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FpCommissionMonthlyTrendResponse> getFpCommissionTrend(PrincipalDetails principalDetails) {
+        AccessScope accessScope = commissionAccessService.resolveAccessScope(principalDetails);
+        YearMonth endMonth = YearMonth.now().minusMonths(1);
+        YearMonth startMonth = endMonth.minusMonths(4);
+
+        List<FpCommissionMonthlyTrendResponse> monthlyTrend = fpCommissionTrendQueryRepository
+                .findFpTrendQueryResults(startMonth.toString(), endMonth.toString(), accessScope.userId())
+                .stream()
+                .map(FpCommissionMonthlyTrendResponse::from)
+                .toList();
+
+        Map<String, FpCommissionMonthlyTrendResponse> trendByMonth = new HashMap<>();
+        for (FpCommissionMonthlyTrendResponse trend : monthlyTrend) {
+            trendByMonth.put(trend.getClosingMonth(), trend);
+        }
+
+        return java.util.stream.IntStream.range(0, 5)
+                .mapToObj(startMonth::plusMonths)
+                .map(YearMonth::toString)
+                .map(month -> trendByMonth.getOrDefault(month, FpCommissionMonthlyTrendResponse.empty(month)))
+                .toList();
     }
 
     @Override

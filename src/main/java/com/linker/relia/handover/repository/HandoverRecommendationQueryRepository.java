@@ -5,6 +5,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,24 +46,24 @@ public class HandoverRecommendationQueryRepository { //추천 계산에 필요�
     }
 
     public List<String> findCustomerHistoryFpEmpCodes(UUID customerId) {
-        return entityManager.createQuery("""
-            SELECT DISTINCT u.empCode
-            FROM User u
-            WHERE u.id IN (
-                SELECT h.beforeFpId
-                FROM CustomerFpHistory h
-                WHERE h.customer.id = :customerId
-                  AND h.beforeFpId IS NOT NULL
-            )
-            OR u.id IN (
-                SELECT h.afterFpId
-                FROM CustomerFpHistory h
-                WHERE h.customer.id = :customerId
-                  AND h.afterFpId IS NOT NULL
-            )
+        LinkedHashSet<String> empCodes = new LinkedHashSet<>();
+        empCodes.addAll(entityManager.createQuery("""
+            SELECT DISTINCT fp.empCode
+            FROM CustomerFpHistory h
+            JOIN h.beforeFp fp
+            WHERE h.customer.id = :customerId
             """, String.class)
                 .setParameter("customerId", customerId)
-                .getResultList();
+                .getResultList());
+        empCodes.addAll(entityManager.createQuery("""
+            SELECT DISTINCT fp.empCode
+            FROM CustomerFpHistory h
+            JOIN h.afterFp fp
+            WHERE h.customer.id = :customerId
+            """, String.class)
+                .setParameter("customerId", customerId)
+                .getResultList());
+        return List.copyOf(empCodes);
     }
 
     public List<String> findRecommendedFpEmpCodes(UUID handoverRequestId) {

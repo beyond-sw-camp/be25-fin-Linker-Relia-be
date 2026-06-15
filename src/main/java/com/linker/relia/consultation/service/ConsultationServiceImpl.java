@@ -48,6 +48,7 @@ import com.linker.relia.insurance.domain.InsuranceProduct;
 import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import com.linker.relia.user.domain.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -56,8 +57,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -204,9 +208,6 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     private Customer createProspectCustomer(CustomerInfoRequest request, User fp) {
         String normalizedPhone = normalizePhone(request.getCustomerPhone());
-        if (customerRepository.countActiveCustomerByNormalizedPhone(normalizedPhone) > 0) {
-            throw new BusinessException(ConsultationErrorCode.DUPLICATE_CUSTOMER_PHONE);
-        }
 
         Customer customer = Customer.builder()
                 .id(UUID.randomUUID())
@@ -216,26 +217,35 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .customerGrade(CustomerGrade.GENERAL)
                 .interestYn(false)
                 .interestReason(null)
-                .customerName(normalizeRequired(request.getCustomerName()))
-                .customerGender(normalizeRequired(request.getCustomerGender()))
+                .customerName(request.getCustomerName())
+                .customerGender(request.getCustomerGender())
                 .customerBirthDate(request.getCustomerBirthDate())
-                .customerPhone(normalizeRequired(request.getCustomerPhone()))
-                .customerEmail(normalizeRequired(request.getCustomerEmail()))
-                .customerZipcode(normalizeRequired(request.getCustomerZipcode()))
-                .customerAddressRoad(normalizeRequired(request.getCustomerAddressRoad()))
-                .customerAddressDetail(normalizeNullable(request.getCustomerAddressDetail()))
-                .customerJob(normalizeRequired(request.getCustomerJob()))
-                .customerCompanyName(normalizeRequired(request.getCustomerCompanyName()))
+                .customerPhone(normalizedPhone)
+                .customerEmail(request.getCustomerEmail())
+                .customerZipcode(request.getCustomerZipcode())
+                .customerAddressRoad(request.getCustomerAddressRoad())
+                .customerAddressDetail(request.getCustomerAddressDetail())
+                .customerJob(request.getCustomerJob())
+                .customerCompanyName(request.getCustomerCompanyName())
                 .customerAnnualIncome(request.getCustomerAnnualIncome())
                 .customerAssetSize(request.getCustomerAssetSize())
-                .customerDebtStatus(normalizeRequired(request.getCustomerDebtStatus()))
+                .customerDebtStatus(request.getCustomerDebtStatus())
                 .customerIsSmoker(request.getCustomerIsSmoker())
                 .customerIsDrinker(request.getCustomerIsDrinker())
                 .customerMaritalStatus(request.getCustomerMaritalStatus())
                 .customerDependentsCount(request.getCustomerDependentsCount())
                 .build();
 
-        Customer savedCustomer = customerRepository.save(customer);
+        Customer savedCustomer;
+        try {
+            savedCustomer = customerRepository.saveAndFlush(customer);
+        } catch (DataIntegrityViolationException e) {
+            if (isDuplicateCustomerPhoneViolation(e)) {
+                throw new BusinessException(ConsultationErrorCode.DUPLICATE_CUSTOMER_PHONE);
+            }
+            throw e;
+        }
+
         saveUnderlyingDiseases(savedCustomer, request.getUnderlyingDiseaseCodes());
         return savedCustomer;
     }
@@ -247,7 +257,11 @@ public class ConsultationServiceImpl implements ConsultationService {
 
         Set<String> uniqueDiseaseCodes = new LinkedHashSet<>();
         for (String diseaseCode : underlyingDiseaseCodes) {
-            String normalizedDiseaseCode = normalizeRequired(diseaseCode);
+            if (diseaseCode == null || diseaseCode.trim().isEmpty()) {
+                throw new IllegalArgumentException("기저질환 코드는 비어 있을 수 없습니다.");
+            }
+
+            String normalizedDiseaseCode = diseaseCode.trim();
             if (!diseaseCodeRepository.existsByDiseaseCodeAndDeletedAtIsNull(normalizedDiseaseCode)) {
                 throw new BusinessException(ConsultationErrorCode.INVALID_DISEASE_CODE);
             }
@@ -268,6 +282,18 @@ public class ConsultationServiceImpl implements ConsultationService {
     private String generateCustomerCode() {
         long nextSequence = customerRepository.getNextCustomerCodeSequence();
         return CUSTOMER_CODE_PREFIX + nextSequence;
+    }
+
+    private boolean isDuplicateCustomerPhoneViolation(DataIntegrityViolationException e) {
+        Throwable current = e;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains("uk_customers_phone")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private NewDetailResponse getNewDetailResponse(UUID consultationId) {
@@ -374,7 +400,7 @@ public class ConsultationServiceImpl implements ConsultationService {
             LocalDateTime now
     ) {
         if (request.getNewDetail() == null) {
-            throw new IllegalArgumentException("신규 상담 상세 정보는 필수입니다.");
+            throw new IllegalArgumentException("신규 계약 상담 상세 정보는 필수입니다.");
         }
 
         ConsultationNewDetail detail = ConsultationNewDetail.builder()
@@ -384,47 +410,47 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .monthlyInsurancePremium(request.getNewDetail().getMonthlyInsurancePremium())
                 .existingInsuranceNote(request.getNewDetail().getExistingInsuranceNote())
                 .insurancePriority(request.getNewDetail().getInsurancePriority())
-                .createdAt(now)
-                .createdBy(fp.getId())
-                .updatedAt(now)
-                .updatedBy(fp.getId())
                 .build();
 
         consultationNewDetailRepository.save(detail);
 
         if (request.getNewDetail().getCoverageTypes() != null) {
-            for (String coverageType : request.getNewDetail().getCoverageTypes()) {
-                consultationNewCoverageNeedRepository.save(
-                        ConsultationNewCoverageNeed.builder()
-                                .consultationNewDetail(detail)
-                                .coverageType(coverageType)
-                                .createdAt(now)
-                                .createdBy(fp.getId())
-                                .updatedAt(now)
-                                .updatedBy(fp.getId())
-                                .build()
-                );
-            }
+            List<ConsultationNewCoverageNeed> coverageNeeds = request.getNewDetail().getCoverageTypes().stream()
+                    .map(coverageType -> ConsultationNewCoverageNeed.builder()
+                            .consultationNewDetail(detail)
+                            .coverageType(coverageType)
+                            .build())
+                    .toList();
+
+            consultationNewCoverageNeedRepository.saveAll(coverageNeeds);
         }
 
         if (request.getNewDetail().getProposedProductCodes() != null) {
-            for (String productCode : request.getNewDetail().getProposedProductCodes()) {
-                InsuranceProduct product = insuranceProductRepository
-                        .findByInsuranceProductCodeAndDeletedAtIsNull(productCode)
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 보험 상품입니다."));
+            Set<String> requestedProductCodes = new LinkedHashSet<>(request.getNewDetail().getProposedProductCodes());
+            Map<String, InsuranceProduct> productByCode = insuranceProductRepository
+                    .findAllByInsuranceProductCodeInAndDeletedAtIsNull(requestedProductCodes)
+                    .stream()
+                    .collect(Collectors.toMap(
+                            InsuranceProduct::getInsuranceProductCode,
+                            Function.identity()
+                    ));
 
-                consultationNewProposedProductRepository.save(
-                        ConsultationNewProposedProduct.builder()
+            if (productByCode.size() != requestedProductCodes.size()) {
+                throw new IllegalArgumentException("존재하지 않는 보험 상품입니다.");
+            }
+
+            List<ConsultationNewProposedProduct> proposedProducts = request.getNewDetail().getProposedProductCodes().stream()
+                    .map(productCode -> {
+                        InsuranceProduct product = productByCode.get(productCode);
+                        return ConsultationNewProposedProduct.builder()
                                 .consultationNewDetail(detail)
                                 .insuranceProduct(product)
                                 .insuranceProductName(product.getInsuranceProductName())
-                                .createdAt(now)
-                                .createdBy(fp.getId())
-                                .updatedAt(now)
-                                .updatedBy(fp.getId())
-                                .build()
-                );
-            }
+                                .build();
+                    })
+                    .toList();
+
+            consultationNewProposedProductRepository.saveAll(proposedProducts);
         }
     }
 
@@ -586,25 +612,12 @@ public class ConsultationServiceImpl implements ConsultationService {
     }
 
     private String normalizePhone(String value) {
-        return normalizeRequired(value)
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("휴대폰 번호는 비어 있을 수 없습니다.");
+        }
+
+        return value.trim()
                 .replace("-", "")
                 .replace(" ", "");
-    }
-
-    private String normalizeRequired(String value) {
-        String normalized = normalizeNullable(value);
-        if (normalized == null) {
-            throw new IllegalArgumentException("필수 문자열 값이 비어 있습니다.");
-        }
-        return normalized;
-    }
-
-    private String normalizeNullable(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 }

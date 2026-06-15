@@ -1,25 +1,28 @@
 package com.linker.relia.handover.controller;
 
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.common.dto.request.PageQueryRequest;
 import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.handover.domain.RequestStatus;
 import com.linker.relia.handover.domain.RequestType;
 import com.linker.relia.handover.dto.request.HandoverApprovalRequest;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
-import com.linker.relia.handover.dto.response.HandoverListResponse;
+import com.linker.relia.handover.dto.response.HandoverListItemResponse;
+import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
+import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.handover.service.HandoverService;
 import com.linker.relia.security.principal.PrincipalDetails;
-import jakarta.validation.constraints.Min;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,18 +54,15 @@ public class HandoverController {
     // 인수인계 요청 목록 조회
     @GetMapping
     @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
-    public ResponseEntity<ApiResponse<HandoverListResponse>> getHandoverList(
+    public ResponseEntity<ApiResponse<PageResponse<HandoverListItemResponse>>> getHandoverList(
             @AuthenticationPrincipal PrincipalDetails principal,
             @RequestParam(required = false) RequestStatus status,
             @RequestParam(required = false) RequestType requestType,
             @RequestParam(required = false) String customerName,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "10") @Min(1) int size) {
+            @Valid @ModelAttribute PageQueryRequest pageRequest) {
 
-        Pageable pageable = PageRequest.of(page, size);
-
-        HandoverListResponse response = handoverService
-                .getHandoverList(principal, status, requestType, customerName, pageable);
+        PageResponse<HandoverListItemResponse> response = handoverService
+                .getHandoverList(principal, status, requestType, customerName, pageRequest.toPageable());
 
         return ApiResponse.success(HttpStatus.OK, "인수인계 요청 목록 조회 성공", response);
     }
@@ -90,6 +90,29 @@ public class HandoverController {
 
         handoverService.processApproval(principal, handoverRequestId, request);
         return ApiResponse.success(HttpStatus.OK, "결재 처리 완료", null);
+    }
+
+    // 받은 인수인계 목록
+    @GetMapping("/received")
+    @PreAuthorize("hasRole('FP')")
+    public ResponseEntity<ApiResponse<PageResponse<HandoverReceivedItemResponse>>> getReceivedList(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @Valid @ModelAttribute PageQueryRequest pageRequest) {
+
+        PageResponse<HandoverReceivedItemResponse> response = handoverService
+                .getReceivedList(principal, pageRequest.toPageable());
+
+        return ApiResponse.success(HttpStatus.OK, "인수받은 고객 목록 조회 성공", response);
+    }
+
+    // 인수인계 요청 뮥륙 요약
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<HandoverSummaryResponse>> getSummary(
+            @AuthenticationPrincipal PrincipalDetails principal) {
+
+        HandoverSummaryResponse response = handoverService.getSummary(principal);
+        return ApiResponse.success(HttpStatus.OK, "인수인계 요약 조회 성공", response);
     }
 
 

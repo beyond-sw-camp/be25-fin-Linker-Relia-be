@@ -42,16 +42,16 @@ public class CustomerFpHistory {
     @Column(name = "handover_request_id")
     private UUID handoverRequestId;
 
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "before_fp_id")
-    private UUID beforeFpId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "before_fp_id")
+    private User beforeFp;
 
     @Column(name = "before_fp_name")
     private String beforeFpName;
 
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "after_fp_id")
-    private UUID afterFpId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "after_fp_id")
+    private User afterFp;
 
     @Column(name = "after_fp_name")
     private String afterFpName;
@@ -62,9 +62,9 @@ public class CustomerFpHistory {
     @Column(name = "changed_at")
     private LocalDateTime changedAt;
 
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "changed_by")
-    private UUID changedBy;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "changed_by")
+    private User changedBy;
 
     public static CustomerFpHistory create(
             Customer customer,
@@ -77,16 +77,16 @@ public class CustomerFpHistory {
         history.id = UUID.randomUUID();
         history.customer = customer;
         history.handoverRequestId = handoverRequestId;
-        history.beforeFpId = beforeFp != null ? beforeFp.getId() : null;
+        history.beforeFp = beforeFp;
         history.beforeFpName = beforeFp != null ? beforeFp.getUserName() : null;
-        history.afterFpId = afterFp != null ? afterFp.getId() : null;
+        history.afterFp = afterFp;
         history.afterFpName = afterFp != null ? afterFp.getUserName() : null;
         history.changedReason = changedReason;
         history.changedAt = LocalDateTime.now();
         return history;
     }
 
-    public void applyChangeMetadata(UUID changedBy, int customerFpSequence) {
+    public void applyChangeMetadata(User changedBy, int customerFpSequence) {
         this.changedBy = changedBy;
         this.customerFpSequence = customerFpSequence;
     }

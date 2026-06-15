@@ -193,6 +193,7 @@ CREATE TABLE customers (
                            deleted_by CHAR(36) NULL,
                            PRIMARY KEY (id),
                            UNIQUE KEY uk_customers_code (customer_code),
+                           UNIQUE KEY uk_customers_phone (customer_phone),
                            CONSTRAINT chk_customers_status CHECK (customer_status IN ('PROSPECT', 'CONTRACTED', 'COMPLETED', 'TERMINATED')),
                            CONSTRAINT chk_customers_grade CHECK (customer_grade IN ('GENERAL', 'GOLD', 'VIP')),
                            CONSTRAINT chk_customers_interest_reason CHECK (interest_reason IS NULL OR interest_reason IN ('UNPAID', 'RENEWAL_DUE', 'MATURITY_DUE')),
@@ -662,7 +663,7 @@ CREATE TABLE handover_requests (
                                    deleted_at DATETIME NULL,
                                    deleted_by CHAR(36) NULL,
                                    PRIMARY KEY (id),
-                                   CONSTRAINT chk_handover_requests_status CHECK (request_status IN ('MANAGER_PENDING', 'COMPLETED', 'RETRY')),
+                                   CONSTRAINT chk_handover_requests_status CHECK (request_status IN ('MANAGER_PENDING', 'COMPLETED')),
                                    CONSTRAINT fk_handover_requests_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
                                    CONSTRAINT fk_handover_requests_current_fp FOREIGN KEY (current_fp_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

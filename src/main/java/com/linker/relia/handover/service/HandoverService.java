@@ -3,6 +3,7 @@ package com.linker.relia.handover.service;
 import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeType;
+import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.consultation.domain.ConsultationChannel;
 import com.linker.relia.customer.domain.Customer;
@@ -19,9 +20,11 @@ import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
-import com.linker.relia.handover.dto.response.HandoverListResponse;
+import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
+import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.handover.exception.HandoverErrorCode;
 import com.linker.relia.handover.repository.HandoverDetailQueryRepository;
+import com.linker.relia.handover.repository.HandoverReceivedQueryRepository;
 import com.linker.relia.handover.repository.HandoverRecommendationRepository;
 import com.linker.relia.handover.repository.HandoverRequestRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -52,6 +55,7 @@ public class HandoverService {
     private final CustomerFpHistoryRepository customerFpHistoryRepository;
     private final HandoverDetailQueryRepository handoverDetailQueryRepository;
     private final RecommendationService recommendationService;
+    private final HandoverReceivedQueryRepository handoverReceivedQueryRepository;
 
     // 인수인계 요청 생성
     public HandoverCreateResponse createHandover(PrincipalDetails principal, HandoverCreateRequest request) {
@@ -60,10 +64,7 @@ public class HandoverService {
 
         validateHandoverCreateAccess(principal.getUser(), customer);
 
-        boolean exists = handoverRequestRepository.existsByCustomerAndRequestStatusIn(
-                customer,
-                List.of(RequestStatus.MANAGER_PENDING, RequestStatus.RETRY)
-        );
+        boolean exists = handoverRequestRepository.existsByCustomerAndRequestStatusIn(customer, List.of(RequestStatus.MANAGER_PENDING));
         if (exists) {
             throw new BusinessException(HandoverErrorCode.HANDOVER_REQUEST_ALREADY_EXISTS);
         }
@@ -79,11 +80,11 @@ public class HandoverService {
 
     // 인수인계 요청 조회
     @Transactional(readOnly = true)
-    public HandoverListResponse getHandoverList(PrincipalDetails principal,
-                                                RequestStatus status,
-                                                RequestType requestType,
-                                                String customerName,
-                                                Pageable pageable) {
+    public PageResponse<HandoverListItemResponse> getHandoverList(PrincipalDetails principal,
+                                                                   RequestStatus status,
+                                                                   RequestType requestType,
+                                                                   String customerName,
+                                                                   Pageable pageable) {
 
         User user = principal.getUser();
         AccessScope accessScope = switch (user.getUserRole()) {
@@ -99,7 +100,7 @@ public class HandoverService {
         Page<HandoverListItemResponse> page = handoverRequestRepository
                 .searchHandovers(accessScope, status, requestType, customerName, pageable);
 
-        return HandoverListResponse.of(page);
+        return PageResponse.from(page);
     }
 
 
@@ -242,7 +243,7 @@ public class HandoverService {
                     recommendation.getRecommendedFp(),
                     "인수인계 승인"
             );
-            history.applyChangeMetadata(user.getId(), nextSequence);
+            history.applyChangeMetadata(user, nextSequence);
             customerFpHistoryRepository.save(history);
 
             // 4-4. 요청 완료
@@ -256,19 +257,42 @@ public class HandoverService {
                 recommendation.setRejectionReason(request.rejectionReason());
             }
 
-            // 4-2. 요청 재추천 대기
-            handoverRequest.retry();
-
-            // 4-3. 새 추천 자동 실행
+            // 4-2. 새 추천 자동 실행
             HandoverRecommendation newRecommendation = recommendationService.recommend(handoverRequest);
             handoverRecommendationRepository.save(newRecommendation);
         }
     }
 
+    // 설계사가 받은 인수인계 목록
+    @Transactional(readOnly = true)
+    public PageResponse<HandoverReceivedItemResponse> getReceivedList(PrincipalDetails principal, Pageable pageable) {
 
+        if (principal == null || principal.getUser() == null) {
+            throw new BusinessException(AuthErrorCode.USER_UNAUTHORIZED);
+        }
 
+        User user = principal.getUser();
+        if (user.getUserRole() != UserRole.FP) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
 
+        UUID fpId = user.getId();
 
+        Page<HandoverReceivedItemResponse> page = handoverReceivedQueryRepository.findReceivedHandovers(fpId, pageable);
+
+        return PageResponse.from(page);
+    }
+
+    // 인수인계 요청 뮥륙 요약
+    @Transactional(readOnly = true)
+    public HandoverSummaryResponse getSummary(PrincipalDetails principal) {
+        User user = principal.getUser();
+        AccessScope accessScope = switch (user.getUserRole()) {
+            case BRANCH_MANAGER -> new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
+        };
+        return handoverDetailQueryRepository.findSummary(accessScope);
+    }
 
 
     // 인수인계 상세 조회 접근
@@ -283,8 +307,7 @@ public class HandoverService {
     }
 
     private boolean isApprovalProcessable(HandoverRequest handoverRequest) {
-        return handoverRequest.getRequestStatus() == RequestStatus.MANAGER_PENDING
-                || handoverRequest.getRequestStatus() == RequestStatus.RETRY;
+        return handoverRequest.getRequestStatus() == RequestStatus.MANAGER_PENDING;
     }
 
     private void validateHandoverDetailAccess(

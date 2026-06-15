@@ -1,5 +1,6 @@
 package com.linker.relia.consultation.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -16,7 +17,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "consultation_new_details")
-public class ConsultationNewDetail {
+public class ConsultationNewDetail extends BaseEntity {
 
     @Id
     @UuidGenerator
@@ -42,20 +43,6 @@ public class ConsultationNewDetail {
 
     @Column(name = "insurance_priority", length = 100)
     private String insurancePriority;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "created_by")
-    private UUID createdBy;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "updated_by")
-    private UUID updatedBy;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

@@ -62,10 +62,6 @@ public class HandoverRequest extends BaseEntity {
         this.requestStatus = RequestStatus.COMPLETED;
     }
 
-    public void retry() {
-        this.requestStatus = RequestStatus.RETRY;
-    }
-
     public void softDelete(UUID deletedBy) {
         this.deletedAt = LocalDateTime.now();
         this.deletedBy = deletedBy;

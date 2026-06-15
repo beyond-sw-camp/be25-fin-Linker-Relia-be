@@ -6,6 +6,7 @@ import com.linker.relia.commission.dto.FpCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
 import com.linker.relia.commission.dto.InsuranceCompanyCommissionSummaryResponse;
+import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
 import com.linker.relia.commission.dto.OrganizationScopedClosingMonthRequest;
 import com.linker.relia.commission.service.CommissionService;
@@ -19,6 +20,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -56,6 +58,17 @@ public class CommissionController {
     ) {
         OrganizationCommissionSummaryResponse response = commissionService.getOrganizationCommissionSummary(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "조직 수수료 요약 조회 성공", response);
+    }
+
+    @GetMapping("/organization-trend")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<List<OrganizationCommissionMonthlyTrendResponse>>> getOrganizationCommissionTrend(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @RequestParam(required = false) String organizationCode
+    ) {
+        List<OrganizationCommissionMonthlyTrendResponse> response =
+                commissionService.getOrganizationCommissionTrend(principalDetails, organizationCode);
+        return ApiResponse.success(HttpStatus.OK, "조직 월별 수수료 추이 조회 성공", response);
     }
 
     @GetMapping("/payment-types/summary")

@@ -8,6 +8,8 @@ import com.linker.relia.commission.dto.FpCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.FpCommissionSummaryRequest;
 import com.linker.relia.commission.dto.FpCommissionSummaryResponse;
 import com.linker.relia.commission.dto.InsuranceCompanyCommissionSummaryResponse;
+import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendQueryResult;
+import com.linker.relia.commission.dto.OrganizationCommissionMonthlyTrendResponse;
 import com.linker.relia.commission.dto.OrganizationCommissionSummaryResponse;
 import com.linker.relia.commission.dto.OrganizationScopedClosingMonthRequest;
 import com.linker.relia.commission.repository.BranchCommissionMonthlyClosingRepository;
@@ -15,6 +17,7 @@ import com.linker.relia.commission.repository.CommissionInsuranceCompanyQueryRep
 import com.linker.relia.commission.repository.FpCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.FpCommissionTrendQueryRepository;
 import com.linker.relia.commission.repository.IncomeCommissionMonthlyClosingRepository;
+import com.linker.relia.commission.repository.OrganizationCommissionTrendQueryRepository;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,12 +35,15 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class CommissionServiceImpl implements CommissionService {
+    private static final int ORGANIZATION_TREND_MONTH_COUNT = 5;
+
     private final CommissionAccessService commissionAccessService;
     private final FpCommissionMonthlyClosingRepository fpCommissionMonthlyClosingRepository;
     private final FpCommissionTrendQueryRepository fpCommissionTrendQueryRepository;
     private final BranchCommissionMonthlyClosingRepository branchCommissionMonthlyClosingRepository;
     private final IncomeCommissionMonthlyClosingRepository incomeCommissionMonthlyClosingRepository;
     private final CommissionInsuranceCompanyQueryRepository commissionInsuranceCompanyQueryRepository;
+    private final OrganizationCommissionTrendQueryRepository organizationCommissionTrendQueryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -93,7 +100,9 @@ public class CommissionServiceImpl implements CommissionService {
         String organizationCode = request.getOrganizationCode();
 
         if (accessScope.isBranchScope()) {
-            commissionAccessService.validateOrganizationCodeFilter(accessScope, organizationCode,
+            commissionAccessService.validateOrganizationCodeFilter(
+                    accessScope,
+                    organizationCode,
                     principalDetails.getUser().getOrganization().getOrganizationCode()
             );
             return getBranchSummary(closingMonth, principalDetails.getUser().getOrganization());
@@ -105,6 +114,31 @@ public class CommissionServiceImpl implements CommissionService {
 
         Organization organization = commissionAccessService.resolveOrganization(organizationCode);
         return getBranchSummary(closingMonth, organization);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrganizationCommissionMonthlyTrendResponse> getOrganizationCommissionTrend(PrincipalDetails principalDetails,
+                                                                                           String organizationCode) {
+        AccessScope accessScope = commissionAccessService.resolveAccessScope(principalDetails);
+        YearMonth endMonth = YearMonth.now().minusMonths(1);
+
+        if (accessScope.isBranchScope()) {
+            Organization organization = principalDetails.getUser().getOrganization();
+            commissionAccessService.validateOrganizationCodeFilter(
+                    accessScope,
+                    organizationCode,
+                    organization.getOrganizationCode()
+            );
+            return getBranchTrend(endMonth, organization);
+        }
+
+        if (organizationCode == null || organizationCode.isBlank()) {
+            return getHqTrend(endMonth);
+        }
+
+        Organization organization = commissionAccessService.resolveOrganization(organizationCode.trim());
+        return getBranchTrend(endMonth, organization);
     }
 
     @Override
@@ -203,6 +237,36 @@ public class CommissionServiceImpl implements CommissionService {
         return OrganizationCommissionSummaryResponse.branchOf(current, previous);
     }
 
+    private List<OrganizationCommissionMonthlyTrendResponse> getBranchTrend(YearMonth endMonth, Organization organization) {
+        YearMonth startMonth = endMonth.minusMonths(ORGANIZATION_TREND_MONTH_COUNT - 1L);
+
+        List<OrganizationCommissionMonthlyTrendQueryResult> monthlyTrend = organizationCommissionTrendQueryRepository
+                .findBranchTrendQueryResults(
+                        startMonth.toString(),
+                        endMonth.toString(),
+                        organization.getId()
+                );
+
+        Map<String, OrganizationCommissionMonthlyTrendResponse> trendByMonth = new HashMap<>();
+        for (OrganizationCommissionMonthlyTrendQueryResult trend : monthlyTrend) {
+            trendByMonth.put(trend.getClosingMonth(), OrganizationCommissionMonthlyTrendResponse.from(trend));
+        }
+
+        List<OrganizationCommissionMonthlyTrendResponse> response = new ArrayList<>();
+        for (int i = 0; i < ORGANIZATION_TREND_MONTH_COUNT; i++) {
+            String month = startMonth.plusMonths(i).toString();
+            response.add(trendByMonth.getOrDefault(
+                    month,
+                    OrganizationCommissionMonthlyTrendResponse.emptyBranch(
+                            month,
+                            organization.getId(),
+                            organization.getOrganizationName()
+                    )
+            ));
+        }
+        return response;
+    }
+
     private OrganizationCommissionSummaryResponse getHqSummary(String closingMonth) {
         IncomeCommissionMonthlyClosing current = incomeCommissionMonthlyClosingRepository
                 .findByClosingMonth(closingMonth)
@@ -218,6 +282,25 @@ public class CommissionServiceImpl implements CommissionService {
                 .orElse(null);
 
         return OrganizationCommissionSummaryResponse.hqOf(current, previous);
+    }
+
+    private List<OrganizationCommissionMonthlyTrendResponse> getHqTrend(YearMonth endMonth) {
+        YearMonth startMonth = endMonth.minusMonths(ORGANIZATION_TREND_MONTH_COUNT - 1L);
+
+        List<OrganizationCommissionMonthlyTrendQueryResult> monthlyTrend = organizationCommissionTrendQueryRepository
+                .findHqTrendQueryResults(startMonth.toString(), endMonth.toString());
+
+        Map<String, OrganizationCommissionMonthlyTrendResponse> trendByMonth = new HashMap<>();
+        for (OrganizationCommissionMonthlyTrendQueryResult trend : monthlyTrend) {
+            trendByMonth.put(trend.getClosingMonth(), OrganizationCommissionMonthlyTrendResponse.from(trend));
+        }
+
+        List<OrganizationCommissionMonthlyTrendResponse> response = new ArrayList<>();
+        for (int i = 0; i < ORGANIZATION_TREND_MONTH_COUNT; i++) {
+            String month = startMonth.plusMonths(i).toString();
+            response.add(trendByMonth.getOrDefault(month, OrganizationCommissionMonthlyTrendResponse.emptyHq(month)));
+        }
+        return response;
     }
 
     private CommissionPaymentTypeSummaryResponse getFpPaymentTypeSummary(String closingMonth, UUID fpId) {

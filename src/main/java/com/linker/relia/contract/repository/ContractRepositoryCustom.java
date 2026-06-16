@@ -27,14 +27,12 @@ public interface ContractRepositoryCustom {
     ContractSummaryResponse summarizeHoldingContracts(AccessScope accessScope,
                                                       String organizationCode,
                                                       UUID insuranceCompanyId,
-                                                      String closingMonth,
                                                       LocalDate referenceDate,
                                                       LocalDate dueDateLimit);
 
     Page<ContractListItemResponse> searchHoldingContracts(AccessScope accessScope,
                                                           String organizationCode,
                                                           UUID insuranceCompanyId,
-                                                          String closingMonth,
                                                           ContractListStatus contractStatus,
                                                           ContractListSort sort,
                                                           LocalDate referenceDate,
@@ -43,14 +41,13 @@ public interface ContractRepositoryCustom {
 
     List<InsuranceCompanyContractStatusResponse> summarizeInsuranceCompanyContractStatuses(AccessScope accessScope,
                                                                                            String organizationCode,
-                                                                                           UUID insuranceCompanyId,
-                                                                                           String closingMonth);
+                                                                                           UUID insuranceCompanyId);
 
     List<ContractMonthlyTrendResponse> summarizeMonthlyContractTrend(AccessScope accessScope,
                                                                      String organizationCode,
                                                                      UUID insuranceCompanyId,
-                                                                     String startMonth,
-                                                                     String endMonth);
+                                                                     LocalDate startDate,
+                                                                     LocalDate endDate);
 
     Optional<ContractDetailQueryResult> findContractDetail(AccessScope accessScope,
                                                            UUID contractId);

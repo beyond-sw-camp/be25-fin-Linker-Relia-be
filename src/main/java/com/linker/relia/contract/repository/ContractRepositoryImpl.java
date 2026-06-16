@@ -66,35 +66,29 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     public ContractSummaryResponse summarizeHoldingContracts(AccessScope accessScope,
                                                              String organizationCode,
                                                              UUID insuranceCompanyId,
-                                                             String closingMonth,
                                                              LocalDate referenceDate,
                                                              LocalDate dueDateLimit) {
         String sql = """
                 select
                     count(*) as total_contract_count,
                     coalesce(sum(case
-                        when cmc.contract_status = 'MAINTENANCE'
-                         and cmc.payment_status = 'PAID' then 1 else 0
+                        when ct.contract_status = 'MAINTENANCE' then 1 else 0
                     end), 0) as normal_payment_count,
                     coalesce(sum(case
-                        when cmc.contract_status = 'MAINTENANCE'
-                         and cmc.payment_status = 'UNPAID' then 1 else 0
+                        when ct.contract_status = 'LAPSED' then 1 else 0
                     end), 0) as unpaid_count,
                     coalesce(sum(case
-                        when cmc.contract_status = 'LAPSED'
-                          or cmc.lapse_yn = true then 1 else 0
+                        when ct.contract_status = 'LAPSED' then 1 else 0
                     end), 0) as lapse_expected_count,
                     coalesce(sum(case
-                        when cmc.contract_status = 'MAINTENANCE'
-                         and cmc.contract_end_date between :referenceDate and :dueDateLimit then 1 else 0
+                        when ct.contract_status = 'MAINTENANCE'
+                         and ct.contract_end_date between :referenceDate and :dueDateLimit then 1 else 0
                     end), 0) as expiring_soon_count
-                from contract_monthly_closing cmc
-                join users fp on fp.id = cmc.fp_id
+                from contracts ct
+                join users fp on fp.id = ct.fp_id
                 join organizations org on org.id = fp.organization_id
-                join contracts ct on ct.id = cmc.contract_id
                 join insurance_products ip on ip.id = ct.insurance_product_id
-                where cmc.closing_month = :closingMonth
-                  and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
+                where ct.contract_status in ('MAINTENANCE', 'LAPSED')
                   and (:organizationCode is null or org.organization_code = :organizationCode)
                   and (:insuranceCompanyId is null or ip.insurance_company_id = :insuranceCompanyId)
                   and ct.deleted_at is null
@@ -103,7 +97,6 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 """ + buildAccessScopeWhereClause(accessScope);
 
         Query query = entityManager.createNativeQuery(sql);
-        query.setParameter("closingMonth", closingMonth);
         query.setParameter("referenceDate", referenceDate);
         query.setParameter("dueDateLimit", dueDateLimit);
         query.setParameter("organizationCode", organizationCode);
@@ -128,7 +121,6 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     public Page<ContractListItemResponse> searchHoldingContracts(AccessScope accessScope,
                                                                  String organizationCode,
                                                                  UUID insuranceCompanyId,
-                                                                 String closingMonth,
                                                                  ContractListStatus contractStatus,
                                                                  ContractListSort sort,
                                                                  LocalDate referenceDate,
@@ -140,12 +132,12 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                     ct.id,
                     c.customer_name,
                     ct.contract_code,
-                    cmc.contract_date,
-                    cmc.contract_end_date,
-                    cmc.contract_status,
-                    cmc.payment_status,
+                    ct.contract_date,
+                    ct.contract_end_date,
+                    ct.contract_status,
+                    case when ct.contract_status = 'MAINTENANCE' then 'PAID' else 'UNPAID' end as payment_status,
                     ip.is_renewable,
-                    cmc.monthly_premium,
+                    ct.monthly_premium,
                     ip.insurance_product_name,
                     ic.insurance_company_name
                 """ + fromWhereSql + buildContractListOrderBySql(sort);
@@ -156,7 +148,6 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 accessScope,
                 organizationCode,
                 insuranceCompanyId,
-                closingMonth,
                 contractStatus,
                 referenceDate,
                 dueDateLimit
@@ -176,7 +167,6 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 accessScope,
                 organizationCode,
                 insuranceCompanyId,
-                closingMonth,
                 contractStatus,
                 referenceDate,
                 dueDateLimit
@@ -189,31 +179,28 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     public List<InsuranceCompanyContractStatusResponse> summarizeInsuranceCompanyContractStatuses(
             AccessScope accessScope,
             String organizationCode,
-            UUID insuranceCompanyId,
-            String closingMonth
+            UUID insuranceCompanyId
     ) {
         String sql = """
                 select
                     ic.insurance_company_name,
                     count(*) as total_contract_count,
-                    coalesce(sum(cmc.monthly_premium), 0) as total_monthly_premium_amount,
+                    coalesce(sum(ct.monthly_premium), 0) as total_monthly_premium_amount,
                     round(
                         coalesce(
-                            sum(case when cmc.contract_status = 'MAINTENANCE' then 1 else 0 end)
+                            sum(case when ct.contract_status = 'MAINTENANCE' then 1 else 0 end)
                             / nullif(count(*), 0) * 100,
                             0
                         ),
                         1
                     ) as retention_rate
-                from contract_monthly_closing cmc
-                join contracts ct on ct.id = cmc.contract_id
-                join customers c on c.id = cmc.customer_id
-                join users fp on fp.id = cmc.fp_id
+                from contracts ct
+                join customers c on c.id = ct.customer_id
+                join users fp on fp.id = ct.fp_id
                 join organizations org on org.id = fp.organization_id
                 join insurance_products ip on ip.id = ct.insurance_product_id
                 join insurance_companies ic on ic.id = ip.insurance_company_id
-                where cmc.closing_month = :closingMonth
-                  and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
+                where ct.contract_status in ('MAINTENANCE', 'LAPSED')
                   and (:organizationCode is null or org.organization_code = :organizationCode)
                   and (:insuranceCompanyId is null or ip.insurance_company_id = :insuranceCompanyId)
                   and ct.deleted_at is null
@@ -228,7 +215,6 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 """;
 
         Query query = entityManager.createNativeQuery(sql);
-        query.setParameter("closingMonth", closingMonth);
         query.setParameter("organizationCode", organizationCode);
         query.setParameter("insuranceCompanyId", insuranceCompanyId == null ? null : insuranceCompanyId.toString());
         bindAccessScope(query, accessScope);
@@ -245,23 +231,22 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
             AccessScope accessScope,
             String organizationCode,
             UUID insuranceCompanyId,
-            String startMonth,
-            String endMonth
+            LocalDate startDate,
+            LocalDate endDate
     ) {
         String sql = """
                 select
-                    cmc.closing_month,
+                    date_format(ct.contract_date, '%Y-%m') as contract_month,
                     count(*) as contract_count,
-                    coalesce(sum(cmc.monthly_premium), 0) as total_monthly_premium_amount
-                from contract_monthly_closing cmc
-                join contracts ct on ct.id = cmc.contract_id
-                join customers c on c.id = cmc.customer_id
-                join users fp on fp.id = cmc.fp_id
+                    coalesce(sum(ct.monthly_premium), 0) as total_monthly_premium_amount
+                from contracts ct
+                join customers c on c.id = ct.customer_id
+                join users fp on fp.id = ct.fp_id
                 join organizations org on org.id = fp.organization_id
                 join insurance_products ip on ip.id = ct.insurance_product_id
                 join insurance_companies ic on ic.id = ip.insurance_company_id
-                where cmc.closing_month between :startMonth and :endMonth
-                  and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
+                where ct.contract_date between :startDate and :endDate
+                  and ct.contract_status in ('MAINTENANCE', 'LAPSED')
                   and (:organizationCode is null or org.organization_code = :organizationCode)
                   and (:insuranceCompanyId is null or ip.insurance_company_id = :insuranceCompanyId)
                   and ct.deleted_at is null
@@ -271,13 +256,13 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                   and ip.deleted_at is null
                   and ic.deleted_at is null
                 """ + buildAccessScopeWhereClause(accessScope) + """
-                group by cmc.closing_month
-                order by cmc.closing_month asc
+                group by date_format(ct.contract_date, '%Y-%m')
+                order by contract_month asc
                 """;
 
         Query query = entityManager.createNativeQuery(sql);
-        query.setParameter("startMonth", startMonth);
-        query.setParameter("endMonth", endMonth);
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
         query.setParameter("organizationCode", organizationCode);
         query.setParameter("insuranceCompanyId", insuranceCompanyId == null ? null : insuranceCompanyId.toString());
         bindAccessScope(query, accessScope);
@@ -353,7 +338,7 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
 
     private String buildAccessScopeWhereClause(AccessScope accessScope) {
         if (accessScope.isOwnScope()) {
-            return "\n  and cmc.fp_id = :userId\n";
+            return "\n  and ct.fp_id = :userId\n";
         }
 
         if (accessScope.isBranchScope()) {
@@ -378,15 +363,13 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     private String buildContractListFromWhereSql(AccessScope accessScope,
                                                  ContractListStatus contractStatus) {
         return """
-                from contract_monthly_closing cmc
-                join contracts ct on ct.id = cmc.contract_id
-                join customers c on c.id = cmc.customer_id
-                join users fp on fp.id = cmc.fp_id
+                from contracts ct
+                join customers c on c.id = ct.customer_id
+                join users fp on fp.id = ct.fp_id
                 join organizations org on org.id = fp.organization_id
                 join insurance_products ip on ip.id = ct.insurance_product_id
                 join insurance_companies ic on ic.id = ip.insurance_company_id
-                where cmc.closing_month = :closingMonth
-                  and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
+                where ct.contract_status in ('MAINTENANCE', 'LAPSED')
                   and (:organizationCode is null or org.organization_code = :organizationCode)
                   and (:insuranceCompanyId is null or ip.insurance_company_id = :insuranceCompanyId)
                   and ct.deleted_at is null
@@ -406,22 +389,20 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
 
         return switch (contractStatus) {
             case PAID -> """
-                    and cmc.contract_status = 'MAINTENANCE'
-                    and cmc.payment_status = 'PAID'
+                    and ct.contract_status = 'MAINTENANCE'
                     """;
             case UNPAID -> """
-                    and cmc.contract_status = 'MAINTENANCE'
-                    and cmc.payment_status = 'UNPAID'
+                    and ct.contract_status = 'LAPSED'
                     """;
             case EXPIRING_SOON -> """
-                    and cmc.contract_status = 'MAINTENANCE'
+                    and ct.contract_status = 'MAINTENANCE'
                     and ip.is_renewable = false
-                    and cmc.contract_end_date between :referenceDate and :dueDateLimit
+                    and ct.contract_end_date between :referenceDate and :dueDateLimit
                     """;
             case RENEWAL_SOON -> """
-                    and cmc.contract_status = 'MAINTENANCE'
+                    and ct.contract_status = 'MAINTENANCE'
                     and ip.is_renewable = true
-                    and cmc.contract_end_date between :referenceDate and :dueDateLimit
+                    and ct.contract_end_date between :referenceDate and :dueDateLimit
                     """;
         };
     }
@@ -430,9 +411,9 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
         ContractListSort resolvedSort = sort == null ? ContractListSort.LATEST_CONTRACT : sort;
 
         return switch (resolvedSort) {
-            case OLDEST_CONTRACT -> "\norder by cmc.contract_date asc, ct.contract_code asc\n";
-            case EXPIRY_SOON -> "\norder by cmc.contract_end_date asc, cmc.contract_date desc, ct.contract_code asc\n";
-            case LATEST_CONTRACT -> "\norder by cmc.contract_date desc, ct.contract_code desc\n";
+            case OLDEST_CONTRACT -> "\norder by ct.contract_date asc, ct.contract_code asc\n";
+            case EXPIRY_SOON -> "\norder by ct.contract_end_date asc, ct.contract_date desc, ct.contract_code asc\n";
+            case LATEST_CONTRACT -> "\norder by ct.contract_date desc, ct.contract_code desc\n";
         };
     }
 
@@ -440,11 +421,9 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                                             AccessScope accessScope,
                                             String organizationCode,
                                             UUID insuranceCompanyId,
-                                            String closingMonth,
                                             ContractListStatus contractStatus,
                                             LocalDate referenceDate,
                                             LocalDate dueDateLimit) {
-        query.setParameter("closingMonth", closingMonth);
         query.setParameter("organizationCode", organizationCode);
         query.setParameter("insuranceCompanyId", insuranceCompanyId == null ? null : insuranceCompanyId.toString());
         if (contractStatus == ContractListStatus.EXPIRING_SOON || contractStatus == ContractListStatus.RENEWAL_SOON) {

@@ -2,12 +2,18 @@ package com.linker.relia.handover.repository;
 
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.consultation.domain.ConsultationChannel;
+import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
 import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.user.domain.FpMonthlyInfo;
+import com.linker.relia.user.domain.UserRole;
+import com.linker.relia.user.domain.UserStatus;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -116,13 +122,15 @@ public class HandoverDetailQueryRepository {
         return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
     }
 
-    public Optional<FpMonthlyInfo> findLatestFpMonthlyInfo(String empCode) {
+    public Optional<FpMonthlyInfo> findLatestFpMonthlyInfo(String empCode, String fpName) {
         List<FpMonthlyInfo> result = entityManager.createQuery("""
         SELECT f FROM FpMonthlyInfo f
-        WHERE f.empCode = :empCode
+        WHERE (:empCode IS NOT NULL AND f.empCode = :empCode)
+           OR (:fpName IS NOT NULL AND f.fpName = :fpName)
         ORDER BY f.closingMonth DESC
         """, FpMonthlyInfo.class)
                 .setParameter("empCode", empCode)
+                .setParameter("fpName", fpName)
                 .setMaxResults(1)
                 .getResultList();
         return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
@@ -158,5 +166,58 @@ public class HandoverDetailQueryRepository {
         }
 
         return query.getSingleResult();
+    }
+
+    // 지정할 때 설계사 목록
+    public Page<HandoverAssignableFpResponse> findAssignableFps(String organizationCode, Pageable pageable) {
+        List<HandoverAssignableFpResponse> content = entityManager.createQuery("""
+            SELECT new com.linker.relia.handover.dto.response.HandoverAssignableFpResponse(
+                u.id,
+                COALESCE(fmi.fpName, u.userName),
+                fmi.careerYears,
+                fmi.specialtyCategory,
+                fmi.preferredCustomerAge,
+                fmi.consultationChannel,
+                (SELECT COUNT(c) FROM Customer c WHERE c.customerFp.id = u.id AND c.deletedAt IS NULL),
+                (SELECT COUNT(ct) FROM Contract ct WHERE ct.fp.id = u.id AND ct.contractStatus = 'MAINTENANCE' AND ct.deletedAt IS NULL),
+                fmi.retentionRate
+            )
+            FROM User u
+            LEFT JOIN FpMonthlyInfo fmi
+                ON fmi.empCode = u.empCode
+                AND fmi.organizationCode = :organizationCode
+                AND fmi.closingMonth = (
+                SELECT MAX(fmi2.closingMonth)
+                FROM FpMonthlyInfo fmi2
+                WHERE fmi2.empCode = fmi.empCode
+                AND fmi2.organizationCode = :organizationCode
+            )
+            WHERE u.organization.organizationCode = :organizationCode
+            AND u.userRole = :userRole
+            AND u.userStatus = :userStatus
+            AND u.deletedAt IS NULL
+            ORDER BY fmi.retentionRate DESC NULLS LAST, u.userName ASC
+            """, HandoverAssignableFpResponse.class)
+                .setParameter("organizationCode", organizationCode)
+                .setParameter("userRole", UserRole.FP)
+                .setParameter("userStatus", UserStatus.ACTIVE)
+                .setFirstResult((int) pageable.getOffset())
+                .setMaxResults(pageable.getPageSize())
+                .getResultList();
+
+        Long total = entityManager.createQuery("""
+            SELECT COUNT(u)
+            FROM User u
+            WHERE u.organization.organizationCode = :organizationCode
+            AND u.userRole = :userRole
+            AND u.userStatus = :userStatus
+            AND u.deletedAt IS NULL
+            """, Long.class)
+                .setParameter("organizationCode", organizationCode)
+                .setParameter("userRole", UserRole.FP)
+                .setParameter("userStatus", UserStatus.ACTIVE)
+                .getSingleResult();
+
+        return new PageImpl<>(content, pageable, total);
     }
 }

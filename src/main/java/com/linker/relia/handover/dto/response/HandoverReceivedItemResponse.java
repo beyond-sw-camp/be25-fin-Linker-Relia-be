@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record HandoverReceivedItemResponse(
+        UUID handoverRequestId,
         UUID customerId,
         String customerName,
         CustomerGrade customerGrade,

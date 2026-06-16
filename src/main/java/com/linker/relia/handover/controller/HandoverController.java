@@ -1,13 +1,14 @@
 package com.linker.relia.handover.controller;
 
-import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.dto.request.PageQueryRequest;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.handover.domain.RequestStatus;
 import com.linker.relia.handover.domain.RequestType;
 import com.linker.relia.handover.dto.request.HandoverApprovalRequest;
+import com.linker.relia.handover.dto.request.HandoverAssignRequest;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
+import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
@@ -125,5 +126,33 @@ public class HandoverController {
         HandoverReceivedSummaryResponse response = handoverService.getReceivedSummary(principal);
         return ApiResponse.success(HttpStatus.OK, "인수받은 목록 요약 조회 성공", response);
     }
+
+    // 지정 가능한 설계사 목록 API
+    @GetMapping("/{handoverRequestId}/assignable-fps")
+    @PreAuthorize("hasRole('BRANCH_MANAGER')")
+    public ResponseEntity<ApiResponse<PageResponse<HandoverAssignableFpResponse>>> getAssignableFps(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @PathVariable UUID handoverRequestId,
+            @Valid @ModelAttribute PageQueryRequest pageRequest) {
+
+        PageResponse<HandoverAssignableFpResponse> response = handoverService
+                .getAssignableFps(principal, handoverRequestId, pageRequest.toPageable());
+
+        return ApiResponse.success(HttpStatus.OK, "직접 지정 가능 설계사 목록 조회 성공", response);
+    }
+
+    // 설계사 직접 지정
+    @PostMapping("/{handoverRequestId}/assign")
+    @PreAuthorize("hasRole('BRANCH_MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> processAssign(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @PathVariable UUID handoverRequestId,
+            @RequestBody HandoverAssignRequest request) {
+
+        handoverService.processAssign(principal, handoverRequestId, request);
+        return ApiResponse.success(HttpStatus.OK, "설계사 직접 지정 완료", null);
+    }
+
+
 
 }

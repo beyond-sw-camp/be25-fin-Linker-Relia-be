@@ -16,7 +16,9 @@ import com.linker.relia.handover.domain.HandoverRequest;
 import com.linker.relia.handover.domain.RequestStatus;
 import com.linker.relia.handover.domain.RequestType;
 import com.linker.relia.handover.dto.request.HandoverApprovalRequest;
+import com.linker.relia.handover.dto.request.HandoverAssignRequest;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
+import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
@@ -32,6 +34,7 @@ import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.FpMonthlyInfo;
 import com.linker.relia.user.domain.User;
 import com.linker.relia.user.domain.UserRole;
+import com.linker.relia.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -57,6 +60,7 @@ public class HandoverService {
     private final HandoverDetailQueryRepository handoverDetailQueryRepository;
     private final RecommendationService recommendationService;
     private final HandoverReceivedQueryRepository handoverReceivedQueryRepository;
+    private final UserRepository userRepository;
 
     // 인수인계 요청 생성
     public HandoverCreateResponse createHandover(PrincipalDetails principal, HandoverCreateRequest request) {
@@ -150,7 +154,10 @@ public class HandoverService {
                 .orElse(new HandoverDetailResponse.HandoverHistoryInfo(null, null));
 
         Optional<FpMonthlyInfo> fpInfo = handoverDetailQueryRepository
-                .findLatestFpMonthlyInfo(recommendation.getRecommendedFp().getEmpCode());
+                .findLatestFpMonthlyInfo(
+                        recommendation.getRecommendedFp().getEmpCode(),
+                        recommendation.getRecommendedFpName()
+                );
 
         HandoverDetailResponse.RecommendationInfo recommendationInfo = new HandoverDetailResponse.RecommendationInfo(
                 recommendation.getId(),
@@ -300,6 +307,91 @@ public class HandoverService {
     public HandoverReceivedSummaryResponse getReceivedSummary(PrincipalDetails principal) {
         UUID fpId = principal.getUser().getId();
         return handoverReceivedQueryRepository.findReceivedSummary(fpId);
+    }
+
+    // 설계사 직접 지정 목록
+    @Transactional(readOnly = true)
+    public PageResponse<HandoverAssignableFpResponse> getAssignableFps(
+            PrincipalDetails principal, UUID handoverRequestId, Pageable pageable) {
+
+        if (principal == null || principal.getUser() == null) {
+            throw new BusinessException(AuthErrorCode.USER_UNAUTHORIZED);
+        }
+
+        User user = principal.getUser();
+        if (user.getUserRole() != UserRole.BRANCH_MANAGER) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
+        if (user.getOrganization() == null) {
+            throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "지점장 사용자에 조직 정보가 없습니다.");
+        }
+
+        // 1. 요청 조회
+        HandoverRequest handoverRequest = handoverRequestRepository.findById(handoverRequestId)
+                .orElseThrow(() -> new BusinessException(HandoverErrorCode.HANDOVER_REQUEST_NOT_FOUND));
+
+        // 2. 권한 체크
+        User currentFp = handoverRequest.getCurrentFp();
+        if (currentFp == null || currentFp.getOrganization() == null) {
+            throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "인수인계 요청의 현재 담당 설계사 또는 조직 정보가 없습니다.");
+        }
+        if (!currentFp.getOrganization().getId().equals(user.getOrganization().getId())) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
+
+        // 3. 같은 지점 설계사 목록 조회
+        String organizationCode = user.getOrganization().getOrganizationCode();
+        Page<HandoverAssignableFpResponse> page = handoverDetailQueryRepository
+                .findAssignableFps(organizationCode, pageable);
+        return PageResponse.from(page);
+    }
+
+    // 설계사 직접 지정
+    @Transactional
+    public void processAssign(PrincipalDetails principal,
+                              UUID handoverRequestId,
+                              HandoverAssignRequest request) {
+
+        User user = principal.getUser();
+
+        HandoverRequest handoverRequest = handoverRequestRepository.findById(handoverRequestId)
+                .orElseThrow(() -> new BusinessException(HandoverErrorCode.HANDOVER_REQUEST_NOT_FOUND));
+
+        if (handoverRequest.getRequestStatus() == RequestStatus.COMPLETED) {
+            throw new BusinessException(HandoverErrorCode.HANDOVER_ALREADY_COMPLETED);
+        }
+
+        if (user.getUserRole() != UserRole.BRANCH_MANAGER) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
+        if (!handoverRequest.getCustomer().getCustomerFp()
+                .getOrganization().getId().equals(user.getOrganization().getId())) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
+
+        User assignedFp = userRepository.findById(request.assignedFpId())
+                .orElseThrow(() -> new BusinessException(HandoverErrorCode.FP_NOT_FOUND));
+
+        List<HandoverRecommendation> pendingRecs = handoverRecommendationRepository
+                .findLatestByHandoverRequestAndApprovalStatus(
+                        handoverRequest, ApprovalStatus.PENDING, PageRequest.of(0, 1));
+        if (!pendingRecs.isEmpty()) {
+            pendingRecs.get(0).reject(user.getId());
+        }
+
+        HandoverRecommendation newRec = HandoverRecommendation.create(
+                handoverRequest, assignedFp, "지점장 직접 지정");
+        newRec.approve(user.getId());
+        handoverRecommendationRepository.save(newRec);
+
+        Customer customer = handoverRequest.getCustomer();
+        customer.changeCustomerFp(assignedFp);
+
+        CustomerFpHistory history = CustomerFpHistory.create(
+                customer, handoverRequestId, handoverRequest.getCurrentFp(), assignedFp, "지점장 직접 지정");
+        customerFpHistoryRepository.save(history);
+
+        handoverRequest.complete();
     }
 
     // 인수인계 상세 조회 접근

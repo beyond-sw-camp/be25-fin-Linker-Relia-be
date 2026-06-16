@@ -952,17 +952,31 @@ SET ct.contract_status = 'TERMINATED',
 UPDATE contracts ct
 JOIN (
     SELECT
-        target.contract_id
+        unpaid_seed.contract_id
     FROM (
         SELECT
-            ct.id AS contract_id
+            ct.id AS contract_id,
+            CASE MOD(ROW_NUMBER() OVER (ORDER BY ct.contract_code DESC), 10)
+                WHEN 0 THEN 1
+                WHEN 1 THEN 1
+                WHEN 2 THEN 1
+                WHEN 3 THEN 2
+                WHEN 4 THEN 2
+                WHEN 5 THEN 2
+                WHEN 6 THEN 2
+                WHEN 7 THEN 3
+                WHEN 8 THEN 3
+                ELSE 3
+            END AS unpaid_installment_count
         FROM contracts ct
         WHERE ct.contract_status = 'MAINTENANCE'
-        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 47, 241),
-                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 13, 109),
-                 ct.contract_code
+          AND ct.contract_code LIKE 'CTR%'
+        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 59, 251) DESC,
+                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 113) DESC,
+                 ct.contract_code DESC
         LIMIT 28
-    ) target
+    ) unpaid_seed
+    WHERE unpaid_seed.unpaid_installment_count = 3
 ) lapsed_targets ON lapsed_targets.contract_id = ct.id
 SET ct.contract_status = 'LAPSED',
     ct.updated_by = @SYSTEM_USER_ID;
@@ -999,6 +1013,41 @@ SET c.customer_status = CASE
         ELSE 'PROSPECT'
     END,
     c.updated_by = @SYSTEM_USER_ID;
+
+-- Create recent new contracts in the last 5 closing months so INITIAL gross commission
+-- is actually visible in the demo summary/trend APIs.
+UPDATE contracts ct
+JOIN (
+    SELECT
+        target.contract_id,
+        DATE_ADD(
+            DATE_ADD('2026-01-05', INTERVAL ((target.seq_no - 1) DIV 5) MONTH),
+            INTERVAL (MOD(target.seq_no - 1, 5) * 4) DAY
+        ) AS recent_contract_date
+    FROM (
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY selected_target.contract_code) AS seq_no,
+            selected_target.contract_id
+        FROM (
+            SELECT
+                ct.id AS contract_id,
+                ct.contract_code
+            FROM contracts ct
+            WHERE ct.contract_status = 'MAINTENANCE'
+              AND ct.contract_code LIKE 'CTR%'
+            ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 61, 257),
+                     MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 19, 127),
+                     ct.contract_code
+            LIMIT 25
+        ) selected_target
+    ) target
+) recent_contract_targets ON recent_contract_targets.contract_id = ct.id
+SET ct.contract_date = recent_contract_targets.recent_contract_date,
+    ct.contract_start_date = recent_contract_targets.recent_contract_date,
+    ct.coverage_start_date = recent_contract_targets.recent_contract_date,
+    ct.contract_end_date = DATE_ADD(recent_contract_targets.recent_contract_date, INTERVAL ct.payment_period_years YEAR),
+    ct.coverage_end_date = DATE_ADD(recent_contract_targets.recent_contract_date, INTERVAL ct.payment_period_years YEAR),
+    ct.updated_by = @SYSTEM_USER_ID;
 
 INSERT INTO contract_monthly_closing (
     id,
@@ -1068,9 +1117,15 @@ FROM (
     SELECT
         base_seed.*,
         CASE
-            WHEN base_seed.snapshot_contract_status = 'MAINTENANCE'
-                 AND base_seed.unpaid_installment_count IS NOT NULL
+            WHEN base_seed.unpaid_installment_count IS NOT NULL
                  AND base_seed.month_seq >= 6 - base_seed.unpaid_installment_count
+                 AND (
+                    base_seed.snapshot_contract_status = 'MAINTENANCE'
+                    OR (
+                        base_seed.snapshot_contract_status = 'LAPSED'
+                        AND base_seed.month_seq = 5
+                    )
+                 )
                 THEN 'UNPAID'
             ELSE 'PAID'
         END AS payment_status
@@ -1148,6 +1203,7 @@ FROM (
                 FROM contracts ct
                 WHERE ct.contract_status = 'MAINTENANCE'
                   AND ct.contract_code LIKE 'CTR%'
+                  AND ct.contract_date < '2026-01-01'
                 ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 59, 251) DESC,
                          MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 113) DESC,
                          ct.contract_code DESC
@@ -1157,16 +1213,10 @@ FROM (
         LEFT JOIN (
             SELECT
                 target.contract_id,
-                MOD(target.seq_no - 1, 4) + 2 AS event_month_seq,
-                CASE MOD(target.seq_no - 1, 4)
-                    WHEN 0 THEN DATE('2026-02-25')
-                    WHEN 1 THEN DATE('2026-03-26')
-                    WHEN 2 THEN DATE('2026-04-25')
-                    ELSE DATE('2026-05-26')
-                END AS event_date
+                5 AS event_month_seq,
+                DATE('2026-05-26') AS event_date
             FROM (
                 SELECT
-                    ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
                     ct.id AS contract_id
                 FROM contracts ct
                 WHERE ct.contract_status = 'LAPSED'
@@ -1862,33 +1912,16 @@ FROM (
         ct.insurance_product_id,
         cmc.closing_month AS commission_month,
         CASE
-            WHEN cmc.current_payment_round <= 24 THEN 'INITIAL'
+            WHEN DATE_FORMAT(ct.contract_date, '%Y-%m') = cmc.closing_month THEN 'INITIAL'
             ELSE 'MAINTENANCE'
         END AS commission_type,
-        CASE
-            WHEN cmc.current_payment_round <= 24 THEN ROUND(
-                cmc.monthly_premium * (
-                    CASE ct.payment_period_years
-                        WHEN 10 THEN 4.80
-                        WHEN 15 THEN 5.40
-                        ELSE 6.00
-                    END
-                    + (MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED), 3) * 0.30)
-                ),
-                2
-            )
-            ELSE ROUND(
-                cmc.monthly_premium * (
-                    CASE ct.payment_period_years
-                        WHEN 10 THEN 0.90
-                        WHEN 15 THEN 1.00
-                        ELSE 1.10
-                    END
-                    + (MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED), 2) * 0.10)
-                ),
-                2
-            )
-        END AS gross_commission_amount
+        ROUND(
+            cmc.monthly_premium * CASE
+                WHEN DATE_FORMAT(ct.contract_date, '%Y-%m') = cmc.closing_month THEN 10
+                ELSE 2
+            END,
+            2
+        ) AS gross_commission_amount
     FROM contract_monthly_closing cmc
     JOIN contracts ct ON ct.id = cmc.contract_id
     JOIN insurance_products ip ON ip.id = ct.insurance_product_id
@@ -1900,29 +1933,48 @@ FROM (
 
     SELECT
         2 AS sort_order,
-        ct.contract_code,
-        ct.id AS contract_id,
-        ip.insurance_company_id,
-        ct.insurance_product_id,
-        cmc.closing_month AS commission_month,
+        recovery_source.contract_code,
+        recovery_source.contract_id,
+        recovery_source.insurance_company_id,
+        recovery_source.insurance_product_id,
+        recovery_source.commission_month,
         'RECOVERY' AS commission_type,
-        CASE cmc.contract_status
-            WHEN 'TERMINATED' THEN ROUND(ct.monthly_premium * 1.20, 2)
-            ELSE ROUND(ct.monthly_premium * 0.80, 2)
-        END AS gross_commission_amount
-    FROM contract_monthly_closing cmc
-    JOIN contracts ct ON ct.id = cmc.contract_id
-    JOIN insurance_products ip ON ip.id = ct.insurance_product_id
-    WHERE ((
-            cmc.contract_status = 'LAPSED'
-        AND cmc.lapse_yn = TRUE
-        AND DATE_FORMAT(cmc.lapse_at, '%Y-%m') = cmc.closing_month
-    ) OR (
-            cmc.contract_status = 'TERMINATED'
-        AND cmc.terminated_yn = TRUE
-        AND DATE_FORMAT(cmc.terminated_at, '%Y-%m') = cmc.closing_month
-    ))
-      AND ct.contract_code LIKE 'CTR%'
+        recovery_source.gross_commission_amount
+    FROM (
+        SELECT
+            ct.contract_code,
+            ct.id AS contract_id,
+            ip.insurance_company_id,
+            ct.insurance_product_id,
+            cmc.closing_month AS commission_month,
+            ROUND(COALESCE((
+                SELECT SUM(
+                    prev_cmc.monthly_premium * CASE
+                        WHEN DATE_FORMAT(ct.contract_date, '%Y-%m') = prev_cmc.closing_month THEN 10
+                        ELSE 2
+                    END
+                )
+                FROM contract_monthly_closing prev_cmc
+                WHERE prev_cmc.contract_id = ct.id
+                  AND prev_cmc.payment_status = 'PAID'
+                  AND prev_cmc.contract_status = 'MAINTENANCE'
+                  AND prev_cmc.closing_month < cmc.closing_month
+            ), 0), 2) AS gross_commission_amount
+        FROM contract_monthly_closing cmc
+        JOIN contracts ct ON ct.id = cmc.contract_id
+        JOIN insurance_products ip ON ip.id = ct.insurance_product_id
+        WHERE ((
+                cmc.contract_status = 'LAPSED'
+            AND cmc.lapse_yn = TRUE
+            AND DATE_FORMAT(cmc.lapse_at, '%Y-%m') = cmc.closing_month
+        ) OR (
+                cmc.contract_status = 'TERMINATED'
+            AND cmc.terminated_yn = TRUE
+            AND DATE_FORMAT(cmc.terminated_at, '%Y-%m') = cmc.closing_month
+        ))
+          AND ct.contract_code LIKE 'CTR%'
+    ) recovery_source
+    WHERE recovery_source.gross_commission_amount > 0
 ) commission_source;
 
 INSERT INTO payment_commission_records (
@@ -1970,11 +2022,288 @@ FROM (
         gcr.insurance_product_id,
         gcr.commission_type AS gross_type,
         gcr.gross_commission_amount,
-        CAST(55 + (MOD(CAST(RIGHT(fp.emp_code, 3) AS UNSIGNED) - 1, 5) * 5) AS DECIMAL(5,2)) AS fp_payment_rate
+        CAST(70.00 AS DECIMAL(5,2)) AS fp_payment_rate
     FROM gross_commission_records gcr
     JOIN contracts ct ON ct.id = gcr.contract_id
     JOIN users fp ON fp.id = ct.fp_id
 ) payment_seed;
+
+-- Seed monthly commission closing tables from the source commission records using
+-- the same final formula that later correction migrations rely on.
+
+INSERT INTO fp_commission_monthly_closing (
+    id,
+    closing_month,
+    fp_id,
+    organization_id,
+    total_initial_payment_amount,
+    total_maintenance_payment_amount,
+    total_recovery_collection_amount,
+    total_payment_amount,
+    net_commission_amount,
+    contract_count,
+    recovery_contract_count,
+    closed_at
+)
+SELECT
+    CONCAT('92000000-0000-0000-0000-', LPAD(ROW_NUMBER() OVER (ORDER BY fp_source.closing_month, fp_source.fp_id), 12, '0')) AS id,
+    fp_source.closing_month,
+    fp_source.fp_id,
+    fp_source.organization_id,
+    fp_source.total_initial_payment_amount,
+    fp_source.total_maintenance_payment_amount,
+    fp_source.total_recovery_collection_amount,
+    fp_source.total_payment_amount,
+    fp_source.net_commission_amount,
+    fp_source.contract_count,
+    fp_source.recovery_contract_count,
+    fp_source.closed_at
+FROM (
+    SELECT
+        pcr.commission_month AS closing_month,
+        pcr.fp_id,
+        pcr.organization_id,
+        ROUND(SUM(CASE WHEN pcr.commission_type = 'INITIAL_PAYMENT' THEN pcr.commission_amount ELSE 0 END), 2) AS total_initial_payment_amount,
+        ROUND(SUM(CASE WHEN pcr.commission_type = 'MAINTENANCE_PAYMENT' THEN pcr.commission_amount ELSE 0 END), 2) AS total_maintenance_payment_amount,
+        ROUND(SUM(CASE WHEN pcr.commission_type = 'RECOVERY_COLLECTION' THEN pcr.commission_amount ELSE 0 END), 2) AS total_recovery_collection_amount,
+        ROUND(SUM(CASE WHEN pcr.commission_type IN ('INITIAL_PAYMENT', 'MAINTENANCE_PAYMENT') THEN pcr.commission_amount ELSE 0 END), 2) AS total_payment_amount,
+        ROUND(
+            SUM(CASE WHEN pcr.commission_type IN ('INITIAL_PAYMENT', 'MAINTENANCE_PAYMENT') THEN pcr.commission_amount ELSE 0 END)
+            - SUM(CASE WHEN pcr.commission_type = 'RECOVERY_COLLECTION' THEN pcr.commission_amount ELSE 0 END),
+            2
+        ) AS net_commission_amount,
+        COUNT(DISTINCT pcr.contract_id) AS contract_count,
+        COUNT(DISTINCT CASE WHEN pcr.commission_type = 'RECOVERY_COLLECTION' THEN pcr.contract_id END) AS recovery_contract_count,
+        COALESCE(
+            MAX(cmc.closed_at),
+            TIMESTAMP(LAST_DAY(STR_TO_DATE(CONCAT(pcr.commission_month, '-01'), '%Y-%m-%d')), '18:00:00')
+        ) AS closed_at
+    FROM payment_commission_records pcr
+    LEFT JOIN contract_monthly_closing cmc
+        ON cmc.contract_id = pcr.contract_id
+       AND cmc.closing_month = pcr.commission_month
+    GROUP BY
+        pcr.commission_month,
+        pcr.fp_id,
+        pcr.organization_id
+) fp_source;
+
+INSERT INTO branch_commission_monthly_closing (
+    id,
+    closing_month,
+    organization_id,
+    total_initial_payment_amount,
+    total_maintenance_payment_amount,
+    total_recovery_collection_amount,
+    total_payment_amount,
+    net_commission_amount,
+    fp_count,
+    contract_count,
+    recovery_contract_count,
+    closed_at
+)
+SELECT
+    CONCAT('92100000-0000-0000-0000-', LPAD(ROW_NUMBER() OVER (ORDER BY branch_source.closing_month, branch_source.organization_id), 12, '0')) AS id,
+    branch_source.closing_month,
+    branch_source.organization_id,
+    branch_source.total_initial_payment_amount,
+    branch_source.total_maintenance_payment_amount,
+    branch_source.total_recovery_collection_amount,
+    branch_source.total_payment_amount,
+    branch_source.net_commission_amount,
+    branch_source.fp_count,
+    branch_source.contract_count,
+    branch_source.recovery_contract_count,
+    branch_source.closed_at
+FROM (
+    SELECT
+        fp_closing.closing_month,
+        fp_closing.organization_id,
+        ROUND(SUM(fp_closing.total_initial_payment_amount), 2) AS total_initial_payment_amount,
+        ROUND(SUM(fp_closing.total_maintenance_payment_amount), 2) AS total_maintenance_payment_amount,
+        ROUND(SUM(fp_closing.total_recovery_collection_amount), 2) AS total_recovery_collection_amount,
+        ROUND(SUM(fp_closing.total_payment_amount), 2) AS total_payment_amount,
+        ROUND(SUM(fp_closing.net_commission_amount), 2) AS net_commission_amount,
+        COUNT(DISTINCT fp_closing.fp_id) AS fp_count,
+        SUM(fp_closing.contract_count) AS contract_count,
+        SUM(fp_closing.recovery_contract_count) AS recovery_contract_count,
+        MAX(fp_closing.closed_at) AS closed_at
+    FROM fp_commission_monthly_closing fp_closing
+    GROUP BY
+        fp_closing.closing_month,
+        fp_closing.organization_id
+) branch_source;
+
+INSERT INTO income_commission_monthly_closing (
+    id,
+    closing_month,
+    net_income_commission_amount,
+    total_initial_gross_commission_amount,
+    total_maintenance_gross_commission_amount,
+    total_payment_commission_amount,
+    total_insurance_recovery_amount,
+    total_fp_recovery_collection_amount,
+    closed_at
+)
+SELECT
+    CONCAT('92200000-0000-0000-0000-', LPAD(ROW_NUMBER() OVER (ORDER BY income_source.closing_month), 12, '0')) AS id,
+    income_source.closing_month,
+    income_source.net_income_commission_amount,
+    income_source.total_initial_gross_commission_amount,
+    income_source.total_maintenance_gross_commission_amount,
+    income_source.total_payment_commission_amount,
+    income_source.total_insurance_recovery_amount,
+    income_source.total_fp_recovery_collection_amount,
+    income_source.closed_at
+FROM (
+    SELECT
+        gross_summary.closing_month,
+        ROUND(
+            gross_summary.total_initial_gross_commission_amount
+            + gross_summary.total_maintenance_gross_commission_amount
+            - payment_summary.total_payment_commission_amount
+            - gross_summary.total_insurance_recovery_amount
+            + payment_summary.total_fp_recovery_collection_amount,
+            2
+        ) AS net_income_commission_amount,
+        gross_summary.total_initial_gross_commission_amount,
+        gross_summary.total_maintenance_gross_commission_amount,
+        payment_summary.total_payment_commission_amount,
+        gross_summary.total_insurance_recovery_amount,
+        payment_summary.total_fp_recovery_collection_amount,
+        COALESCE(gross_summary.closed_at, payment_summary.closed_at) AS closed_at
+    FROM (
+        SELECT
+            gcr.commission_month AS closing_month,
+            ROUND(SUM(CASE WHEN gcr.commission_type = 'INITIAL' THEN gcr.gross_commission_amount ELSE 0 END), 2) AS total_initial_gross_commission_amount,
+            ROUND(SUM(CASE WHEN gcr.commission_type = 'MAINTENANCE' THEN gcr.gross_commission_amount ELSE 0 END), 2) AS total_maintenance_gross_commission_amount,
+            ROUND(SUM(CASE WHEN gcr.commission_type = 'RECOVERY' THEN gcr.gross_commission_amount ELSE 0 END), 2) AS total_insurance_recovery_amount,
+            COALESCE(
+                MAX(cmc.closed_at),
+                TIMESTAMP(LAST_DAY(STR_TO_DATE(CONCAT(gcr.commission_month, '-01'), '%Y-%m-%d')), '18:00:00')
+            ) AS closed_at
+        FROM gross_commission_records gcr
+        LEFT JOIN contract_monthly_closing cmc
+            ON cmc.contract_id = gcr.contract_id
+           AND cmc.closing_month = gcr.commission_month
+        GROUP BY gcr.commission_month
+    ) gross_summary
+    JOIN (
+        SELECT
+            pcr.commission_month AS closing_month,
+            ROUND(SUM(CASE WHEN pcr.commission_type IN ('INITIAL_PAYMENT', 'MAINTENANCE_PAYMENT') THEN pcr.commission_amount ELSE 0 END), 2) AS total_payment_commission_amount,
+            ROUND(SUM(CASE WHEN pcr.commission_type = 'RECOVERY_COLLECTION' THEN pcr.commission_amount ELSE 0 END), 2) AS total_fp_recovery_collection_amount,
+            COALESCE(
+                MAX(cmc.closed_at),
+                TIMESTAMP(LAST_DAY(STR_TO_DATE(CONCAT(pcr.commission_month, '-01'), '%Y-%m-%d')), '18:00:00')
+            ) AS closed_at
+        FROM payment_commission_records pcr
+        LEFT JOIN contract_monthly_closing cmc
+            ON cmc.contract_id = pcr.contract_id
+           AND cmc.closing_month = pcr.commission_month
+        GROUP BY pcr.commission_month
+    ) payment_summary
+        ON payment_summary.closing_month = gross_summary.closing_month
+) income_source;
+
+INSERT INTO branch_income_commission_monthly_closing (
+    id,
+    closing_month,
+    organization_id,
+    net_income_commission_amount,
+    total_initial_gross_commission_amount,
+    total_maintenance_gross_commission_amount,
+    total_gross_commission_amount,
+    total_payment_commission_amount,
+    total_insurance_recovery_amount,
+    total_fp_recovery_collection_amount,
+    contract_count,
+    fp_count,
+    closed_at
+)
+SELECT
+    CONCAT('92300000-0000-0000-0000-', LPAD(ROW_NUMBER() OVER (ORDER BY branch_income_source.closing_month, branch_income_source.organization_id), 12, '0')) AS id,
+    branch_income_source.closing_month,
+    branch_income_source.organization_id,
+    branch_income_source.net_income_commission_amount,
+    branch_income_source.total_initial_gross_commission_amount,
+    branch_income_source.total_maintenance_gross_commission_amount,
+    branch_income_source.total_gross_commission_amount,
+    branch_income_source.total_payment_commission_amount,
+    branch_income_source.total_insurance_recovery_amount,
+    branch_income_source.total_fp_recovery_collection_amount,
+    branch_income_source.contract_count,
+    branch_income_source.fp_count,
+    branch_income_source.closed_at
+FROM (
+    SELECT
+        gross_summary.closing_month,
+        gross_summary.organization_id,
+        ROUND(
+            gross_summary.total_initial_gross_commission_amount
+            + gross_summary.total_maintenance_gross_commission_amount
+            - payment_summary.total_payment_commission_amount
+            - gross_summary.total_insurance_recovery_amount
+            + payment_summary.total_fp_recovery_collection_amount,
+            2
+        ) AS net_income_commission_amount,
+        gross_summary.total_initial_gross_commission_amount,
+        gross_summary.total_maintenance_gross_commission_amount,
+        gross_summary.total_gross_commission_amount,
+        payment_summary.total_payment_commission_amount,
+        gross_summary.total_insurance_recovery_amount,
+        payment_summary.total_fp_recovery_collection_amount,
+        gross_summary.contract_count,
+        gross_summary.fp_count,
+        COALESCE(gross_summary.closed_at, payment_summary.closed_at) AS closed_at
+    FROM (
+        SELECT
+            gcr.commission_month AS closing_month,
+            fp.organization_id,
+            ROUND(SUM(CASE WHEN gcr.commission_type = 'INITIAL' THEN gcr.gross_commission_amount ELSE 0 END), 2) AS total_initial_gross_commission_amount,
+            ROUND(SUM(CASE WHEN gcr.commission_type = 'MAINTENANCE' THEN gcr.gross_commission_amount ELSE 0 END), 2) AS total_maintenance_gross_commission_amount,
+            ROUND(SUM(CASE WHEN gcr.commission_type = 'RECOVERY' THEN gcr.gross_commission_amount ELSE 0 END), 2) AS total_insurance_recovery_amount,
+            ROUND(SUM(CASE
+                WHEN gcr.commission_type IN ('INITIAL', 'MAINTENANCE') THEN gcr.gross_commission_amount
+                ELSE 0
+            END), 2) AS total_gross_commission_amount,
+            COUNT(DISTINCT gcr.contract_id) AS contract_count,
+            COUNT(DISTINCT ct.fp_id) AS fp_count,
+            COALESCE(
+                MAX(cmc.closed_at),
+                TIMESTAMP(LAST_DAY(STR_TO_DATE(CONCAT(gcr.commission_month, '-01'), '%Y-%m-%d')), '18:00:00')
+            ) AS closed_at
+        FROM gross_commission_records gcr
+        JOIN contracts ct ON ct.id = gcr.contract_id
+        JOIN users fp ON fp.id = ct.fp_id
+        LEFT JOIN contract_monthly_closing cmc
+            ON cmc.contract_id = gcr.contract_id
+           AND cmc.closing_month = gcr.commission_month
+        GROUP BY
+            gcr.commission_month,
+            fp.organization_id
+    ) gross_summary
+    JOIN (
+        SELECT
+            pcr.commission_month AS closing_month,
+            pcr.organization_id,
+            ROUND(SUM(CASE WHEN pcr.commission_type IN ('INITIAL_PAYMENT', 'MAINTENANCE_PAYMENT') THEN pcr.commission_amount ELSE 0 END), 2) AS total_payment_commission_amount,
+            ROUND(SUM(CASE WHEN pcr.commission_type = 'RECOVERY_COLLECTION' THEN pcr.commission_amount ELSE 0 END), 2) AS total_fp_recovery_collection_amount,
+            COALESCE(
+                MAX(cmc.closed_at),
+                TIMESTAMP(LAST_DAY(STR_TO_DATE(CONCAT(pcr.commission_month, '-01'), '%Y-%m-%d')), '18:00:00')
+            ) AS closed_at
+        FROM payment_commission_records pcr
+        LEFT JOIN contract_monthly_closing cmc
+            ON cmc.contract_id = pcr.contract_id
+           AND cmc.closing_month = pcr.commission_month
+        GROUP BY
+            pcr.commission_month,
+            pcr.organization_id
+    ) payment_summary
+        ON payment_summary.closing_month = gross_summary.closing_month
+       AND payment_summary.organization_id = gross_summary.organization_id
+) branch_income_source;
 
 -- ----------------------------------------------------------------------------
 -- customer / contract / consultation bulk seed sections

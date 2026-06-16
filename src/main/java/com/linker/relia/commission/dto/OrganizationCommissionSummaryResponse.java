@@ -1,6 +1,6 @@
 package com.linker.relia.commission.dto;
 
-import com.linker.relia.commission.domain.BranchCommissionMonthlyClosing;
+import com.linker.relia.commission.domain.BranchIncomeCommissionMonthlyClosing;
 import com.linker.relia.commission.domain.IncomeCommissionMonthlyClosing;
 import com.linker.relia.organization.domain.Organization;
 import lombok.Builder;
@@ -22,8 +22,8 @@ public class OrganizationCommissionSummaryResponse {
     private final HqSummary hqSummary;
     private final Comparison comparison;
 
-    public static OrganizationCommissionSummaryResponse branchOf(BranchCommissionMonthlyClosing current,
-                                                                 BranchCommissionMonthlyClosing previous) {
+    public static OrganizationCommissionSummaryResponse branchOf(BranchIncomeCommissionMonthlyClosing current,
+                                                                 BranchIncomeCommissionMonthlyClosing previous) {
         Organization organization = current.getOrganization();
         return OrganizationCommissionSummaryResponse.builder()
                 .hasData(true)
@@ -32,14 +32,13 @@ public class OrganizationCommissionSummaryResponse {
                 .organizationId(organization.getId())
                 .organizationName(organization.getOrganizationName())
                 .branchSummary(BranchSummary.builder()
-                        .totalInitialPaymentAmount(current.getTotalInitialPaymentAmount())
-                        .totalMaintenancePaymentAmount(current.getTotalMaintenancePaymentAmount())
-                        .totalRecoveryCollectionAmount(current.getTotalRecoveryCollectionAmount())
-                        .totalPaymentAmount(current.getTotalPaymentAmount())
-                        .netCommissionAmount(current.getNetCommissionAmount())
-                        .fpCount(current.getFpCount())
-                        .contractCount(current.getContractCount())
-                        .recoveryContractCount(current.getRecoveryContractCount())
+                        .netIncomeCommissionAmount(current.getNetIncomeCommissionAmount())
+                        .totalInitialGrossCommissionAmount(current.getTotalInitialGrossCommissionAmount())
+                        .totalMaintenanceGrossCommissionAmount(current.getTotalMaintenanceGrossCommissionAmount())
+                        .totalPaymentCommissionAmount(current.getTotalPaymentCommissionAmount())
+                        .totalInsuranceRecoveryAmount(current.getTotalInsuranceRecoveryAmount())
+                        .totalFpRecoveryCollectionAmount(current.getTotalFpRecoveryCollectionAmount())
+                        .netRecoveryLossAmount(current.getTotalInsuranceRecoveryAmount().subtract(current.getTotalFpRecoveryCollectionAmount()))
                         .build())
                 .hqSummary(null)
                 .comparison(toBranchComparison(current, previous))
@@ -54,14 +53,13 @@ public class OrganizationCommissionSummaryResponse {
                 .organizationId(organization == null ? null : organization.getId())
                 .organizationName(organization == null ? null : organization.getOrganizationName())
                 .branchSummary(BranchSummary.builder()
-                        .totalInitialPaymentAmount(BigDecimal.ZERO)
-                        .totalMaintenancePaymentAmount(BigDecimal.ZERO)
-                        .totalRecoveryCollectionAmount(BigDecimal.ZERO)
-                        .totalPaymentAmount(BigDecimal.ZERO)
-                        .netCommissionAmount(BigDecimal.ZERO)
-                        .fpCount(0L)
-                        .contractCount(0L)
-                        .recoveryContractCount(0L)
+                        .netIncomeCommissionAmount(BigDecimal.ZERO)
+                        .totalInitialGrossCommissionAmount(BigDecimal.ZERO)
+                        .totalMaintenanceGrossCommissionAmount(BigDecimal.ZERO)
+                        .totalPaymentCommissionAmount(BigDecimal.ZERO)
+                        .totalInsuranceRecoveryAmount(BigDecimal.ZERO)
+                        .totalFpRecoveryCollectionAmount(BigDecimal.ZERO)
+                        .netRecoveryLossAmount(BigDecimal.ZERO)
                         .build())
                 .hqSummary(null)
                 .comparison(null)
@@ -84,6 +82,7 @@ public class OrganizationCommissionSummaryResponse {
                         .totalPaymentCommissionAmount(current.getTotalPaymentCommissionAmount())
                         .totalInsuranceRecoveryAmount(current.getTotalInsuranceRecoveryAmount())
                         .totalFpRecoveryCollectionAmount(current.getTotalFpRecoveryCollectionAmount())
+                        .netRecoveryLossAmount(current.getTotalInsuranceRecoveryAmount().subtract(current.getTotalFpRecoveryCollectionAmount()))
                         .build())
                 .comparison(toHqComparison(current, previous))
                 .build();
@@ -104,20 +103,21 @@ public class OrganizationCommissionSummaryResponse {
                         .totalPaymentCommissionAmount(BigDecimal.ZERO)
                         .totalInsuranceRecoveryAmount(BigDecimal.ZERO)
                         .totalFpRecoveryCollectionAmount(BigDecimal.ZERO)
+                        .netRecoveryLossAmount(BigDecimal.ZERO)
                         .build())
                 .comparison(null)
                 .build();
     }
 
-    private static Comparison toBranchComparison(BranchCommissionMonthlyClosing current,
-                                                 BranchCommissionMonthlyClosing previous) {
+    private static Comparison toBranchComparison(BranchIncomeCommissionMonthlyClosing current,
+                                                 BranchIncomeCommissionMonthlyClosing previous) {
         if (previous == null) {
             return null;
         }
         return toComparison(
                 previous.getClosingMonth(),
-                previous.getNetCommissionAmount(),
-                current.getNetCommissionAmount()
+                previous.getNetIncomeCommissionAmount(),
+                current.getNetIncomeCommissionAmount()
         );
     }
 
@@ -156,14 +156,13 @@ public class OrganizationCommissionSummaryResponse {
     @Getter
     @Builder
     public static class BranchSummary {
-        private final BigDecimal totalInitialPaymentAmount;
-        private final BigDecimal totalMaintenancePaymentAmount;
-        private final BigDecimal totalRecoveryCollectionAmount;
-        private final BigDecimal totalPaymentAmount;
-        private final BigDecimal netCommissionAmount;
-        private final long fpCount;
-        private final long contractCount;
-        private final long recoveryContractCount;
+        private final BigDecimal netIncomeCommissionAmount;
+        private final BigDecimal totalInitialGrossCommissionAmount;
+        private final BigDecimal totalMaintenanceGrossCommissionAmount;
+        private final BigDecimal totalPaymentCommissionAmount;
+        private final BigDecimal totalInsuranceRecoveryAmount;
+        private final BigDecimal totalFpRecoveryCollectionAmount;
+        private final BigDecimal netRecoveryLossAmount;
     }
 
     @Getter
@@ -175,6 +174,7 @@ public class OrganizationCommissionSummaryResponse {
         private final BigDecimal totalPaymentCommissionAmount;
         private final BigDecimal totalInsuranceRecoveryAmount;
         private final BigDecimal totalFpRecoveryCollectionAmount;
+        private final BigDecimal netRecoveryLossAmount;
     }
 
     @Getter

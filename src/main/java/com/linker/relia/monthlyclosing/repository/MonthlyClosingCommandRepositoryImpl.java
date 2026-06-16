@@ -13,6 +13,35 @@ public class MonthlyClosingCommandRepositoryImpl implements MonthlyClosingComman
     private final EntityManager entityManager;
 
     @Override
+    public boolean existsClosingData(String closingMonth) {
+        Number count = (Number) entityManager.createNativeQuery("""
+                SELECT
+                    COALESCE((SELECT COUNT(*) FROM hr_monthly_closing WHERE closing_month = ?), 0)
+                  + COALESCE((SELECT COUNT(*) FROM organization_monthly_closing WHERE closing_month = ?), 0)
+                  + COALESCE((SELECT COUNT(*) FROM fp_commission_monthly_closing WHERE closing_month = ?), 0)
+                  + COALESCE((SELECT COUNT(*) FROM branch_commission_monthly_closing WHERE closing_month = ?), 0)
+                  + COALESCE((SELECT COUNT(*) FROM income_commission_monthly_closing WHERE closing_month = ?), 0)
+                  + COALESCE((SELECT COUNT(*) FROM branch_income_commission_monthly_closing WHERE closing_month = ?), 0)
+                  + COALESCE((SELECT COUNT(*) FROM branch_customer_monthly_closing WHERE closing_month = ?), 0)
+                  + COALESCE((SELECT COUNT(*) FROM all_branch_customer_monthly_closing WHERE closing_month = ?), 0)
+                  + COALESCE((SELECT COUNT(*) FROM branch_handover_monthly_closing WHERE closing_month = ?), 0)
+                  + COALESCE((SELECT COUNT(*) FROM all_branch_handover_monthly_closing WHERE closing_month = ?), 0)
+                """)
+                .setParameter(1, closingMonth)
+                .setParameter(2, closingMonth)
+                .setParameter(3, closingMonth)
+                .setParameter(4, closingMonth)
+                .setParameter(5, closingMonth)
+                .setParameter(6, closingMonth)
+                .setParameter(7, closingMonth)
+                .setParameter(8, closingMonth)
+                .setParameter(9, closingMonth)
+                .setParameter(10, closingMonth)
+                .getSingleResult();
+        return count.longValue() > 0;
+    }
+
+    @Override
     public void deleteExistingClosingData(String closingMonth) {
         executeUpdate("DELETE FROM all_branch_handover_monthly_closing WHERE closing_month = ?", closingMonth);
         executeUpdate("DELETE FROM branch_handover_monthly_closing WHERE closing_month = ?", closingMonth);

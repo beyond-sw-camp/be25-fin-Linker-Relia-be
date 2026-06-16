@@ -31,9 +31,13 @@ public class MonthlyClosingService {
             LocalDateTime monthStart = closingMonth.atDay(1).atStartOfDay();
             LocalDateTime nextMonthStart = closingMonth.plusMonths(1).atDay(1).atStartOfDay();
 
+            if (monthlyClosingCommandRepository.existsClosingData(closingMonthValue)) {
+                log.warn("이미 월 마감 데이터가 존재하여 스케줄러 실행을 건너뜁니다. closingMonth={}", closingMonthValue);
+                return;
+            }
+
             log.info("월 마감 작업을 시작합니다. closingMonth={}", closingMonthValue);
 
-            monthlyClosingCommandRepository.deleteExistingClosingData(closingMonthValue);
             monthlyClosingCommandRepository.insertHrMonthlyClosing(closingMonthValue, closedAt);
             monthlyClosingCommandRepository.insertOrganizationMonthlyClosing(closingMonthValue, closedAt);
             monthlyClosingCommandRepository.insertFpCommissionMonthlyClosing(closingMonthValue, closedAt);

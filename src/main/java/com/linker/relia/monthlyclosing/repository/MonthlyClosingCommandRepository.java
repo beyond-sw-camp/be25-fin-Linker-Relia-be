@@ -3,6 +3,8 @@ package com.linker.relia.monthlyclosing.repository;
 import java.time.LocalDateTime;
 
 public interface MonthlyClosingCommandRepository {
+    boolean existsClosingData(String closingMonth);
+
     void deleteExistingClosingData(String closingMonth);
 
     void insertHrMonthlyClosing(String closingMonth, LocalDateTime closedAt);

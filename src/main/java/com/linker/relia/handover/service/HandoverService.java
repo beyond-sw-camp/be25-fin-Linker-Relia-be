@@ -372,6 +372,10 @@ public class HandoverService {
         User assignedFp = userRepository.findById(request.assignedFpId())
                 .orElseThrow(() -> new BusinessException(HandoverErrorCode.FP_NOT_FOUND));
 
+        if (assignedFp.getOrganization() == null || !assignedFp.getOrganization().getId().equals(user.getOrganization().getId())) {
+                        throw new BusinessException(AuthErrorCode.USER_FORBIDDEN, "동일 지점 소속 설계사만 지정할 수 있습니다.");
+        }
+
         List<HandoverRecommendation> pendingRecs = handoverRecommendationRepository
                 .findLatestByHandoverRequestAndApprovalStatus(
                         handoverRequest, ApprovalStatus.PENDING, PageRequest.of(0, 1));
@@ -387,8 +391,12 @@ public class HandoverService {
         Customer customer = handoverRequest.getCustomer();
         customer.changeCustomerFp(assignedFp);
 
+        int nextSequence = customerFpHistoryRepository
+                .findMaxCustomerFpSequence(customer.getId()) + 1;
+
         CustomerFpHistory history = CustomerFpHistory.create(
                 customer, handoverRequestId, handoverRequest.getCurrentFp(), assignedFp, "지점장 직접 지정");
+        history.applyChangeMetadata(user, nextSequence);
         customerFpHistoryRepository.save(history);
 
         handoverRequest.complete();

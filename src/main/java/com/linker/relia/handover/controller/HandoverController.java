@@ -127,7 +127,7 @@ public class HandoverController {
         return ApiResponse.success(HttpStatus.OK, "인수받은 목록 요약 조회 성공", response);
     }
 
-    // 설계사 직접 지정 목록
+    // 지정 가능한 설계사 목록 API
     @GetMapping("/{handoverRequestId}/assignable-fps")
     @PreAuthorize("hasRole('BRANCH_MANAGER')")
     public ResponseEntity<ApiResponse<PageResponse<HandoverAssignableFpResponse>>> getAssignableFps(

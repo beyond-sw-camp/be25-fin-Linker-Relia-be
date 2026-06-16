@@ -1,0 +1,38 @@
+package com.linker.relia.dashboard.controller;
+
+import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
+import com.linker.relia.dashboard.service.DashboardService;
+import com.linker.relia.security.principal.PrincipalDetails;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/dashboard")
+@SecurityRequirement(name = "Bearer Authentication")
+public class DashboardController {
+    private final DashboardService dashboardService;
+
+    @GetMapping("/fp/summary")
+    @PreAuthorize("hasRole('FP')")
+    public ResponseEntity<ApiResponse<FpDashboardSummaryResponse>> getFpDashboardSummary(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @RequestParam(value = "referenceDate", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate referenceDate
+    ) {
+        FpDashboardSummaryResponse response = dashboardService.getFpSummary(principalDetails, referenceDate);
+        return ApiResponse.success(HttpStatus.OK, "설계사 대시보드 요약 조회를 성공하였습니다.", response);
+    }
+}

@@ -17,4 +17,10 @@ public interface ConsultationScheduleRepository extends JpaRepository<Consultati
             LocalDateTime start,
             LocalDateTime end
     );
+
+    List<ConsultationSchedule> findAllByFp_IdAndScheduledAtBetweenAndDeletedAtIsNull(
+            UUID fpId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
 }

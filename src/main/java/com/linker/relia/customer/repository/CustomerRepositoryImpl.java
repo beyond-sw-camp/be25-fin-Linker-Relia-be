@@ -155,7 +155,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 join c.customerFp fp
                 join fp.organization org
                 """ + buildWhereClause(accessScope) + """
-                order by c.createdAt desc
+                order by c.customerName asc, c.id asc
                 """;
 
         TypedQuery<CustomerListItemResponse> contentQuery =
@@ -308,7 +308,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     org.organization_code,
                     org.organization_name
                 """ + fromWhereSql + """
-                order by c.created_at desc
+                order by c.customer_name asc, c.id asc
                 """;
 
         Query contentQuery = entityManager.createNativeQuery(contentSql);

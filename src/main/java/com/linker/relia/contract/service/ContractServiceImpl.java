@@ -139,7 +139,6 @@ public class ContractServiceImpl implements ContractService {
         String organizationCode = normalizeNullable(request.getOrganizationCode());
         validateOrganizationCodeFilter(accessScope, organizationCode);
 
-        YearMonth closingMonth = resolveClosingMonth(request.getClosingMonth());
         LocalDate referenceDate = LocalDate.now();
         LocalDate dueDateLimit = referenceDate.plusDays(30);
 
@@ -147,7 +146,6 @@ public class ContractServiceImpl implements ContractService {
                 accessScope,
                 organizationCode,
                 request.getInsuranceCompanyId(),
-                closingMonth.toString(),
                 referenceDate,
                 dueDateLimit
         );
@@ -161,7 +159,6 @@ public class ContractServiceImpl implements ContractService {
         String organizationCode = normalizeNullable(request.getOrganizationCode());
         validateOrganizationCodeFilter(accessScope, organizationCode);
 
-        YearMonth closingMonth = resolveClosingMonth(request.getClosingMonth());
         LocalDate referenceDate = LocalDate.now();
         LocalDate dueDateLimit = referenceDate.plusDays(30);
 
@@ -169,7 +166,6 @@ public class ContractServiceImpl implements ContractService {
                 accessScope,
                 organizationCode,
                 request.getInsuranceCompanyId(),
-                closingMonth.toString(),
                 request.getContractStatus(),
                 request.getSort(),
                 referenceDate,
@@ -188,13 +184,10 @@ public class ContractServiceImpl implements ContractService {
         String organizationCode = normalizeNullable(request.getOrganizationCode());
         validateOrganizationCodeFilter(accessScope, organizationCode);
 
-        YearMonth closingMonth = resolveClosingMonth(request.getClosingMonth());
-
         return contractRepository.summarizeInsuranceCompanyContractStatuses(
                 accessScope,
                 organizationCode,
-                request.getInsuranceCompanyId(),
-                closingMonth.toString()
+                request.getInsuranceCompanyId()
         );
     }
 
@@ -206,15 +199,17 @@ public class ContractServiceImpl implements ContractService {
         String organizationCode = normalizeNullable(request.getOrganizationCode());
         validateOrganizationCodeFilter(accessScope, organizationCode);
 
-        YearMonth endMonth = resolveClosingMonth(request.getClosingMonth());
+        YearMonth endMonth = YearMonth.now();
         YearMonth startMonth = endMonth.minusMonths(5);
+        LocalDate startDate = startMonth.atDay(1);
+        LocalDate endDate = endMonth.atEndOfMonth();
 
         List<ContractMonthlyTrendResponse> monthlyTrend = contractRepository.summarizeMonthlyContractTrend(
                 accessScope,
                 organizationCode,
                 request.getInsuranceCompanyId(),
-                startMonth.toString(),
-                endMonth.toString()
+                startDate,
+                endDate
         );
 
         Map<String, ContractMonthlyTrendResponse> trendByMonth = new HashMap<>();
@@ -248,14 +243,6 @@ public class ContractServiceImpl implements ContractService {
                 });
 
         return toContractDetailResponse(queryResult);
-    }
-
-    private YearMonth resolveClosingMonth(String closingMonth) {
-        String normalizedClosingMonth = normalizeNullable(closingMonth);
-        if (normalizedClosingMonth == null) {
-            return YearMonth.now().minusMonths(1);
-        }
-        return YearMonth.parse(normalizedClosingMonth);
     }
 
     private void validateOrganizationCodeFilter(AccessScope accessScope, String organizationCode) {

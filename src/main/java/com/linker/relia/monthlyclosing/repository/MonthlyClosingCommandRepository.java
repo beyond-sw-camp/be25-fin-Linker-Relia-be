@@ -23,6 +23,10 @@ public interface MonthlyClosingCommandRepository {
 
     void insertAllBranchCustomerMonthlyClosing(String closingMonth, LocalDateTime closedAt);
 
+    void insertBranchContractMonthlyClosing(String closingMonth, LocalDateTime closedAt);
+
+    void insertAllBranchContractMonthlyClosing(String closingMonth, LocalDateTime closedAt);
+
     void insertBranchHandoverMonthlyClosing(String closingMonth, LocalDateTime closedAt, LocalDateTime monthStart, LocalDateTime nextMonthStart);
 
     void insertAllBranchHandoverMonthlyClosing(String closingMonth, LocalDateTime closedAt);

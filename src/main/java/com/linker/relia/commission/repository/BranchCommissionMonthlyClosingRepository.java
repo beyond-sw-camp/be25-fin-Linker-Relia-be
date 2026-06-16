@@ -32,6 +32,7 @@ public interface BranchCommissionMonthlyClosingRepository extends JpaRepository<
             where bcmc.closingMonth = :closingMonth
               and org.deletedAt is null
               and org.id = :organizationId
+            order by org.organizationName asc, org.id asc
             """,
             countQuery = """
             select count(bcmc)
@@ -62,6 +63,7 @@ public interface BranchCommissionMonthlyClosingRepository extends JpaRepository<
             join bcmc.organization org
             where bcmc.closingMonth = :closingMonth
               and org.deletedAt is null
+            order by org.organizationName asc, org.id asc
             """,
             countQuery = """
             select count(bcmc)

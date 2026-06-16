@@ -33,6 +33,7 @@ public interface FpCommissionMonthlyClosingRepository extends JpaRepository<FpCo
               and org.id = :organizationId
               and fp.deletedAt is null
               and org.deletedAt is null
+            order by fp.userName asc, fp.id asc
             """,
             countQuery = """
             select count(fcmc)
@@ -66,6 +67,7 @@ public interface FpCommissionMonthlyClosingRepository extends JpaRepository<FpCo
             where fcmc.closingMonth = :closingMonth
               and fp.deletedAt is null
               and org.deletedAt is null
+            order by fp.userName asc, fp.id asc
             """,
             countQuery = """
             select count(fcmc)

@@ -41,7 +41,7 @@ public class InsuranceCompanyCommissionSummaryResponse {
         return InsuranceCompanyCommissionSummaryResponse.builder()
                 .hasData(!queryResults.isEmpty())
                 .scope("BRANCH")
-                .metricType("NET_COMMISSION")
+                .metricType("NET_INCOME_COMMISSION")
                 .closingMonth(closingMonth)
                 .organizationId(organization.getId())
                 .organizationCode(organization.getOrganizationCode())

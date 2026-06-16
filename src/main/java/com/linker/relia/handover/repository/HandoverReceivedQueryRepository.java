@@ -24,6 +24,7 @@ public class HandoverReceivedQueryRepository {
 
         List<HandoverReceivedItemResponse> content = entityManager.createQuery("""
                 SELECT new com.linker.relia.handover.dto.response.HandoverReceivedItemResponse(
+                    cfh.handoverRequestId,
                     c.id,
                     c.customerName,
                     c.customerGrade,

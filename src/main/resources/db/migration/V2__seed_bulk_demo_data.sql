@@ -2086,7 +2086,8 @@ FROM (
         pcr.commission_month,
         pcr.fp_id,
         pcr.organization_id
-) fp_source;
+) fp_source
+WHERE fp_source.closing_month < '2026-05';
 
 INSERT INTO branch_commission_monthly_closing (
     id,
@@ -2132,7 +2133,8 @@ FROM (
     GROUP BY
         fp_closing.closing_month,
         fp_closing.organization_id
-) branch_source;
+) branch_source
+WHERE branch_source.closing_month < '2026-05';
 
 INSERT INTO income_commission_monthly_closing (
     id,
@@ -2204,7 +2206,8 @@ FROM (
         GROUP BY pcr.commission_month
     ) payment_summary
         ON payment_summary.closing_month = gross_summary.closing_month
-) income_source;
+) income_source
+WHERE income_source.closing_month < '2026-05';
 
 INSERT INTO branch_income_commission_monthly_closing (
     id,
@@ -2303,7 +2306,8 @@ FROM (
     ) payment_summary
         ON payment_summary.closing_month = gross_summary.closing_month
        AND payment_summary.organization_id = gross_summary.organization_id
-) branch_income_source;
+) branch_income_source
+WHERE branch_income_source.closing_month < '2026-05';
 
 -- ----------------------------------------------------------------------------
 -- customer / contract / consultation bulk seed sections

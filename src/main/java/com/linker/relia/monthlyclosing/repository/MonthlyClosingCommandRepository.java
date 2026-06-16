@@ -19,6 +19,8 @@ public interface MonthlyClosingCommandRepository {
 
     void insertBranchIncomeCommissionMonthlyClosing(String closingMonth, LocalDateTime closedAt);
 
+    void insertFpMonthlyPerformanceClosing(String closingMonth, LocalDateTime closedAt, LocalDateTime monthStart, LocalDateTime nextMonthStart);
+
     void insertBranchCustomerMonthlyClosing(String closingMonth, LocalDateTime closedAt);
 
     void insertAllBranchCustomerMonthlyClosing(String closingMonth, LocalDateTime closedAt);

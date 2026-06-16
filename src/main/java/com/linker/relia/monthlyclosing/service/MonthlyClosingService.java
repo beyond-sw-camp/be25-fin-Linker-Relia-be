@@ -44,6 +44,7 @@ public class MonthlyClosingService {
             monthlyClosingCommandRepository.insertBranchCommissionMonthlyClosing(closingMonthValue, closedAt);
             monthlyClosingCommandRepository.insertIncomeCommissionMonthlyClosing(closingMonthValue, closedAt);
             monthlyClosingCommandRepository.insertBranchIncomeCommissionMonthlyClosing(closingMonthValue, closedAt);
+            monthlyClosingCommandRepository.insertFpMonthlyPerformanceClosing(closingMonthValue, closedAt, monthStart, nextMonthStart);
             monthlyClosingCommandRepository.insertBranchCustomerMonthlyClosing(closingMonthValue, closedAt);
             monthlyClosingCommandRepository.insertAllBranchCustomerMonthlyClosing(closingMonthValue, closedAt);
             monthlyClosingCommandRepository.insertBranchContractMonthlyClosing(closingMonthValue, closedAt);

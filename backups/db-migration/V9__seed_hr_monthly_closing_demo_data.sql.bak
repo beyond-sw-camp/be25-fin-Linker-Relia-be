@@ -1,0 +1,133 @@
+-- Demo snapshots for organization and HR monthly closing.
+-- These rows let the HR-001 feature be queried before the close-processing API exists.
+
+SET @SYSTEM_USER_ID = '30000000-0000-0000-0000-000000000001';
+
+INSERT INTO organization_monthly_closing (
+    id,
+    closing_month,
+    organization_id,
+    organization_code,
+    organization_name,
+    organization_type,
+    organization_status,
+    closed_at
+)
+SELECT
+    UUID(),
+    months.closing_month,
+    organizations.id,
+    organizations.organization_code,
+    organizations.organization_name,
+    organizations.organization_type,
+    CASE
+        WHEN months.closing_month = '2026-04'
+            AND organizations.organization_code = 'BR010'
+            THEN 'INACTIVE'
+        ELSE organizations.organization_status
+    END,
+    months.closed_at
+FROM organizations
+CROSS JOIN (
+    SELECT '2026-04' AS closing_month, '2026-05-01 00:00:00' AS closed_at
+    UNION ALL
+    SELECT '2026-05' AS closing_month, '2026-06-01 00:00:00' AS closed_at
+) months
+WHERE organizations.deleted_at IS NULL;
+
+INSERT INTO hr_monthly_closing (
+    id,
+    closing_month,
+    user_id,
+    emp_code,
+    user_name,
+    user_role,
+    user_status,
+    organization_id,
+    closed_at
+)
+SELECT
+    UUID(),
+    months.closing_month,
+    users.id,
+    users.emp_code,
+    users.user_name,
+    users.user_role,
+    CASE
+        WHEN months.closing_month = '2026-04'
+            AND users.emp_code IN ('FP095', 'FP096', 'FP097')
+            THEN 'RESIGNED'
+        ELSE users.user_status
+    END,
+    users.organization_id,
+    months.closed_at
+FROM users
+CROSS JOIN (
+    SELECT '2026-04' AS closing_month, '2026-05-01 00:00:00' AS closed_at
+    UNION ALL
+    SELECT '2026-05' AS closing_month, '2026-06-01 00:00:00' AS closed_at
+) months
+WHERE users.deleted_at IS NULL;
+
+INSERT INTO fp_monthly_info (
+    id,
+    closing_month,
+    emp_code,
+    fp_name,
+    organization_code,
+    organization_name,
+    organization_type,
+    career_years,
+    specialty_category,
+    preferred_customer_age,
+    preferred_customer_asset_level,
+    consultation_channel,
+    current_contract_count,
+    retention_rate,
+    consultation_count,
+    handover_success_count,
+    long_term_maintenance_rate,
+    created_by
+)
+SELECT
+    UUID(),
+    months.closing_month,
+    users.emp_code,
+    users.user_name,
+    organizations.organization_code,
+    organizations.organization_name,
+    organizations.organization_type,
+    1 + MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 12),
+    CASE MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 4)
+        WHEN 0 THEN 'LIFE'
+        WHEN 1 THEN 'HEALTH'
+        WHEN 2 THEN 'ANNUITY'
+        ELSE 'SAVINGS'
+    END,
+    30 + MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 25),
+    CASE MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 3)
+        WHEN 0 THEN 'LOW'
+        WHEN 1 THEN 'MIDDLE'
+        ELSE 'HIGH'
+    END,
+    CASE MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 3)
+        WHEN 0 THEN 'ONLINE'
+        WHEN 1 THEN 'PHONE'
+        ELSE 'VISIT'
+    END,
+    5 + MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 40),
+    70.00 + MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 25),
+    10 + MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 80),
+    MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 10),
+    65.00 + MOD(CAST(SUBSTRING(users.emp_code, 3) AS UNSIGNED), 30),
+    @SYSTEM_USER_ID
+FROM users
+JOIN organizations ON organizations.id = users.organization_id
+CROSS JOIN (
+    SELECT '2026-04' AS closing_month
+    UNION ALL
+    SELECT '2026-05' AS closing_month
+) months
+WHERE users.user_role = 'FP'
+  AND users.deleted_at IS NULL
+  AND organizations.deleted_at IS NULL;

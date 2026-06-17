@@ -4,12 +4,15 @@ import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
 import com.linker.relia.dashboard.dto.DashboardContractDistributionQueryResult;
+import com.linker.relia.dashboard.dto.DashboardMonthlyContractCustomerTrendQueryResult;
 import com.linker.relia.dashboard.dto.DashboardSummaryQueryResult;
 import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
+import com.linker.relia.dashboard.dto.FpDashboardMonthlyContractCustomerTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
 import com.linker.relia.dashboard.repository.DashboardContractDistributionQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardContractStatusQueryRepository;
+import com.linker.relia.dashboard.repository.DashboardMonthlyContractCustomerTrendQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardSummaryQueryRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
@@ -20,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +33,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final DashboardSummaryQueryRepository dashboardSummaryQueryRepository;
     private final DashboardContractStatusQueryRepository dashboardContractStatusQueryRepository;
     private final DashboardContractDistributionQueryRepository dashboardContractDistributionQueryRepository;
+    private final DashboardMonthlyContractCustomerTrendQueryRepository dashboardMonthlyContractCustomerTrendQueryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -139,6 +145,36 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public FpDashboardMonthlyContractCustomerTrendResponse getFpMonthlyContractCustomerTrend(
+            PrincipalDetails principalDetails,
+            LocalDate referenceDate
+    ) {
+        User fp = principalDetails.getUser();
+        validateFp(fp);
+
+        LocalDate resolvedReferenceDate = referenceDate == null ? LocalDate.now() : referenceDate;
+        YearMonth endMonth = YearMonth.from(resolvedReferenceDate).minusMonths(1);
+        YearMonth startMonth = endMonth.minusMonths(5);
+
+        List<DashboardMonthlyContractCustomerTrendQueryResult> queryResults =
+                dashboardMonthlyContractCustomerTrendQueryRepository.findMonthlyContractCustomerTrends(
+                        fp.getId(),
+                        startMonth.toString(),
+                        endMonth.toString()
+                );
+        Map<String, DashboardMonthlyContractCustomerTrendQueryResult> trendByMonth =
+                mapMonthlyContractCustomerTrends(queryResults);
+
+        return FpDashboardMonthlyContractCustomerTrendResponse.builder()
+                .referenceDate(resolvedReferenceDate)
+                .startMonth(startMonth.toString())
+                .endMonth(endMonth.toString())
+                .monthlyTrends(buildMonthlyContractCustomerTrendItems(startMonth, trendByMonth))
+                .build();
+    }
+
     private void validateFp(User user) {
         if (user.getUserRole() != UserRole.FP) {
             throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
@@ -179,5 +215,33 @@ public class DashboardServiceImpl implements DashboardService {
         return queryResults.stream()
                 .mapToLong(DashboardContractDistributionQueryResult::contractCount)
                 .sum();
+    }
+
+    private Map<String, DashboardMonthlyContractCustomerTrendQueryResult> mapMonthlyContractCustomerTrends(
+            List<DashboardMonthlyContractCustomerTrendQueryResult> queryResults
+    ) {
+        Map<String, DashboardMonthlyContractCustomerTrendQueryResult> trendByMonth = new HashMap<>();
+        for (DashboardMonthlyContractCustomerTrendQueryResult queryResult : queryResults) {
+            trendByMonth.put(queryResult.closingMonth(), queryResult);
+        }
+        return trendByMonth;
+    }
+
+    private List<FpDashboardMonthlyContractCustomerTrendResponse.MonthlyContractCustomerTrendItem>
+    buildMonthlyContractCustomerTrendItems(
+            YearMonth startMonth,
+            Map<String, DashboardMonthlyContractCustomerTrendQueryResult> trendByMonth
+    ) {
+        return java.util.stream.IntStream.range(0, 6)
+                .mapToObj(index -> {
+                    String month = startMonth.plusMonths(index).toString();
+                    DashboardMonthlyContractCustomerTrendQueryResult queryResult = trendByMonth.get(month);
+                    return FpDashboardMonthlyContractCustomerTrendResponse.MonthlyContractCustomerTrendItem.builder()
+                            .month(month)
+                            .newContractCount(queryResult == null ? 0 : queryResult.newContractCount())
+                            .customerCount(queryResult == null ? 0 : queryResult.customerCount())
+                            .build();
+                })
+                .toList();
     }
 }

@@ -2,8 +2,14 @@ package com.linker.relia.dashboard.service;
 
 import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
+import com.linker.relia.dashboard.dto.DashboardContractDistributionQueryResult;
 import com.linker.relia.dashboard.dto.DashboardSummaryQueryResult;
+import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
+import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
+import com.linker.relia.dashboard.repository.DashboardContractDistributionQueryRepository;
+import com.linker.relia.dashboard.repository.DashboardContractStatusQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardSummaryQueryRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
@@ -12,14 +18,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class DashboardServiceImpl implements DashboardService {
     private final DashboardSummaryQueryRepository dashboardSummaryQueryRepository;
+    private final DashboardContractStatusQueryRepository dashboardContractStatusQueryRepository;
+    private final DashboardContractDistributionQueryRepository dashboardContractDistributionQueryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -28,28 +36,25 @@ public class DashboardServiceImpl implements DashboardService {
         validateFp(fp);
 
         LocalDate resolvedReferenceDate = referenceDate == null ? LocalDate.now() : referenceDate;
-        YearMonth currentMonth = YearMonth.from(resolvedReferenceDate);
-        YearMonth comparisonClosingMonth = currentMonth.minusMonths(1);
+        YearMonth closingMonth = YearMonth.from(resolvedReferenceDate).minusMonths(1);
+        YearMonth comparisonClosingMonth = closingMonth.minusMonths(1);
 
         /*
-         * Business 기준:
-         * - 이번 달 실시간 값: referenceDate가 속한 월의 1일부터 referenceDate까지 운영 테이블에서 집계한다.
-         * - 전월 대비 값: 이번 달 실시간 값에서 comparisonClosingMonth의 마감 데이터를 뺀다.
-         * - 예상 수수료/현재 지점 순위: payment_commission_records의 현재 월 레코드를 실시간 합산한다.
-         * - 전월 수수료/전월 지점 순위: fp_commission_monthly_closing의 net_commission_amount를 사용한다.
+         * Business rule:
+         * - The dashboard uses the previous closed month because the current month may not be closed yet.
+         * - Diff values are calculated as previous closed month minus the month before that.
+         * - Contract, retention, rank, customer, and handover values come from fp_monthly_performance_closing.
+         * - Commission values come from fp_commission_monthly_closing.net_commission_amount.
          */
         DashboardSummaryQueryResult queryResult = dashboardSummaryQueryRepository.findFpSummary(
                 fp.getId(),
-                fp.getOrganization().getId(),
-                currentMonth.atDay(1),
-                resolvedReferenceDate,
-                currentMonth.toString(),
+                closingMonth.toString(),
                 comparisonClosingMonth.toString()
         );
 
         return FpDashboardSummaryResponse.builder()
                 .referenceDate(resolvedReferenceDate)
-                .comparisonClosingMonth(comparisonClosingMonth.toString())
+                .comparisonClosingMonth(closingMonth.toString())
                 .newContractCount(queryResult.currentNewContractCount())
                 .newContractDiff(queryResult.currentNewContractCount() - queryResult.previousNewContractCount())
                 .retentionRate(queryResult.currentRetentionRate())
@@ -57,12 +62,80 @@ public class DashboardServiceImpl implements DashboardService {
                 .branchRank(queryResult.currentBranchRank())
                 .branchRankChange(calculateRankChange(queryResult.currentBranchRank(), queryResult.previousBranchRank()))
                 .customerCount(queryResult.currentCustomerCount())
-                .customerDiff(queryResult.customerNetIncreaseCount())
+                .customerDiff(queryResult.currentCustomerCount() - queryResult.previousCustomerCount())
                 .newHandoverCount(queryResult.currentNewHandoverCount())
                 .handoverDiff(queryResult.currentNewHandoverCount() - queryResult.previousNewHandoverCount())
                 .expectedCommissionAmount(queryResult.currentExpectedCommissionAmount())
                 .commissionDiffAmount(queryResult.currentExpectedCommissionAmount()
                         .subtract(queryResult.previousClosedCommissionAmount()))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FpDashboardContractStatusResponse getFpContractStatus(PrincipalDetails principalDetails,
+                                                                 LocalDate referenceDate) {
+        User fp = principalDetails.getUser();
+        validateFp(fp);
+
+        LocalDate resolvedReferenceDate = referenceDate == null ? LocalDate.now() : referenceDate;
+        YearMonth closingMonth = YearMonth.from(resolvedReferenceDate).minusMonths(1);
+
+        DashboardContractStatusQueryResult queryResult =
+                dashboardContractStatusQueryRepository.summarizeContractStatuses(
+                        fp.getId(),
+                        closingMonth.toString()
+                );
+
+        return FpDashboardContractStatusResponse.builder()
+                .referenceDate(resolvedReferenceDate)
+                .closingMonth(closingMonth.toString())
+                .totalContractCount(queryResult.totalContractCount())
+                .maintenanceContractCount(queryResult.maintenanceContractCount())
+                .lapsedContractCount(queryResult.lapsedContractCount())
+                .terminatedContractCount(queryResult.terminatedContractCount())
+                .completedContractCount(queryResult.completedContractCount())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FpDashboardContractDistributionResponse getFpContractDistribution(
+            PrincipalDetails principalDetails,
+            LocalDate referenceDate
+    ) {
+        User fp = principalDetails.getUser();
+        validateFp(fp);
+
+        LocalDate resolvedReferenceDate = referenceDate == null ? LocalDate.now() : referenceDate;
+        YearMonth closingMonth = YearMonth.from(resolvedReferenceDate).minusMonths(1);
+
+        List<DashboardContractDistributionQueryResult> insuranceCompanyResults =
+                dashboardContractDistributionQueryRepository.summarizeInsuranceCompanyContractCounts(
+                        fp.getId(),
+                        closingMonth.toString()
+                );
+        List<DashboardContractDistributionQueryResult> insuranceCategoryResults =
+                dashboardContractDistributionQueryRepository.summarizeInsuranceCategoryContractCounts(
+                        fp.getId(),
+                        closingMonth.toString()
+                );
+
+        List<FpDashboardContractDistributionResponse.InsuranceCompanyContractCountItem> insuranceCompanyItems =
+                insuranceCompanyResults.stream()
+                        .map(this::toInsuranceCompanyContractCountItem)
+                        .toList();
+        List<FpDashboardContractDistributionResponse.InsuranceCategoryContractCountItem> insuranceCategoryItems =
+                insuranceCategoryResults.stream()
+                        .map(this::toInsuranceCategoryContractCountItem)
+                        .toList();
+
+        return FpDashboardContractDistributionResponse.builder()
+                .referenceDate(resolvedReferenceDate)
+                .closingMonth(closingMonth.toString())
+                .totalContractCount(calculateTotalContractCount(insuranceCompanyResults))
+                .insuranceCompanies(insuranceCompanyItems)
+                .insuranceCategories(insuranceCategoryItems)
                 .build();
     }
 
@@ -82,5 +155,29 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         return previousRank - currentRank;
+    }
+
+    private FpDashboardContractDistributionResponse.InsuranceCompanyContractCountItem
+    toInsuranceCompanyContractCountItem(DashboardContractDistributionQueryResult queryResult) {
+        return FpDashboardContractDistributionResponse.InsuranceCompanyContractCountItem.builder()
+                .insuranceCompanyId(queryResult.id())
+                .insuranceCompanyName(queryResult.name())
+                .contractCount(queryResult.contractCount())
+                .build();
+    }
+
+    private FpDashboardContractDistributionResponse.InsuranceCategoryContractCountItem
+    toInsuranceCategoryContractCountItem(DashboardContractDistributionQueryResult queryResult) {
+        return FpDashboardContractDistributionResponse.InsuranceCategoryContractCountItem.builder()
+                .insuranceCategoryId(queryResult.id())
+                .insuranceCategoryName(queryResult.name())
+                .contractCount(queryResult.contractCount())
+                .build();
+    }
+
+    private long calculateTotalContractCount(List<DashboardContractDistributionQueryResult> queryResults) {
+        return queryResults.stream()
+                .mapToLong(DashboardContractDistributionQueryResult::contractCount)
+                .sum();
     }
 }

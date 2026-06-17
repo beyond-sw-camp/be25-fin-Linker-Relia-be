@@ -3,9 +3,12 @@ package com.linker.relia.dashboard.service;
 import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
+import com.linker.relia.dashboard.dto.DashboardContractDistributionQueryResult;
 import com.linker.relia.dashboard.dto.DashboardSummaryQueryResult;
+import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
+import com.linker.relia.dashboard.repository.DashboardContractDistributionQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardContractStatusQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardSummaryQueryRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -17,12 +20,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class DashboardServiceImpl implements DashboardService {
     private final DashboardSummaryQueryRepository dashboardSummaryQueryRepository;
     private final DashboardContractStatusQueryRepository dashboardContractStatusQueryRepository;
+    private final DashboardContractDistributionQueryRepository dashboardContractDistributionQueryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -93,6 +98,47 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public FpDashboardContractDistributionResponse getFpContractDistribution(
+            PrincipalDetails principalDetails,
+            LocalDate referenceDate
+    ) {
+        User fp = principalDetails.getUser();
+        validateFp(fp);
+
+        LocalDate resolvedReferenceDate = referenceDate == null ? LocalDate.now() : referenceDate;
+        YearMonth closingMonth = YearMonth.from(resolvedReferenceDate).minusMonths(1);
+
+        List<DashboardContractDistributionQueryResult> insuranceCompanyResults =
+                dashboardContractDistributionQueryRepository.summarizeInsuranceCompanyContractCounts(
+                        fp.getId(),
+                        closingMonth.toString()
+                );
+        List<DashboardContractDistributionQueryResult> insuranceCategoryResults =
+                dashboardContractDistributionQueryRepository.summarizeInsuranceCategoryContractCounts(
+                        fp.getId(),
+                        closingMonth.toString()
+                );
+
+        List<FpDashboardContractDistributionResponse.InsuranceCompanyContractCountItem> insuranceCompanyItems =
+                insuranceCompanyResults.stream()
+                        .map(this::toInsuranceCompanyContractCountItem)
+                        .toList();
+        List<FpDashboardContractDistributionResponse.InsuranceCategoryContractCountItem> insuranceCategoryItems =
+                insuranceCategoryResults.stream()
+                        .map(this::toInsuranceCategoryContractCountItem)
+                        .toList();
+
+        return FpDashboardContractDistributionResponse.builder()
+                .referenceDate(resolvedReferenceDate)
+                .closingMonth(closingMonth.toString())
+                .totalContractCount(calculateTotalContractCount(insuranceCompanyResults))
+                .insuranceCompanies(insuranceCompanyItems)
+                .insuranceCategories(insuranceCategoryItems)
+                .build();
+    }
+
     private void validateFp(User user) {
         if (user.getUserRole() != UserRole.FP) {
             throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
@@ -109,5 +155,29 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         return previousRank - currentRank;
+    }
+
+    private FpDashboardContractDistributionResponse.InsuranceCompanyContractCountItem
+    toInsuranceCompanyContractCountItem(DashboardContractDistributionQueryResult queryResult) {
+        return FpDashboardContractDistributionResponse.InsuranceCompanyContractCountItem.builder()
+                .insuranceCompanyId(queryResult.id())
+                .insuranceCompanyName(queryResult.name())
+                .contractCount(queryResult.contractCount())
+                .build();
+    }
+
+    private FpDashboardContractDistributionResponse.InsuranceCategoryContractCountItem
+    toInsuranceCategoryContractCountItem(DashboardContractDistributionQueryResult queryResult) {
+        return FpDashboardContractDistributionResponse.InsuranceCategoryContractCountItem.builder()
+                .insuranceCategoryId(queryResult.id())
+                .insuranceCategoryName(queryResult.name())
+                .contractCount(queryResult.contractCount())
+                .build();
+    }
+
+    private long calculateTotalContractCount(List<DashboardContractDistributionQueryResult> queryResults) {
+        return queryResults.stream()
+                .mapToLong(DashboardContractDistributionQueryResult::contractCount)
+                .sum();
     }
 }

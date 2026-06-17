@@ -84,10 +84,17 @@ public class DashboardContractDistributionQueryRepositoryImpl
 
     private DashboardContractDistributionQueryResult toQueryResult(Object[] row) {
         return new DashboardContractDistributionQueryResult(
-                UUID.fromString((String) row[0]),
+                toUuid(row[0]),
                 (String) row[1],
                 toLong(row[2])
         );
+    }
+
+    private UUID toUuid(Object value) {
+        if (value instanceof UUID uuid) {
+            return uuid;
+        }
+        return UUID.fromString(Objects.requireNonNull(value).toString());
     }
 
     private long toLong(Object value) {

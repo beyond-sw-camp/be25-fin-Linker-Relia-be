@@ -824,7 +824,6 @@ CREATE TABLE notifications (
                                id CHAR(36) NOT NULL,
                                receiver_id CHAR(36) NOT NULL,
                                notification_type VARCHAR(30) NOT NULL,
-                               title VARCHAR(100) NOT NULL,
                                content VARCHAR(500) NOT NULL,
                                target_type VARCHAR(30) NULL,
                                target_id CHAR(36) NULL,

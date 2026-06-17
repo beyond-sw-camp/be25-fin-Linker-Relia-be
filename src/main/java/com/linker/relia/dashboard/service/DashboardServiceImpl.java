@@ -2,17 +2,20 @@ package com.linker.relia.dashboard.service;
 
 import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.exception.BusinessException;
-import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
 import com.linker.relia.dashboard.dto.DashboardContractDistributionQueryResult;
+import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
 import com.linker.relia.dashboard.dto.DashboardMonthlyCommissionTrendQueryResult;
+import com.linker.relia.dashboard.dto.DashboardMonthlyContractCustomerTrendQueryResult;
 import com.linker.relia.dashboard.dto.DashboardSummaryQueryResult;
 import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
 import com.linker.relia.dashboard.dto.FpDashboardMonthlyCommissionTrendResponse;
+import com.linker.relia.dashboard.dto.FpDashboardMonthlyContractCustomerTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
 import com.linker.relia.dashboard.repository.DashboardContractDistributionQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardContractStatusQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardMonthlyCommissionTrendQueryRepository;
+import com.linker.relia.dashboard.repository.DashboardMonthlyContractCustomerTrendQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardSummaryQueryRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
@@ -35,6 +38,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final DashboardSummaryQueryRepository dashboardSummaryQueryRepository;
     private final DashboardContractStatusQueryRepository dashboardContractStatusQueryRepository;
     private final DashboardContractDistributionQueryRepository dashboardContractDistributionQueryRepository;
+    private final DashboardMonthlyContractCustomerTrendQueryRepository dashboardMonthlyContractCustomerTrendQueryRepository;
     private final DashboardMonthlyCommissionTrendQueryRepository dashboardMonthlyCommissionTrendQueryRepository;
 
     @Override
@@ -47,13 +51,6 @@ public class DashboardServiceImpl implements DashboardService {
         YearMonth closingMonth = YearMonth.from(resolvedReferenceDate).minusMonths(1);
         YearMonth comparisonClosingMonth = closingMonth.minusMonths(1);
 
-        /*
-         * Business rule:
-         * - The dashboard uses the previous closed month because the current month may not be closed yet.
-         * - Diff values are calculated as previous closed month minus the month before that.
-         * - Contract, retention, rank, customer, and handover values come from fp_monthly_performance_closing.
-         * - Commission values come from fp_commission_monthly_closing.net_commission_amount.
-         */
         DashboardSummaryQueryResult queryResult = dashboardSummaryQueryRepository.findFpSummary(
                 fp.getId(),
                 closingMonth.toString(),
@@ -149,6 +146,36 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional(readOnly = true)
+    public FpDashboardMonthlyContractCustomerTrendResponse getFpMonthlyContractCustomerTrend(
+            PrincipalDetails principalDetails,
+            LocalDate referenceDate
+    ) {
+        User fp = principalDetails.getUser();
+        validateFp(fp);
+
+        LocalDate resolvedReferenceDate = referenceDate == null ? LocalDate.now() : referenceDate;
+        YearMonth endMonth = YearMonth.from(resolvedReferenceDate).minusMonths(1);
+        YearMonth startMonth = endMonth.minusMonths(5);
+
+        List<DashboardMonthlyContractCustomerTrendQueryResult> queryResults =
+                dashboardMonthlyContractCustomerTrendQueryRepository.findMonthlyContractCustomerTrends(
+                        fp.getId(),
+                        startMonth.toString(),
+                        endMonth.toString()
+                );
+        Map<String, DashboardMonthlyContractCustomerTrendQueryResult> trendByMonth =
+                mapMonthlyContractCustomerTrends(queryResults);
+
+        return FpDashboardMonthlyContractCustomerTrendResponse.builder()
+                .referenceDate(resolvedReferenceDate)
+                .startMonth(startMonth.toString())
+                .endMonth(endMonth.toString())
+                .monthlyTrends(buildMonthlyContractCustomerTrendItems(startMonth, trendByMonth))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public FpDashboardMonthlyCommissionTrendResponse getFpMonthlyCommissionTrend(
             PrincipalDetails principalDetails,
             LocalDate referenceDate
@@ -217,6 +244,34 @@ public class DashboardServiceImpl implements DashboardService {
         return queryResults.stream()
                 .mapToLong(DashboardContractDistributionQueryResult::contractCount)
                 .sum();
+    }
+
+    private Map<String, DashboardMonthlyContractCustomerTrendQueryResult> mapMonthlyContractCustomerTrends(
+            List<DashboardMonthlyContractCustomerTrendQueryResult> queryResults
+    ) {
+        Map<String, DashboardMonthlyContractCustomerTrendQueryResult> trendByMonth = new HashMap<>();
+        for (DashboardMonthlyContractCustomerTrendQueryResult queryResult : queryResults) {
+            trendByMonth.put(queryResult.closingMonth(), queryResult);
+        }
+        return trendByMonth;
+    }
+
+    private List<FpDashboardMonthlyContractCustomerTrendResponse.MonthlyContractCustomerTrendItem>
+    buildMonthlyContractCustomerTrendItems(
+            YearMonth startMonth,
+            Map<String, DashboardMonthlyContractCustomerTrendQueryResult> trendByMonth
+    ) {
+        return IntStream.range(0, 6)
+                .mapToObj(index -> {
+                    String month = startMonth.plusMonths(index).toString();
+                    DashboardMonthlyContractCustomerTrendQueryResult queryResult = trendByMonth.get(month);
+                    return FpDashboardMonthlyContractCustomerTrendResponse.MonthlyContractCustomerTrendItem.builder()
+                            .month(month)
+                            .newContractCount(queryResult == null ? 0 : queryResult.newContractCount())
+                            .customerCount(queryResult == null ? 0 : queryResult.customerCount())
+                            .build();
+                })
+                .toList();
     }
 
     private Map<String, DashboardMonthlyCommissionTrendQueryResult> mapMonthlyCommissionTrends(

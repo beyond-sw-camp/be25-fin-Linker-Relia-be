@@ -2,8 +2,11 @@ package com.linker.relia.dashboard.service;
 
 import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
 import com.linker.relia.dashboard.dto.DashboardSummaryQueryResult;
+import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
+import com.linker.relia.dashboard.repository.DashboardContractStatusQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardSummaryQueryRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
@@ -19,6 +22,7 @@ import java.time.YearMonth;
 @RequiredArgsConstructor
 public class DashboardServiceImpl implements DashboardService {
     private final DashboardSummaryQueryRepository dashboardSummaryQueryRepository;
+    private final DashboardContractStatusQueryRepository dashboardContractStatusQueryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -59,6 +63,33 @@ public class DashboardServiceImpl implements DashboardService {
                 .expectedCommissionAmount(queryResult.currentExpectedCommissionAmount())
                 .commissionDiffAmount(queryResult.currentExpectedCommissionAmount()
                         .subtract(queryResult.previousClosedCommissionAmount()))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FpDashboardContractStatusResponse getFpContractStatus(PrincipalDetails principalDetails,
+                                                                 LocalDate referenceDate) {
+        User fp = principalDetails.getUser();
+        validateFp(fp);
+
+        LocalDate resolvedReferenceDate = referenceDate == null ? LocalDate.now() : referenceDate;
+        YearMonth closingMonth = YearMonth.from(resolvedReferenceDate).minusMonths(1);
+
+        DashboardContractStatusQueryResult queryResult =
+                dashboardContractStatusQueryRepository.summarizeContractStatuses(
+                        fp.getId(),
+                        closingMonth.toString()
+                );
+
+        return FpDashboardContractStatusResponse.builder()
+                .referenceDate(resolvedReferenceDate)
+                .closingMonth(closingMonth.toString())
+                .totalContractCount(queryResult.totalContractCount())
+                .maintenanceContractCount(queryResult.maintenanceContractCount())
+                .lapsedContractCount(queryResult.lapsedContractCount())
+                .terminatedContractCount(queryResult.terminatedContractCount())
+                .completedContractCount(queryResult.completedContractCount())
                 .build();
     }
 

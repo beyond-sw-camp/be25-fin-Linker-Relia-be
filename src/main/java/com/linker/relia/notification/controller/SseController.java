@@ -1,5 +1,6 @@
-package com.linker.relia.common.sse;
+package com.linker.relia.notification.controller;
 
+import com.linker.relia.notification.SseEmitterManager;
 import com.linker.relia.security.principal.PrincipalDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;

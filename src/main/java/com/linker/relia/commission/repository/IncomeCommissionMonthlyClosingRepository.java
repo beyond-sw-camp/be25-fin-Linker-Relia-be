@@ -11,4 +11,6 @@ public interface IncomeCommissionMonthlyClosingRepository extends JpaRepository<
     Optional<IncomeCommissionMonthlyClosing> findByClosingMonth(String closingMonth);
 
     boolean existsByClosingMonth(String closingMonth);
+
+    List<IncomeCommissionMonthlyClosing> findAllByOrderByClosingMonthDesc();
 }

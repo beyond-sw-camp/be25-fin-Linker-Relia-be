@@ -8,6 +8,11 @@ server:
 spring:
   application:
     name: relia
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        model: gpt-4.1-mini
 
 app:
   monthly-closing:
@@ -19,13 +24,6 @@ jwt:
   secret: ${JWT_SECRET_KEY}
   accessExpiredMs: ${JWT_ACCESS_EXPIRED_MS}
   refreshExpiredMs: ${JWT_REFRESH_EXPIRED_MS}
-
-spring:
-  ai:
-    openai:
-      api-key: ${OPENAI_API_KEY}
-      chat:
-        model: gpt-4.1-mini
 
 clova:
   stt:

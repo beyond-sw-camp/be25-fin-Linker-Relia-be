@@ -1,6 +1,7 @@
 package com.linker.relia.dashboard.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
 import com.linker.relia.dashboard.service.DashboardService;
@@ -47,5 +48,17 @@ public class DashboardController {
         FpDashboardContractStatusResponse response =
                 dashboardService.getFpContractStatus(principalDetails, referenceDate);
         return ApiResponse.success(HttpStatus.OK, "설계사 대시보드 계약 상태 조회를 성공하였습니다.", response);
+    }
+
+    @GetMapping("/fp/contracts/distribution")
+    @PreAuthorize("hasRole('FP')")
+    public ResponseEntity<ApiResponse<FpDashboardContractDistributionResponse>> getFpDashboardContractDistribution(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @RequestParam(value = "referenceDate", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate referenceDate
+    ) {
+        FpDashboardContractDistributionResponse response =
+                dashboardService.getFpContractDistribution(principalDetails, referenceDate);
+        return ApiResponse.success(HttpStatus.OK, "설계사 대시보드 계약 분포 조회를 성공하였습니다.", response);
     }
 }

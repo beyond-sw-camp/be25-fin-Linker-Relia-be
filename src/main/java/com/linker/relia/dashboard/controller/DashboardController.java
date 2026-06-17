@@ -3,6 +3,7 @@ package com.linker.relia.dashboard.controller;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
+import com.linker.relia.dashboard.dto.FpDashboardMonthlyCommissionTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardMonthlyContractCustomerTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
 import com.linker.relia.dashboard.service.DashboardService;
@@ -74,5 +75,18 @@ public class DashboardController {
         FpDashboardMonthlyContractCustomerTrendResponse response =
                 dashboardService.getFpMonthlyContractCustomerTrend(principalDetails, referenceDate);
         return ApiResponse.success(HttpStatus.OK, "설계사 대시보드 월별 계약/고객 추이 조회를 성공하였습니다.", response);
+    }
+
+    @GetMapping("/fp/monthly-commission-trend")
+    @PreAuthorize("hasRole('FP')")
+    public ResponseEntity<ApiResponse<FpDashboardMonthlyCommissionTrendResponse>>
+    getFpDashboardMonthlyCommissionTrend(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @RequestParam(value = "referenceDate", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate referenceDate
+    ) {
+        FpDashboardMonthlyCommissionTrendResponse response =
+                dashboardService.getFpMonthlyCommissionTrend(principalDetails, referenceDate);
+        return ApiResponse.success(HttpStatus.OK, "설계사 대시보드 월별 수수료 추이 조회를 성공하였습니다.", response);
     }
 }

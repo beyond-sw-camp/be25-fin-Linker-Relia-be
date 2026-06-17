@@ -34,6 +34,21 @@ public class ConsultationClaimDetail {
     @Column(name = "claim_event_date")
     private LocalDate claimEventDate;
 
+    @Column(name = "claim_type")
+    private String claimType;
+
+    @Column(name = "claim_reason")
+    private String claimReason;
+
+    @Column(name = "incident_date")
+    private LocalDate incidentDate;
+
+    @Column(name = "review_items", columnDefinition = "json")
+    private String reviewItems;
+
+    @Column(name = "next_actions", columnDefinition = "json")
+    private String nextActions;
+
     @Column(name = "claim_reason_detail", length = 500)
     private String claimReasonDetail;
 

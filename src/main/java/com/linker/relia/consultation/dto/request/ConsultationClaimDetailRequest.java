@@ -10,25 +10,10 @@ import java.util.List;
 @NoArgsConstructor
 public class ConsultationClaimDetailRequest {
 
-    private String claimStage;
-
-    private LocalDate claimEventDate;
-
-    private String claimReasonDetail;
-
-    private String hospitalName;
-
-    private String diagnosisOrTreatment;
-
-    private String hospitalizationStatus;
-
-    private String surgeryStatus;
-
-    private String claimResult;
-
-    private String guidanceSummary;
-
-    private List<String> claimTypes;
-
-    private List<String> reviewTypes;
+    private String claimType;
+    private String claimReason;
+    private LocalDate incidentDate;
+    private List<String> reviewItems;
+    private String result;
+    private List<String> nextActions;
 }

@@ -1,11 +1,11 @@
 package com.linker.relia.consultation.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.consultation.domain.Consultation;
 import com.linker.relia.consultation.domain.ConsultationCancelDetail;
 import com.linker.relia.consultation.domain.ConsultationClaimDetail;
-import com.linker.relia.consultation.domain.ConsultationClaimReviewItem;
-import com.linker.relia.consultation.domain.ConsultationClaimType;
 import com.linker.relia.consultation.domain.ConsultationNewCoverageNeed;
 import com.linker.relia.consultation.domain.ConsultationNewDetail;
 import com.linker.relia.consultation.domain.ConsultationNewProposedProduct;
@@ -88,6 +88,8 @@ public class ConsultationServiceImpl implements ConsultationService {
     private final ConsultationRenewalInterestRepository consultationRenewalInterestRepository;
 
     private final InsuranceProductRepository insuranceProductRepository;
+
+    private final ObjectMapper objectMapper;
 
     @Override
     public ConsultationCreateResponse createConsultation(ConsultationCreateRequest request, User fp) {
@@ -359,13 +361,7 @@ public class ConsultationServiceImpl implements ConsultationService {
             return null;
         }
 
-        List<ConsultationClaimType> claimTypes =
-                consultationClaimTypeRepository.findAllByConsultationClaimDetailId(detail.getId());
-
-        List<ConsultationClaimReviewItem> reviewItems =
-                consultationClaimReviewItemRepository.findAllByConsultationClaimDetailId(detail.getId());
-
-        return ClaimDetailResponse.from(detail, claimTypes, reviewItems);
+        return ClaimDetailResponse.from(detail);
     }
 
     private CancelDetailResponse getCancelDetailResponse(UUID consultationId) {
@@ -466,15 +462,13 @@ public class ConsultationServiceImpl implements ConsultationService {
 
         ConsultationClaimDetail detail = ConsultationClaimDetail.builder()
                 .consultation(consultation)
-                .claimStage(request.getClaimDetail().getClaimStage())
-                .claimEventDate(request.getClaimDetail().getClaimEventDate())
-                .claimReasonDetail(request.getClaimDetail().getClaimReasonDetail())
-                .hospitalName(request.getClaimDetail().getHospitalName())
-                .diagnosisOrTreatment(request.getClaimDetail().getDiagnosisOrTreatment())
-                .hospitalizationStatus(request.getClaimDetail().getHospitalizationStatus())
-                .surgeryStatus(request.getClaimDetail().getSurgeryStatus())
-                .claimResult(request.getClaimDetail().getClaimResult())
-                .guidanceSummary(request.getClaimDetail().getGuidanceSummary())
+                .claimStage("COMPLETED")
+                .claimType(request.getClaimDetail().getClaimType())
+                .claimReason(request.getClaimDetail().getClaimReason())
+                .incidentDate(request.getClaimDetail().getIncidentDate())
+                .claimResult(request.getClaimDetail().getResult())
+                .reviewItems(toJson(request.getClaimDetail().getReviewItems()))
+                .nextActions(toJson(request.getClaimDetail().getNextActions()))
                 .createdAt(now)
                 .createdBy(fp.getId())
                 .updatedAt(now)
@@ -482,36 +476,6 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .build();
 
         consultationClaimDetailRepository.save(detail);
-
-        if (request.getClaimDetail().getClaimTypes() != null) {
-            for (String claimType : request.getClaimDetail().getClaimTypes()) {
-                consultationClaimTypeRepository.save(
-                        ConsultationClaimType.builder()
-                                .consultationClaimDetail(detail)
-                                .claimType(claimType)
-                                .createdAt(now)
-                                .createdBy(fp.getId())
-                                .updatedAt(now)
-                                .updatedBy(fp.getId())
-                                .build()
-                );
-            }
-        }
-
-        if (request.getClaimDetail().getReviewTypes() != null) {
-            for (String reviewType : request.getClaimDetail().getReviewTypes()) {
-                consultationClaimReviewItemRepository.save(
-                        ConsultationClaimReviewItem.builder()
-                                .consultationClaimDetail(detail)
-                                .reviewType(reviewType)
-                                .createdAt(now)
-                                .createdBy(fp.getId())
-                                .updatedAt(now)
-                                .updatedBy(fp.getId())
-                                .build()
-                );
-            }
-        }
     }
 
     private void saveRenewalDetail(
@@ -619,5 +583,17 @@ public class ConsultationServiceImpl implements ConsultationService {
         return value.trim()
                 .replace("-", "")
                 .replace(" ", "");
+    }
+
+    private String toJson(List<String> values) {
+        try {
+            return objectMapper.writeValueAsString(
+                    values == null ? List.of() : values
+            );
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(
+                    ConsultationErrorCode.CONSULTATION_DETAIL_SERIALIZE_FAILED
+            );
+        }
     }
 }

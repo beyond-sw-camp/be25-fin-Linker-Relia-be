@@ -1,9 +1,12 @@
 package com.linker.relia.dashboard.service;
 
 import com.linker.relia.auth.exception.AuthErrorCode;
+import com.linker.relia.commission.domain.IncomeCommissionMonthlyClosing;
 import com.linker.relia.commission.dto.FpCommissionMonthlyTrendQueryResult;
+import com.linker.relia.commission.repository.IncomeCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.custom.FpCommissionTrendQueryRepository;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.dashboard.dto.DashboardClosingMonthOptionResponse;
 import com.linker.relia.dashboard.dto.DashboardContractDistributionQueryResult;
 import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
 import com.linker.relia.dashboard.dto.DashboardMonthlyContractCustomerTrendQueryResult;
@@ -39,6 +42,16 @@ public class DashboardServiceImpl implements DashboardService {
     private final DashboardContractDistributionQueryRepository dashboardContractDistributionQueryRepository;
     private final DashboardMonthlyContractCustomerTrendQueryRepository dashboardMonthlyContractCustomerTrendQueryRepository;
     private final FpCommissionTrendQueryRepository fpCommissionTrendQueryRepository;
+    private final IncomeCommissionMonthlyClosingRepository incomeCommissionMonthlyClosingRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DashboardClosingMonthOptionResponse> getClosingMonthOptions() {
+        return incomeCommissionMonthlyClosingRepository.findAllByOrderByClosingMonthDesc()
+                .stream()
+                .map(this::toClosingMonthOption)
+                .toList();
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -302,5 +315,11 @@ public class DashboardServiceImpl implements DashboardService {
                             .build();
                 })
                 .toList();
+    }
+
+    private DashboardClosingMonthOptionResponse toClosingMonthOption(IncomeCommissionMonthlyClosing closing) {
+        return DashboardClosingMonthOptionResponse.builder()
+                .closingMonth(closing.getClosingMonth())
+                .build();
     }
 }

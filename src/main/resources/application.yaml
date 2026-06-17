@@ -29,6 +29,7 @@ clova:
   stt:
     api-key: ${CLOVA_STT_API_KEY}
     invoke-url: ${CLOVA_STT_INVOKE_URL}
+    grpc-url: ${CLOVA_STT_GRPC_URL}
 
 storage:
   ncp:

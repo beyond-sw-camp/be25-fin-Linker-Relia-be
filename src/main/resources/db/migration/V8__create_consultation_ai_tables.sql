@@ -56,3 +56,36 @@ CREATE INDEX idx_consultation_ai_drafts_audio_record_created_at
 
 CREATE INDEX idx_consultation_ai_drafts_status_created_at
     ON consultation_ai_drafts (draft_status, created_at);
+
+CREATE TABLE consultation_stt_sessions (
+    id CHAR(36) NOT NULL,
+    customer_id CHAR(36) NULL,
+    fp_id CHAR(36) NOT NULL,
+    consultation_type VARCHAR(30) NOT NULL,
+    session_status VARCHAR(20) NOT NULL,
+    partial_text LONGTEXT NULL,
+    final_text LONGTEXT NULL,
+    error_message VARCHAR(1000) NULL,
+    started_at DATETIME NOT NULL,
+    ended_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by CHAR(36) NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by CHAR(36) NOT NULL,
+    deleted_at DATETIME NULL,
+    deleted_by CHAR(36) NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT chk_consultation_stt_sessions_type CHECK (consultation_type IN ('NEW_CONTRACT', 'CLAIM', 'TERMINATION', 'RENEWAL')),
+    CONSTRAINT chk_consultation_stt_sessions_status CHECK (session_status IN ('RECORDING', 'PROCESSING', 'COMPLETED', 'FAILED')),
+    CONSTRAINT fk_consultation_stt_sessions_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
+    CONSTRAINT fk_consultation_stt_sessions_fp FOREIGN KEY (fp_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_consultation_stt_sessions_fp_created_at
+    ON consultation_stt_sessions (fp_id, created_at);
+
+CREATE INDEX idx_consultation_stt_sessions_customer_created_at
+    ON consultation_stt_sessions (customer_id, created_at);
+
+CREATE INDEX idx_consultation_stt_sessions_status_created_at
+    ON consultation_stt_sessions (session_status, created_at);

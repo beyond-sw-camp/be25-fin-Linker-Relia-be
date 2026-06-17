@@ -16,4 +16,7 @@ public class ClovaSttProperties {
 
     @NotBlank
     private String invokeUrl;
+
+    @NotBlank
+    private String grpcUrl;
 }

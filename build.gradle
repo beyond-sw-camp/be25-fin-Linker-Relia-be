@@ -29,6 +29,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     compileOnly 'org.projectlombok:lombok'
@@ -56,6 +57,12 @@ dependencies {
 
     // S3
     implementation 'software.amazon.awssdk:s3:2.46.10'
+
+    // gRPC / protobuf
+    implementation 'io.grpc:grpc-netty-shaded:1.73.0'
+    implementation 'io.grpc:grpc-protobuf:1.73.0'
+    implementation 'io.grpc:grpc-stub:1.73.0'
+    implementation 'com.google.protobuf:protobuf-java:4.31.1'
 
     // Spring AI
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'

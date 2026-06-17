@@ -10,7 +10,7 @@ public record DashboardSummaryQueryResult(
         Integer currentBranchRank,
         Integer previousBranchRank,
         long currentCustomerCount,
-        long customerNetIncreaseCount,
+        long previousCustomerCount,
         long currentNewHandoverCount,
         long previousNewHandoverCount,
         BigDecimal currentExpectedCommissionAmount,

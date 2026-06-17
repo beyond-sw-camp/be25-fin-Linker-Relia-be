@@ -16,4 +16,8 @@ public class ConsultationClaimDetailRequest {
     private List<String> reviewItems;
     private String result;
     private List<String> nextActions;
+    private String hospitalName;
+    private String diagnosisOrTreatment;
+    private String hospitalizationStatus;
+    private String surgeryStatus;
 }

@@ -147,7 +147,7 @@ public class HandoverController {
     public ResponseEntity<ApiResponse<Void>> processAssign(
             @AuthenticationPrincipal PrincipalDetails principal,
             @PathVariable UUID handoverRequestId,
-            @RequestBody HandoverAssignRequest request) {
+            @Valid @RequestBody HandoverAssignRequest request) {
 
         handoverService.processAssign(principal, handoverRequestId, request);
         return ApiResponse.success(HttpStatus.OK, "설계사 직접 지정 완료", null);

@@ -41,7 +41,6 @@ public class ConsultationSttSessionServiceImpl implements ConsultationSttSession
         }
 
         ConsultationSttSession session = ConsultationSttSession.builder()
-                .id(UUID.randomUUID())
                 .customer(customer)
                 .fp(fp)
                 .consultationType(request.getConsultationType())

@@ -1,6 +1,9 @@
-package com.linker.relia.consultation.domain;
+package com.linker.relia.consultation.domain.stt;
 
 import com.linker.relia.common.domain.BaseEntity;
+import com.linker.relia.consultation.domain.ConsultationType;
+import com.linker.relia.customer.domain.Customer;
+import com.linker.relia.user.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -27,8 +30,8 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "consultation_ai_notes")
-public class ConsultationAiNote extends BaseEntity {
+@Table(name = "consultation_stt_sessions")
+public class ConsultationSttSession extends BaseEntity {
     @Id
     @UuidGenerator
     @JdbcTypeCode(SqlTypes.CHAR)
@@ -36,28 +39,35 @@ public class ConsultationAiNote extends BaseEntity {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "audio_record_id")
-    private ConsultationAudioRecord audioRecord;
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fp_id")
+    private User fp;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "consultation_type")
     private ConsultationType consultationType;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "draft_status")
-    private ConsultationAiNoteStatus draftStatus;
+    @Column(name = "session_status")
+    private ConsultationSttSessionStatus sessionStatus;
 
-    @Column(name = "stt_raw_text")
-    private String sttRawText;
+    @Column(name = "partial_text")
+    private String partialText;
 
-    @Column(name = "gpt_summary_text")
-    private String gptSummaryText;
-
-    @Column(name = "gpt_structured_data")
-    private String gptStructuredData;
+    @Column(name = "final_text")
+    private String finalText;
 
     @Column(name = "error_message")
     private String errorMessage;
+
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
+    @Column(name = "ended_at")
+    private LocalDateTime endedAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
@@ -66,26 +76,31 @@ public class ConsultationAiNote extends BaseEntity {
     @Column(name = "deleted_by")
     private UUID deletedBy;
 
-    public void completeStt(String sttRawText) {
-        this.sttRawText = sttRawText;
-        this.draftStatus = ConsultationAiNoteStatus.STT_COMPLETED;
+    public void updatePartialText(String partialText) {
+        this.partialText = partialText;
+    }
+
+    public void markProcessing() {
+        this.sessionStatus = ConsultationSttSessionStatus.PROCESSING;
         this.errorMessage = null;
     }
 
-    public void completeGpt(String gptSummaryText, String gptStructuredData) {
-        this.gptSummaryText = gptSummaryText;
-        this.gptStructuredData = gptStructuredData;
-        this.draftStatus = ConsultationAiNoteStatus.GPT_COMPLETED;
+    public void start() {
+        this.sessionStatus = ConsultationSttSessionStatus.RECORDING;
         this.errorMessage = null;
     }
 
-    public void markApplied() {
-        this.draftStatus = ConsultationAiNoteStatus.APPLIED;
+    public void complete(String finalText, LocalDateTime endedAt) {
+        this.finalText = finalText;
+        this.endedAt = endedAt;
+        this.sessionStatus = ConsultationSttSessionStatus.COMPLETED;
+        this.errorMessage = null;
     }
 
-    public void markFailed(String errorMessage) {
-        this.draftStatus = ConsultationAiNoteStatus.FAILED;
+    public void fail(String errorMessage, LocalDateTime endedAt) {
         this.errorMessage = errorMessage;
+        this.endedAt = endedAt;
+        this.sessionStatus = ConsultationSttSessionStatus.FAILED;
     }
 
     public void delete(UUID deletedBy) {

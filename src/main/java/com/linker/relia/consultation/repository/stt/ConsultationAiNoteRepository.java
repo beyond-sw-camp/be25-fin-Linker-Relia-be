@@ -1,7 +1,7 @@
-package com.linker.relia.consultation.repository;
+package com.linker.relia.consultation.repository.stt;
 
-import com.linker.relia.consultation.domain.ConsultationAiNote;
-import com.linker.relia.consultation.domain.ConsultationAiNoteStatus;
+import com.linker.relia.consultation.domain.stt.ConsultationAiNote;
+import com.linker.relia.consultation.domain.stt.ConsultationAiNoteStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

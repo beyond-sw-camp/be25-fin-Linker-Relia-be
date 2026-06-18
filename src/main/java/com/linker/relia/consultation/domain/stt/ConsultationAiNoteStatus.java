@@ -1,4 +1,4 @@
-package com.linker.relia.consultation.domain;
+package com.linker.relia.consultation.domain.stt;
 
 public enum ConsultationAiNoteStatus {
     PENDING,

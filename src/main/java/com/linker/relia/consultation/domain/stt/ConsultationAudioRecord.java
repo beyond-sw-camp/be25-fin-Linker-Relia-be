@@ -1,4 +1,4 @@
-package com.linker.relia.consultation.domain;
+package com.linker.relia.consultation.domain.stt;
 
 import com.linker.relia.common.domain.BaseEntity;
 import com.linker.relia.customer.domain.Customer;

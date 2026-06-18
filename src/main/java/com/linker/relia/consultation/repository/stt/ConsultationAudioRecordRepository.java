@@ -1,7 +1,7 @@
-package com.linker.relia.consultation.repository;
+package com.linker.relia.consultation.repository.stt;
 
-import com.linker.relia.consultation.domain.ConsultationAudioRecord;
-import com.linker.relia.consultation.domain.ConsultationAudioUploadStatus;
+import com.linker.relia.consultation.domain.stt.ConsultationAudioRecord;
+import com.linker.relia.consultation.domain.stt.ConsultationAudioUploadStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

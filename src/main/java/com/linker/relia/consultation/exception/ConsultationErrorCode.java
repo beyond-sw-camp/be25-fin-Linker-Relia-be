@@ -69,6 +69,18 @@ public enum ConsultationErrorCode implements ErrorCode {
             "CONSULTATION_011",
             "CLAIM, RENEWAL, TERMINATION 상담은 customerId가 필요합니다.",
             HttpStatus.BAD_REQUEST
+    ),
+
+    CONSULTATION_STT_SESSION_NOT_FOUND(
+            "CONSULTATION_012",
+            "존재하지 않는 STT 세션입니다.",
+            HttpStatus.NOT_FOUND
+    ),
+
+    CONSULTATION_STT_SESSION_ACCESS_DENIED(
+            "CONSULTATION_013",
+            "STT 세션 조회 권한이 없습니다.",
+            HttpStatus.FORBIDDEN
     );
 
     private final String code;

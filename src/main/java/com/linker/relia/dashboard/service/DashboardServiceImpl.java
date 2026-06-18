@@ -101,6 +101,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .totalContractCount(current.totalContractCount())
                 .totalContractCountDiff(current.totalContractCount() - previous.totalContractCount())
                 .interestCustomerCount(current.interestCustomerCount())
+                .interestCustomerCountDiff(current.interestCustomerCount() - previous.interestCustomerCount())
                 .interestCustomerRate(calculateInterestCustomerRate(current.interestCustomerCount(), current.customerCount()))
                 .contractSuccessRate(current.contractSuccessRate())
                 .contractSuccessRateDiff(current.contractSuccessRate().subtract(previous.contractSuccessRate()))

@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+// CLOVA 전용 gRPC 통신만 담당
 @Component
 public class ClovaSpeechGrpcClient {
     public ClovaSpeechStream openStream(

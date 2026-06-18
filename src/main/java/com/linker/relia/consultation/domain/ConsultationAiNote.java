@@ -27,8 +27,8 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "consultation_ai_drafts")
-public class ConsultationAiDraft extends BaseEntity {
+@Table(name = "consultation_ai_notes")
+public class ConsultationAiNote extends BaseEntity {
     @Id
     @UuidGenerator
     @JdbcTypeCode(SqlTypes.CHAR)
@@ -45,7 +45,7 @@ public class ConsultationAiDraft extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "draft_status")
-    private ConsultationAiDraftStatus draftStatus;
+    private ConsultationAiNoteStatus draftStatus;
 
     @Column(name = "stt_raw_text")
     private String sttRawText;
@@ -68,23 +68,23 @@ public class ConsultationAiDraft extends BaseEntity {
 
     public void completeStt(String sttRawText) {
         this.sttRawText = sttRawText;
-        this.draftStatus = ConsultationAiDraftStatus.STT_COMPLETED;
+        this.draftStatus = ConsultationAiNoteStatus.STT_COMPLETED;
         this.errorMessage = null;
     }
 
     public void completeGpt(String gptSummaryText, String gptStructuredData) {
         this.gptSummaryText = gptSummaryText;
         this.gptStructuredData = gptStructuredData;
-        this.draftStatus = ConsultationAiDraftStatus.GPT_COMPLETED;
+        this.draftStatus = ConsultationAiNoteStatus.GPT_COMPLETED;
         this.errorMessage = null;
     }
 
     public void markApplied() {
-        this.draftStatus = ConsultationAiDraftStatus.APPLIED;
+        this.draftStatus = ConsultationAiNoteStatus.APPLIED;
     }
 
     public void markFailed(String errorMessage) {
-        this.draftStatus = ConsultationAiDraftStatus.FAILED;
+        this.draftStatus = ConsultationAiNoteStatus.FAILED;
         this.errorMessage = errorMessage;
     }
 

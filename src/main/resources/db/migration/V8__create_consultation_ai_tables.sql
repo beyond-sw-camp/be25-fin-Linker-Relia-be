@@ -30,7 +30,7 @@ CREATE INDEX idx_consultation_audio_records_customer_created_at
 CREATE INDEX idx_consultation_audio_records_upload_status
     ON consultation_audio_records (upload_status, created_at);
 
-CREATE TABLE consultation_ai_drafts (
+CREATE TABLE consultation_ai_notes (
     id CHAR(36) NOT NULL,
     audio_record_id CHAR(36) NOT NULL,
     consultation_type VARCHAR(30) NOT NULL,
@@ -46,16 +46,16 @@ CREATE TABLE consultation_ai_drafts (
     deleted_at DATETIME NULL,
     deleted_by CHAR(36) NULL,
     PRIMARY KEY (id),
-    CONSTRAINT chk_consultation_ai_drafts_type CHECK (consultation_type IN ('NEW_CONTRACT', 'CLAIM', 'TERMINATION', 'RENEWAL')),
-    CONSTRAINT chk_consultation_ai_drafts_status CHECK (draft_status IN ('PENDING', 'STT_COMPLETED', 'GPT_COMPLETED', 'APPLIED', 'FAILED')),
-    CONSTRAINT fk_consultation_ai_drafts_audio_record FOREIGN KEY (audio_record_id) REFERENCES consultation_audio_records(id)
+    CONSTRAINT chk_consultation_ai_notes_type CHECK (consultation_type IN ('NEW_CONTRACT', 'CLAIM', 'TERMINATION', 'RENEWAL')),
+    CONSTRAINT chk_consultation_ai_notes_status CHECK (draft_status IN ('PENDING', 'STT_COMPLETED', 'GPT_COMPLETED', 'APPLIED', 'FAILED')),
+    CONSTRAINT fk_consultation_ai_notes_audio_record FOREIGN KEY (audio_record_id) REFERENCES consultation_audio_records(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_consultation_ai_drafts_audio_record_created_at
-    ON consultation_ai_drafts (audio_record_id, created_at);
+CREATE INDEX idx_consultation_ai_notes_audio_record_created_at
+    ON consultation_ai_notes (audio_record_id, created_at);
 
-CREATE INDEX idx_consultation_ai_drafts_status_created_at
-    ON consultation_ai_drafts (draft_status, created_at);
+CREATE INDEX idx_consultation_ai_notes_status_created_at
+    ON consultation_ai_notes (draft_status, created_at);
 
 CREATE TABLE consultation_stt_sessions (
     id CHAR(36) NOT NULL,

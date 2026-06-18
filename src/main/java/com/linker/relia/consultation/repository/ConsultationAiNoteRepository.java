@@ -1,0 +1,20 @@
+package com.linker.relia.consultation.repository;
+
+import com.linker.relia.consultation.domain.ConsultationAiNote;
+import com.linker.relia.consultation.domain.ConsultationAiNoteStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface ConsultationAiNoteRepository extends JpaRepository<ConsultationAiNote, UUID> {
+
+    Optional<ConsultationAiNote> findTopByAudioRecord_IdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID audioRecordId);
+
+    List<ConsultationAiNote> findAllByAudioRecord_IdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID audioRecordId);
+
+    List<ConsultationAiNote> findAllByDraftStatusAndDeletedAtIsNull(ConsultationAiNoteStatus draftStatus);
+
+    Optional<ConsultationAiNote> findByIdAndDeletedAtIsNull(UUID id);
+}

@@ -1,5 +1,6 @@
 package com.linker.relia.consultation.service.stt;
 
+import com.linker.relia.consultation.domain.stt.ConsultationSttSession;
 import com.linker.relia.consultation.dto.request.ConsultationSttSessionCompleteRequest;
 import com.linker.relia.consultation.dto.request.ConsultationSttSessionStartRequest;
 import com.linker.relia.consultation.dto.response.ConsultationSttSessionResponse;
@@ -12,4 +13,6 @@ public interface ConsultationSttSessionService {
     ConsultationSttSessionResponse completeSession(UUID sessionId, UUID fpId, ConsultationSttSessionCompleteRequest request);
 
     ConsultationSttSessionResponse getSession(UUID sessionId, UUID fpId);
+
+    ConsultationSttSession getOwnedSession(UUID sessionId, UUID fpId);
 }

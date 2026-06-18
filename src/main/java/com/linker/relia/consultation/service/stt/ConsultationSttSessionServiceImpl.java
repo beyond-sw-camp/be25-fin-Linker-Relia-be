@@ -65,7 +65,9 @@ public class ConsultationSttSessionServiceImpl implements ConsultationSttSession
         return toResponse(getOwnedSession(sessionId, fpId));
     }
 
-    private ConsultationSttSession getOwnedSession(UUID sessionId, UUID fpId) {
+    @Override
+    @Transactional(readOnly = true)
+    public ConsultationSttSession getOwnedSession(UUID sessionId, UUID fpId) {
         ConsultationSttSession session = consultationSttSessionRepository.findByIdAndDeletedAtIsNull(sessionId)
                 .orElseThrow(() -> new BusinessException(ConsultationErrorCode.CONSULTATION_STT_SESSION_NOT_FOUND));
 

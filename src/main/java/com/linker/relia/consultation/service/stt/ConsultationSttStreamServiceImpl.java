@@ -10,6 +10,7 @@ import com.linker.relia.infra.clova.ClovaSpeechGrpcClient;
 import com.linker.relia.security.jwt.JwtUtil;
 import com.linker.relia.user.domain.User;
 import com.linker.relia.user.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class ConsultationSttStreamServiceImpl implements ConsultationSttStreamService {
@@ -92,12 +94,16 @@ public class ConsultationSttStreamServiceImpl implements ConsultationSttStreamSe
         ConsultationSttStreamRegistry.StreamContext context = consultationSttStreamRegistry.get(sessionId)
                 .orElse(null);
         if (context == null) {
+            log.warn("활성화된 STT 스트림 컨텍스트가 없어 closeStream을 건너뜁니다. sessionId={}", sessionId);
             return;
         }
 
+        log.info("STT 스트림 종료 처리를 시작합니다. sessionId={}, fpId={}", sessionId, context.getFpId());
         ConsultationSttSession session = consultationSttSessionService.getOwnedSession(sessionId, context.getFpId());
         session.markProcessing();
+        log.info("gRPC 종료 전에 STT 세션 상태를 PROCESSING으로 변경했습니다. sessionId={}", sessionId);
         context.getClovaSpeechStream().complete();
+        log.info("CLOVA gRPC 종료 요청을 전달했습니다. sessionId={}", sessionId);
     }
 
     // 스트림 처리 중 오류가 나면 세션과 레지스트리를 함께 실패 상태로 정리한다.

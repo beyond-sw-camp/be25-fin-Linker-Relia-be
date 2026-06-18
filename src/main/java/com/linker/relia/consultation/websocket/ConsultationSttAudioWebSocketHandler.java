@@ -42,8 +42,11 @@ public class ConsultationSttAudioWebSocketHandler extends BinaryWebSocketHandler
     // COMPLETE 제어 메시지를 받으면 현재 세션의 STT 스트림을 종료한다.
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+        UUID sessionId = getSessionId(session);
+        log.info("STT WebSocket 텍스트 메시지를 수신했습니다. sessionId={}, payload={}", sessionId, message.getPayload());
         if ("COMPLETE".equalsIgnoreCase(message.getPayload())) {
-            consultationSttStreamService.closeStream(getSessionId(session));
+            log.info("STT COMPLETE 종료 신호를 확인했습니다. sessionId={}", sessionId);
+            consultationSttStreamService.closeStream(sessionId);
         }
     }
 

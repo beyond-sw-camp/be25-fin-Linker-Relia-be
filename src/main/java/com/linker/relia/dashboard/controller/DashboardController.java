@@ -3,11 +3,13 @@ package com.linker.relia.dashboard.controller;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.dashboard.dto.DashboardClosingMonthOptionResponse;
 import com.linker.relia.dashboard.dto.DashboardKpiRequest;
+import com.linker.relia.dashboard.dto.DashboardOrganizationContractDistributionRequest;
 import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
 import com.linker.relia.dashboard.dto.FpDashboardMonthlyCommissionTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardMonthlyContractCustomerTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
+import com.linker.relia.dashboard.dto.OrganizationDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.OrganizationDashboardKpiResponse;
 import com.linker.relia.dashboard.service.DashboardService;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -43,6 +45,18 @@ public class DashboardController {
     ) {
         OrganizationDashboardKpiResponse response = dashboardService.getOrganizationKpi(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "본사/지점 대시보드 KPI 요약 조회를 성공하였습니다.", response);
+    }
+
+    @GetMapping("/organization/contracts/distribution")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<OrganizationDashboardContractDistributionResponse>>
+    getOrganizationDashboardContractDistribution(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute DashboardOrganizationContractDistributionRequest request
+    ) {
+        OrganizationDashboardContractDistributionResponse response =
+                dashboardService.getOrganizationContractDistribution(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "본사/지점 대시보드 계약 분포 조회를 성공하였습니다.", response);
     }
 
     @GetMapping("/filters/closing-months")

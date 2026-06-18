@@ -36,7 +36,13 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
                     fp.userName,
                     h.requestType,
                     h.requestStatus,
-                    h.createdAt
+                    h.createdAt,
+                    (
+                        SELECT MAX(r.approvedAt)
+                        FROM HandoverRecommendation r
+                        WHERE r.handoverRequest = h
+                          AND r.approvalStatus = com.linker.relia.handover.domain.ApprovalStatus.APPROVED
+                    )
                 )
                 FROM HandoverRequest h
                 JOIN h.customer c
@@ -107,3 +113,6 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
     }
 
 }
+
+
+

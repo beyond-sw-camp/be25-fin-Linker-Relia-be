@@ -84,13 +84,15 @@ public class HandoverService {
         HandoverRecommendation recommendation = recommendationService.recommend(handoverRequest);
         handoverRecommendationRepository.save(recommendation);
 
+        User branchManager = findBranchManager(recommendation.getRecommendedFp());
+
         // SSE 알림
         notificationPublisher.publish(NotificationEvent.builder()
-                .receiverUserId(recommendation.getRecommendedFp().getId())
-                        .type(NotificationType.HANDOVER_REQUEST)
-                        .message(customer.getCustomerName()+" 고객 건의 인수인계 결재 요청이 있습니다.")
-                        .referenceId(handoverRequest.getId())
-                        .build());
+                .receiverUserId(branchManager.getId())
+                .type(NotificationType.HANDOVER_REQUEST)
+                .message(customer.getCustomerName() + " 고객 건의 인수인계 결재 요청이 있습니다.")
+                .referenceId(handoverRequest.getId())
+                .build());
 
         return HandoverCreateResponse.from(handoverRequest);
     }
@@ -272,7 +274,7 @@ public class HandoverService {
             // SSE 알림
             notificationPublisher.publish(NotificationEvent.builder()
                     .receiverUserId(recommendation.getRecommendedFp().getId())
-                    .type(NotificationType.HANDOVER_REQUEST)
+                    .type(NotificationType.HANDOVER_RECEIVED)
                     .message(customer.getCustomerName() + " 고객이 담당 고객으로 배정되었습니다.")
                     .referenceId(handoverRequest.getId())
                     .build());
@@ -443,6 +445,18 @@ public class HandoverService {
 
     private boolean isApprovalProcessable(HandoverRequest handoverRequest) {
         return handoverRequest.getRequestStatus() == RequestStatus.MANAGER_PENDING;
+    }
+
+    private User findBranchManager(User recommendedFp) {
+        if (recommendedFp == null || recommendedFp.getOrganization() == null) {
+            throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "추천 설계사의 조직 정보가 없습니다.");
+        }
+
+        return userRepository.findByOrganizationIdAndUserRoleAndDeletedAtIsNull(
+                        recommendedFp.getOrganization().getId(),
+                        UserRole.BRANCH_MANAGER
+                )
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_USER_STATE, "지점장을 찾을 수 없습니다."));
     }
 
     private void validateHandoverDetailAccess(

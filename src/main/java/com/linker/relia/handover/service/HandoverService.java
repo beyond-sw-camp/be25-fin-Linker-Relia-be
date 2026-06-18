@@ -30,6 +30,9 @@ import com.linker.relia.handover.repository.HandoverDetailQueryRepository;
 import com.linker.relia.handover.repository.HandoverReceivedQueryRepository;
 import com.linker.relia.handover.repository.HandoverRecommendationRepository;
 import com.linker.relia.handover.repository.HandoverRequestRepository;
+import com.linker.relia.notification.NotificationEvent;
+import com.linker.relia.notification.NotificationPublisher;
+import com.linker.relia.notification.domain.NotificationType;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.FpMonthlyInfo;
 import com.linker.relia.user.domain.User;
@@ -61,6 +64,7 @@ public class HandoverService {
     private final RecommendationService recommendationService;
     private final HandoverReceivedQueryRepository handoverReceivedQueryRepository;
     private final UserRepository userRepository;
+    private final NotificationPublisher notificationPublisher;
 
     // 인수인계 요청 생성
     public HandoverCreateResponse createHandover(PrincipalDetails principal, HandoverCreateRequest request) {
@@ -79,6 +83,14 @@ public class HandoverService {
 
         HandoverRecommendation recommendation = recommendationService.recommend(handoverRequest);
         handoverRecommendationRepository.save(recommendation);
+
+        // SSE 알림
+        notificationPublisher.publish(NotificationEvent.builder()
+                .receiverUserId(recommendation.getRecommendedFp().getId())
+                        .type(NotificationType.HANDOVER_REQUEST)
+                        .message(customer.getCustomerName()+" 고객 건의 인수인계 결재 요청이 있습니다.")
+                        .referenceId(handoverRequest.getId())
+                        .build());
 
         return HandoverCreateResponse.from(handoverRequest);
     }
@@ -257,6 +269,14 @@ public class HandoverService {
             // 4-4. 요청 완료
             handoverRequest.complete();
 
+            // SSE 알림
+            notificationPublisher.publish(NotificationEvent.builder()
+                    .receiverUserId(recommendation.getRecommendedFp().getId())
+                    .type(NotificationType.HANDOVER_REQUEST)
+                    .message(customer.getCustomerName() + " 고객이 담당 고객으로 배정되었습니다.")
+                    .referenceId(handoverRequest.getId())
+                    .build());
+
         } else {
             // ── 반려 처리 ──
             // 4-1. 추천 반려
@@ -400,6 +420,14 @@ public class HandoverService {
         customerFpHistoryRepository.save(history);
 
         handoverRequest.complete();
+
+        // SSE 알림
+        notificationPublisher.publish(NotificationEvent.builder()
+                .receiverUserId(assignedFp.getId())
+                .type(NotificationType.HANDOVER_RECEIVED)
+                .message(customer.getCustomerName() + " 고객이 담당 고객으로 배정되었습니다.")
+                .referenceId(handoverRequest.getId())
+                .build());
     }
 
     // 인수인계 상세 조회 접근

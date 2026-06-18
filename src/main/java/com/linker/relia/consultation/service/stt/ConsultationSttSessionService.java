@@ -5,6 +5,7 @@ import com.linker.relia.consultation.dto.request.ConsultationSttSessionCompleteR
 import com.linker.relia.consultation.dto.request.ConsultationSttSessionStartRequest;
 import com.linker.relia.consultation.dto.response.ConsultationSttSessionResponse;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public interface ConsultationSttSessionService {
@@ -15,4 +16,10 @@ public interface ConsultationSttSessionService {
     ConsultationSttSessionResponse getSession(UUID sessionId, UUID fpId);
 
     ConsultationSttSession getOwnedSession(UUID sessionId, UUID fpId);
+
+    void updatePartialText(UUID sessionId, UUID fpId, String partialText);
+
+    void completeSession(UUID sessionId, UUID fpId, String finalText, LocalDateTime endedAt);
+
+    void failSession(UUID sessionId, UUID fpId, String errorMessage, LocalDateTime endedAt);
 }

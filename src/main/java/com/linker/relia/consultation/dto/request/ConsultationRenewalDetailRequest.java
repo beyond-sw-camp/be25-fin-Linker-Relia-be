@@ -34,4 +34,8 @@ public class ConsultationRenewalDetailRequest {
     private String otherReason;
 
     private List<String> interestTypes;
+
+    private String nextActions;
+    private LocalDate decisionExpectedDate;
+
 }

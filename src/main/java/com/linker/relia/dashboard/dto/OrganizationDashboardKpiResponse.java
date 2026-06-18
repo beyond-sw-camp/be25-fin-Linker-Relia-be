@@ -19,6 +19,7 @@ public class OrganizationDashboardKpiResponse {
     private final long totalContractCount;
     private final long totalContractCountDiff;
     private final long interestCustomerCount;
+    private final long interestCustomerCountDiff;
     private final BigDecimal interestCustomerRate;
     private final BigDecimal contractSuccessRate;
     private final BigDecimal contractSuccessRateDiff;

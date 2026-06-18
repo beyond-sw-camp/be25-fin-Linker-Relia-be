@@ -25,7 +25,6 @@ public class ClaimDetailResponse {
     public static ClaimDetailResponse from(ConsultationClaimDetail detail) {
         return ClaimDetailResponse.builder()
                 .claimType(detail.getClaimType())
-                .claimReason(detail.getClaimReason())
                 .hospitalName(detail.getHospitalName())
                 .diagnosisOrTreatment(detail.getDiagnosisOrTreatment())
                 .hospitalizationStatus(detail.getHospitalizationStatus())

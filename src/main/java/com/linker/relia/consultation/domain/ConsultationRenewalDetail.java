@@ -32,6 +32,12 @@ public class ConsultationRenewalDetail {
     @Column(name = "renewal_reason", nullable = false, length = 50)
     private String renewalReason;
 
+    @Column(name = "next_actions", length = 500)
+    private String nextActions;
+
+    @Column(name = "decision_expected_date")
+    private LocalDate decisionExpectedDate;
+
     @Column(name = "renewal_scheduled_date", nullable = false)
     private LocalDate renewalScheduledDate;
 

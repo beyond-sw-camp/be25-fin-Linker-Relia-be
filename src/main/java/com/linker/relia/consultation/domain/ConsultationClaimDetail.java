@@ -37,16 +37,13 @@ public class ConsultationClaimDetail {
     @Column(name = "claim_type")
     private String claimType;
 
-    @Column(name = "claim_reason")
-    private String claimReason;
-
     @Column(name = "incident_date")
     private LocalDate incidentDate;
 
-    @Column(name = "review_items", columnDefinition = "json")
+    @Column(name = "review_items", length = 30)
     private String reviewItems;
 
-    @Column(name = "next_actions", columnDefinition = "json")
+    @Column(name = "next_actions", length = 500)
     private String nextActions;
 
     @Column(name = "claim_reason_detail", length = 500)

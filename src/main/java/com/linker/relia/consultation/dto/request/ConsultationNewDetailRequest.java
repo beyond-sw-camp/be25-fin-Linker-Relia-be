@@ -1,5 +1,8 @@
 package com.linker.relia.consultation.dto.request;
 
+import com.linker.relia.consultation.domain.ConsultationNewCoverageType;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -17,9 +20,9 @@ public class ConsultationNewDetailRequest {
 
     private String existingInsuranceNote;
 
-    private String InsurancePriority;
+    private String insurancePriority;
 
-    private List<String> coverageTypes;
+    private List<@NotNull ConsultationNewCoverageType> coverageTypes;
 
-    private List<String> proposedProductCodes;
+    private List<@NotBlank String> proposedProductCodes;
 }

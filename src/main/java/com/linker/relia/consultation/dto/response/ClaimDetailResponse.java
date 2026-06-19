@@ -1,6 +1,9 @@
 package com.linker.relia.consultation.dto.response;
 
 import com.linker.relia.consultation.domain.ConsultationClaimDetail;
+import com.linker.relia.consultation.domain.ConsultationClaimNextAction;
+import com.linker.relia.consultation.domain.ConsultationClaimReviewItem;
+import com.linker.relia.consultation.domain.ConsultationClaimType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -22,17 +25,30 @@ public class ClaimDetailResponse {
     private String result;
     private List<String> nextActions;
 
-    public static ClaimDetailResponse from(ConsultationClaimDetail detail) {
+    public static ClaimDetailResponse from(
+            ConsultationClaimDetail detail,
+            List<ConsultationClaimType> claimTypes,
+            List<ConsultationClaimReviewItem> reviewItems,
+            List<ConsultationClaimNextAction> nextActions
+    ) {
         return ClaimDetailResponse.builder()
-                .claimType(detail.getClaimType())
+                .claimType(claimTypes.stream()
+                        .map(ConsultationClaimType::getClaimType)
+                        .findFirst()
+                        .orElse(null))
+                .claimReason(detail.getClaimReasonDetail())
                 .hospitalName(detail.getHospitalName())
                 .diagnosisOrTreatment(detail.getDiagnosisOrTreatment())
                 .hospitalizationStatus(detail.getHospitalizationStatus())
                 .surgeryStatus(detail.getSurgeryStatus())
                 .incidentDate(detail.getIncidentDate())
-                .reviewItems(List.of())
+                .reviewItems(reviewItems.stream()
+                        .map(ConsultationClaimReviewItem::getReviewType)
+                        .toList())
                 .result(detail.getClaimResult())
-                .nextActions(List.of())
+                .nextActions(nextActions.stream()
+                        .map(ConsultationClaimNextAction::getActionContent)
+                        .toList())
                 .build();
     }
 }

@@ -65,12 +65,6 @@ public enum ConsultationErrorCode implements ErrorCode {
             HttpStatus.BAD_REQUEST
     ),
 
-    CONSULTATION_DETAIL_SERIALIZE_FAILED(
-            "CONSULTATION_012",
-            "상담 상세 정보 처리 중 오류가 발생했습니다.",
-            HttpStatus.INTERNAL_SERVER_ERROR
-    ),
-
     CUSTOMER_ID_REQUIRED(
             "CONSULTATION_011",
             "CLAIM, RENEWAL, TERMINATION 상담은 customerId가 필요합니다.",

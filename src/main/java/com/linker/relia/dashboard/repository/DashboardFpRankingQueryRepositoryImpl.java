@@ -1,7 +1,7 @@
 package com.linker.relia.dashboard.repository;
 
 import com.linker.relia.dashboard.dto.DashboardFpRankingItemResponse;
-import com.linker.relia.dashboard.dto.DashboardFpRankOrder;
+import com.linker.relia.dashboard.dto.DashboardRankOrder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -26,7 +26,7 @@ public class DashboardFpRankingQueryRepositoryImpl implements DashboardFpRanking
     public Page<DashboardFpRankingItemResponse> findFpRankings(
             String closingMonth,
             UUID organizationId,
-            DashboardFpRankOrder rankOrder,
+            DashboardRankOrder rankOrder,
             Pageable pageable
     ) {
         String organizationFilter = organizationId == null

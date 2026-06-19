@@ -7,15 +7,13 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class DashboardFpRankingRequest extends PageQueryRequest {
+public class DashboardBranchRankingRequest extends PageQueryRequest {
 
     @Pattern(
             regexp = "^\\d{4}-(0[1-9]|1[0-2])$",
             message = "closingMonth는 YYYY-MM 형식이어야 합니다."
     )
     private String closingMonth;
-
-    private String organizationCode;
 
     private DashboardRankOrder rankOrder = DashboardRankOrder.TOP;
 }

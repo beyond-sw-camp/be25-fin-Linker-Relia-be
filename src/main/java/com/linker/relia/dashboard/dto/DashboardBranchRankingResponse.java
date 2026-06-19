@@ -6,10 +6,9 @@ import lombok.Getter;
 
 @Getter
 @Builder
-public class DashboardFpRankingResponse {
+public class DashboardBranchRankingResponse {
     private final String closingMonth;
-    private final String organizationCode;
-    private final String organizationName;
+    private final String comparisonClosingMonth;
     private final DashboardRankOrder rankOrder;
-    private final PageResponse<DashboardFpRankingItemResponse> rankings;
+    private final PageResponse<DashboardBranchRankingItemResponse> rankings;
 }

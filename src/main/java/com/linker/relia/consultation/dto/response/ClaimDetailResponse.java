@@ -3,7 +3,6 @@ package com.linker.relia.consultation.dto.response;
 import com.linker.relia.consultation.domain.ConsultationClaimDetail;
 import com.linker.relia.consultation.domain.ConsultationClaimNextAction;
 import com.linker.relia.consultation.domain.ConsultationClaimReviewItem;
-import com.linker.relia.consultation.domain.ConsultationClaimType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -27,15 +26,11 @@ public class ClaimDetailResponse {
 
     public static ClaimDetailResponse from(
             ConsultationClaimDetail detail,
-            List<ConsultationClaimType> claimTypes,
             List<ConsultationClaimReviewItem> reviewItems,
             List<ConsultationClaimNextAction> nextActions
     ) {
         return ClaimDetailResponse.builder()
-                .claimType(claimTypes.stream()
-                        .map(ConsultationClaimType::getClaimType)
-                        .findFirst()
-                        .orElse(null))
+                .claimType(detail.getClaimType())
                 .claimReason(detail.getClaimReasonDetail())
                 .hospitalName(detail.getHospitalName())
                 .diagnosisOrTreatment(detail.getDiagnosisOrTreatment())

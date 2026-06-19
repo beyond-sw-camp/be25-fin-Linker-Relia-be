@@ -6,7 +6,6 @@ import com.linker.relia.consultation.domain.ConsultationCancelDetail;
 import com.linker.relia.consultation.domain.ConsultationClaimDetail;
 import com.linker.relia.consultation.domain.ConsultationClaimNextAction;
 import com.linker.relia.consultation.domain.ConsultationClaimReviewItem;
-import com.linker.relia.consultation.domain.ConsultationClaimType;
 import com.linker.relia.consultation.domain.ConsultationNewCoverageNeed;
 import com.linker.relia.consultation.domain.ConsultationNewDetail;
 import com.linker.relia.consultation.domain.ConsultationNewProposedProduct;
@@ -28,7 +27,6 @@ import com.linker.relia.consultation.repository.ConsultationCancelDetailReposito
 import com.linker.relia.consultation.repository.ConsultationClaimDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimNextActionRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimReviewItemRepository;
-import com.linker.relia.consultation.repository.ConsultationClaimTypeRepository;
 import com.linker.relia.consultation.repository.ConsultationNewCoverageNeedRepository;
 import com.linker.relia.consultation.repository.ConsultationNewDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationNewProposedProductRepository;
@@ -84,7 +82,6 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     private final ConsultationNewCoverageNeedRepository consultationNewCoverageNeedRepository;
     private final ConsultationNewProposedProductRepository consultationNewProposedProductRepository;
-    private final ConsultationClaimTypeRepository consultationClaimTypeRepository;
     private final ConsultationClaimReviewItemRepository consultationClaimReviewItemRepository;
     private final ConsultationClaimNextActionRepository consultationClaimNextActionRepository;
     private final ConsultationRenewalPremiumChangeReasonRepository consultationRenewalPremiumChangeReasonRepository;
@@ -362,15 +359,13 @@ public class ConsultationServiceImpl implements ConsultationService {
             return null;
         }
 
-        List<ConsultationClaimType> claimTypes =
-                consultationClaimTypeRepository.findAllByConsultationClaimDetailId(detail.getId());
         List<ConsultationClaimReviewItem> reviewItems =
                 consultationClaimReviewItemRepository.findAllByConsultationClaimDetailId(detail.getId());
         List<ConsultationClaimNextAction> nextActions =
                 consultationClaimNextActionRepository
                         .findAllByConsultationClaimDetailIdOrderByActionOrderAsc(detail.getId());
 
-        return ClaimDetailResponse.from(detail, claimTypes, reviewItems, nextActions);
+        return ClaimDetailResponse.from(detail, reviewItems, nextActions);
     }
 
     private CancelDetailResponse getCancelDetailResponse(UUID consultationId) {
@@ -469,10 +464,12 @@ public class ConsultationServiceImpl implements ConsultationService {
             throw new IllegalArgumentException("보험금 청구 상담 상세 정보는 필수입니다.");
         }
 
+        String claimType = request.getClaimDetail().getClaimType();
         ConsultationClaimDetail detail = ConsultationClaimDetail.builder()
                 .consultation(consultation)
                 .claimStage("COMPLETED")
                 .incidentDate(request.getClaimDetail().getIncidentDate())
+                .claimType(claimType == null || claimType.isBlank() ? null : claimType.trim())
                 .claimResult(request.getClaimDetail().getResult())
                 .claimReasonDetail(request.getClaimDetail().getClaimReason())
                 .hospitalName(request.getClaimDetail().getHospitalName())
@@ -486,20 +483,6 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .build();
 
         consultationClaimDetailRepository.save(detail);
-
-        String claimType = request.getClaimDetail().getClaimType();
-        if (claimType != null && !claimType.isBlank()) {
-            consultationClaimTypeRepository.save(
-                    ConsultationClaimType.builder()
-                            .consultationClaimDetail(detail)
-                            .claimType(claimType.trim())
-                            .createdAt(now)
-                            .createdBy(fp.getId())
-                            .updatedAt(now)
-                            .updatedBy(fp.getId())
-                            .build()
-            );
-        }
 
         if (request.getClaimDetail().getReviewItems() != null) {
             List<ConsultationClaimReviewItem> reviewItems = request.getClaimDetail().getReviewItems().stream()

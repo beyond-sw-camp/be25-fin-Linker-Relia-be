@@ -1,12 +1,12 @@
 package com.linker.relia.dashboard.dto;
 
-public enum DashboardFpRankOrder {
+public enum DashboardRankOrder {
     TOP("asc"),
     BOTTOM("desc");
 
     private final String sqlDirection;
 
-    DashboardFpRankOrder(String sqlDirection) {
+    DashboardRankOrder(String sqlDirection) {
         this.sqlDirection = sqlDirection;
     }
 

@@ -1,7 +1,11 @@
 package com.linker.relia.dashboard.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardClosingMonthOptionResponse;
+import com.linker.relia.dashboard.dto.DashboardFpRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardFpRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardKpiRequest;
 import com.linker.relia.dashboard.dto.DashboardOrganizationContractDistributionRequest;
 import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
@@ -57,6 +61,28 @@ public class DashboardController {
         OrganizationDashboardContractDistributionResponse response =
                 dashboardService.getOrganizationContractDistribution(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "본사/지점 대시보드 계약 분포 조회를 성공하였습니다.", response);
+    }
+
+    @GetMapping("/organization/rankings/fps")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<DashboardFpRankingResponse>> getOrganizationFpRankings(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute DashboardFpRankingRequest request
+    ) {
+        DashboardFpRankingResponse response =
+                dashboardService.getOrganizationFpRankings(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "설계사 실적 순위 조회에 성공했습니다.", response);
+    }
+
+    @GetMapping("/organization/rankings/branches")
+    @PreAuthorize("hasAnyRole('HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<DashboardBranchRankingResponse>> getOrganizationBranchRankings(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute DashboardBranchRankingRequest request
+    ) {
+        DashboardBranchRankingResponse response =
+                dashboardService.getOrganizationBranchRankings(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "지점 수입수수료 순위 조회에 성공했습니다.", response);
     }
 
     @GetMapping("/filters/closing-months")

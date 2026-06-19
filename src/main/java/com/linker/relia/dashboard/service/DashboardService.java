@@ -1,6 +1,10 @@
 package com.linker.relia.dashboard.service;
 
 import com.linker.relia.dashboard.dto.DashboardClosingMonthOptionResponse;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingResponse;
+import com.linker.relia.dashboard.dto.DashboardFpRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardFpRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardKpiRequest;
 import com.linker.relia.dashboard.dto.DashboardOrganizationContractDistributionRequest;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
@@ -26,6 +30,16 @@ public interface DashboardService {
     OrganizationDashboardContractDistributionResponse getOrganizationContractDistribution(
             PrincipalDetails principalDetails,
             DashboardOrganizationContractDistributionRequest request
+    );
+
+    DashboardFpRankingResponse getOrganizationFpRankings(
+            PrincipalDetails principalDetails,
+            DashboardFpRankingRequest request
+    );
+
+    DashboardBranchRankingResponse getOrganizationBranchRankings(
+            PrincipalDetails principalDetails,
+            DashboardBranchRankingRequest request
     );
 
     FpDashboardSummaryResponse getFpSummary(PrincipalDetails principalDetails, LocalDate referenceDate);

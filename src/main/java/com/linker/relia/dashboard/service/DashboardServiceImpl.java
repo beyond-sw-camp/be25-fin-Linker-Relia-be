@@ -3,6 +3,7 @@ package com.linker.relia.dashboard.service;
 import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeResolver;
+import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.commission.domain.IncomeCommissionMonthlyClosing;
 import com.linker.relia.commission.dto.FpCommissionMonthlyTrendQueryResult;
 import com.linker.relia.commission.repository.IncomeCommissionMonthlyClosingRepository;
@@ -10,7 +11,14 @@ import com.linker.relia.commission.repository.custom.FpCommissionTrendQueryRepos
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.dashboard.dto.DashboardClosingMonthOptionResponse;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingItemResponse;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardContractDistributionQueryResult;
+import com.linker.relia.dashboard.dto.DashboardFpRankingItemResponse;
+import com.linker.relia.dashboard.dto.DashboardFpRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardFpRankingResponse;
+import com.linker.relia.dashboard.dto.DashboardRankOrder;
 import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
 import com.linker.relia.dashboard.dto.DashboardKpiQueryResult;
 import com.linker.relia.dashboard.dto.DashboardKpiRequest;
@@ -25,6 +33,8 @@ import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
 import com.linker.relia.dashboard.dto.OrganizationDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.OrganizationDashboardKpiResponse;
 import com.linker.relia.dashboard.repository.DashboardContractDistributionQueryRepository;
+import com.linker.relia.dashboard.repository.DashboardBranchRankingQueryRepository;
+import com.linker.relia.dashboard.repository.DashboardFpRankingQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardContractStatusQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardKpiQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardMonthlyContractCustomerTrendQueryRepository;
@@ -56,6 +66,8 @@ public class DashboardServiceImpl implements DashboardService {
     private final DashboardSummaryQueryRepository dashboardSummaryQueryRepository;
     private final DashboardContractStatusQueryRepository dashboardContractStatusQueryRepository;
     private final DashboardContractDistributionQueryRepository dashboardContractDistributionQueryRepository;
+    private final DashboardBranchRankingQueryRepository dashboardBranchRankingQueryRepository;
+    private final DashboardFpRankingQueryRepository dashboardFpRankingQueryRepository;
     private final DashboardKpiQueryRepository dashboardKpiQueryRepository;
     private final DashboardMonthlyContractCustomerTrendQueryRepository dashboardMonthlyContractCustomerTrendQueryRepository;
     private final FpCommissionTrendQueryRepository fpCommissionTrendQueryRepository;
@@ -160,6 +172,72 @@ public class DashboardServiceImpl implements DashboardService {
                                 .map(result -> toOrganizationInsuranceCategoryDistributionItem(result, totalContractCount))
                                 .toList()
                 )
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardFpRankingResponse getOrganizationFpRankings(
+            PrincipalDetails principalDetails,
+            DashboardFpRankingRequest request
+    ) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateManagerScope(accessScope);
+        validateRankingPageSize(request.getSize());
+
+        String closingMonth = resolveRankingClosingMonth(request.getClosingMonth());
+        Organization targetOrganization =
+                resolveTargetOrganization(accessScope, principalDetails, request.getOrganizationCode());
+        DashboardRankOrder rankOrder = request.getRankOrder() == null
+                ? DashboardRankOrder.TOP
+                : request.getRankOrder();
+
+        PageResponse<DashboardFpRankingItemResponse> rankings =
+                PageResponse.from(dashboardFpRankingQueryRepository.findFpRankings(
+                        closingMonth,
+                        targetOrganization == null ? null : targetOrganization.getId(),
+                        rankOrder,
+                        request.toPageable()
+                ));
+
+        return DashboardFpRankingResponse.builder()
+                .closingMonth(closingMonth)
+                .organizationCode(targetOrganization == null ? null : targetOrganization.getOrganizationCode())
+                .organizationName(targetOrganization == null ? null : targetOrganization.getOrganizationName())
+                .rankOrder(rankOrder)
+                .rankings(rankings)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardBranchRankingResponse getOrganizationBranchRankings(
+            PrincipalDetails principalDetails,
+            DashboardBranchRankingRequest request
+    ) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateHqScope(accessScope);
+        validateRankingPageSize(request.getSize());
+
+        String closingMonth = resolveBranchRankingClosingMonth(request.getClosingMonth());
+        String comparisonClosingMonth = YearMonth.parse(closingMonth).minusMonths(1).toString();
+        DashboardRankOrder rankOrder = request.getRankOrder() == null
+                ? DashboardRankOrder.TOP
+                : request.getRankOrder();
+
+        PageResponse<DashboardBranchRankingItemResponse> rankings =
+                PageResponse.from(dashboardBranchRankingQueryRepository.findBranchRankings(
+                        closingMonth,
+                        comparisonClosingMonth,
+                        rankOrder,
+                        request.toPageable()
+                ));
+
+        return DashboardBranchRankingResponse.builder()
+                .closingMonth(closingMonth)
+                .comparisonClosingMonth(comparisonClosingMonth)
+                .rankOrder(rankOrder)
+                .rankings(rankings)
                 .build();
     }
 
@@ -347,6 +425,12 @@ public class DashboardServiceImpl implements DashboardService {
         }
     }
 
+    private void validateHqScope(AccessScope accessScope) {
+        if (!accessScope.isAllScope()) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
+    }
+
     private String normalizeRequiredClosingMonth(String closingMonth) {
         if (closingMonth == null || closingMonth.isBlank()) {
             throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "closingMonth는 필수입니다.");
@@ -356,6 +440,44 @@ public class DashboardServiceImpl implements DashboardService {
             return YearMonth.parse(closingMonth.trim()).toString();
         } catch (Exception exception) {
             throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "closingMonth는 YYYY-MM 형식이어야 합니다.");
+        }
+    }
+
+    private String resolveRankingClosingMonth(String closingMonth) {
+        if (closingMonth != null && !closingMonth.isBlank()) {
+            try {
+                return YearMonth.parse(closingMonth.trim()).toString();
+            } catch (Exception exception) {
+                throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "closingMonth는 YYYY-MM 형식이어야 합니다.");
+            }
+        }
+
+        return dashboardFpRankingQueryRepository.findLatestClosingMonth()
+                .orElseThrow(() -> new BusinessException(
+                        CommonErrorCode.INVALID_REQUEST,
+                        "조회할 수 있는 설계사 실적 마감 데이터가 없습니다."
+                ));
+    }
+
+    private String resolveBranchRankingClosingMonth(String closingMonth) {
+        if (closingMonth != null && !closingMonth.isBlank()) {
+            try {
+                return YearMonth.parse(closingMonth.trim()).toString();
+            } catch (Exception exception) {
+                throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "closingMonth는 YYYY-MM 형식이어야 합니다.");
+            }
+        }
+
+        return dashboardBranchRankingQueryRepository.findLatestClosingMonth()
+                .orElseThrow(() -> new BusinessException(
+                        CommonErrorCode.INVALID_REQUEST,
+                        "조회할 수 있는 지점 수입수수료 마감 데이터가 없습니다."
+                ));
+    }
+
+    private void validateRankingPageSize(Integer size) {
+        if (size != null && size > 100) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "size는 100 이하여야 합니다.");
         }
     }
 

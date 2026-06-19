@@ -1,11 +1,11 @@
 package com.linker.relia.consultation.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.consultation.domain.Consultation;
 import com.linker.relia.consultation.domain.ConsultationCancelDetail;
 import com.linker.relia.consultation.domain.ConsultationClaimDetail;
+import com.linker.relia.consultation.domain.ConsultationClaimNextAction;
+import com.linker.relia.consultation.domain.ConsultationClaimReviewItem;
 import com.linker.relia.consultation.domain.ConsultationNewCoverageNeed;
 import com.linker.relia.consultation.domain.ConsultationNewDetail;
 import com.linker.relia.consultation.domain.ConsultationNewProposedProduct;
@@ -25,8 +25,8 @@ import com.linker.relia.consultation.dto.response.RenewalDetailResponse;
 import com.linker.relia.consultation.exception.ConsultationErrorCode;
 import com.linker.relia.consultation.repository.ConsultationCancelDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimDetailRepository;
+import com.linker.relia.consultation.repository.ConsultationClaimNextActionRepository;
 import com.linker.relia.consultation.repository.ConsultationClaimReviewItemRepository;
-import com.linker.relia.consultation.repository.ConsultationClaimTypeRepository;
 import com.linker.relia.consultation.repository.ConsultationNewCoverageNeedRepository;
 import com.linker.relia.consultation.repository.ConsultationNewDetailRepository;
 import com.linker.relia.consultation.repository.ConsultationNewProposedProductRepository;
@@ -82,14 +82,12 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     private final ConsultationNewCoverageNeedRepository consultationNewCoverageNeedRepository;
     private final ConsultationNewProposedProductRepository consultationNewProposedProductRepository;
-    private final ConsultationClaimTypeRepository consultationClaimTypeRepository;
     private final ConsultationClaimReviewItemRepository consultationClaimReviewItemRepository;
+    private final ConsultationClaimNextActionRepository consultationClaimNextActionRepository;
     private final ConsultationRenewalPremiumChangeReasonRepository consultationRenewalPremiumChangeReasonRepository;
     private final ConsultationRenewalInterestRepository consultationRenewalInterestRepository;
 
     private final InsuranceProductRepository insuranceProductRepository;
-
-    private final ObjectMapper objectMapper;
 
     @Override
     public ConsultationCreateResponse createConsultation(ConsultationCreateRequest request, User fp) {
@@ -361,7 +359,13 @@ public class ConsultationServiceImpl implements ConsultationService {
             return null;
         }
 
-        return ClaimDetailResponse.from(detail);
+        List<ConsultationClaimReviewItem> reviewItems =
+                consultationClaimReviewItemRepository.findAllByConsultationClaimDetailId(detail.getId());
+        List<ConsultationClaimNextAction> nextActions =
+                consultationClaimNextActionRepository
+                        .findAllByConsultationClaimDetailIdOrderByActionOrderAsc(detail.getId());
+
+        return ClaimDetailResponse.from(detail, reviewItems, nextActions);
     }
 
     private CancelDetailResponse getCancelDetailResponse(UUID consultationId) {
@@ -414,7 +418,7 @@ public class ConsultationServiceImpl implements ConsultationService {
             List<ConsultationNewCoverageNeed> coverageNeeds = request.getNewDetail().getCoverageTypes().stream()
                     .map(coverageType -> ConsultationNewCoverageNeed.builder()
                             .consultationNewDetail(detail)
-                            .coverageType(coverageType)
+                            .coverageType(coverageType.name())
                             .build())
                     .toList();
 
@@ -460,18 +464,18 @@ public class ConsultationServiceImpl implements ConsultationService {
             throw new IllegalArgumentException("보험금 청구 상담 상세 정보는 필수입니다.");
         }
 
+        String claimType = request.getClaimDetail().getClaimType();
         ConsultationClaimDetail detail = ConsultationClaimDetail.builder()
                 .consultation(consultation)
                 .claimStage("COMPLETED")
-                .claimType(request.getClaimDetail().getClaimType())
                 .incidentDate(request.getClaimDetail().getIncidentDate())
+                .claimType(claimType == null || claimType.isBlank() ? null : claimType.trim())
                 .claimResult(request.getClaimDetail().getResult())
+                .claimReasonDetail(request.getClaimDetail().getClaimReason())
                 .hospitalName(request.getClaimDetail().getHospitalName())
                 .diagnosisOrTreatment(request.getClaimDetail().getDiagnosisOrTreatment())
                 .hospitalizationStatus(request.getClaimDetail().getHospitalizationStatus())
                 .surgeryStatus(request.getClaimDetail().getSurgeryStatus())
-                .reviewItems(toJson(request.getClaimDetail().getReviewItems()))
-                .nextActions(toJson(request.getClaimDetail().getNextActions()))
                 .createdAt(now)
                 .createdBy(fp.getId())
                 .updatedAt(now)
@@ -479,6 +483,42 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .build();
 
         consultationClaimDetailRepository.save(detail);
+
+        if (request.getClaimDetail().getReviewItems() != null) {
+            List<ConsultationClaimReviewItem> reviewItems = request.getClaimDetail().getReviewItems().stream()
+                    .filter(value -> value != null && !value.isBlank())
+                    .map(String::trim)
+                    .distinct()
+                    .map(value -> ConsultationClaimReviewItem.builder()
+                            .consultationClaimDetail(detail)
+                            .reviewType(value)
+                            .createdAt(now)
+                            .createdBy(fp.getId())
+                            .updatedAt(now)
+                            .updatedBy(fp.getId())
+                            .build())
+                    .toList();
+            consultationClaimReviewItemRepository.saveAll(reviewItems);
+        }
+
+        if (request.getClaimDetail().getNextActions() != null) {
+            List<ConsultationClaimNextAction> nextActions = new java.util.ArrayList<>();
+            for (String value : request.getClaimDetail().getNextActions()) {
+                if (value == null || value.isBlank()) {
+                    continue;
+                }
+                nextActions.add(ConsultationClaimNextAction.builder()
+                        .consultationClaimDetail(detail)
+                        .actionOrder(nextActions.size() + 1)
+                        .actionContent(value.trim())
+                        .createdAt(now)
+                        .createdBy(fp.getId())
+                        .updatedAt(now)
+                        .updatedBy(fp.getId())
+                        .build());
+            }
+            consultationClaimNextActionRepository.saveAll(nextActions);
+        }
     }
 
     private void saveRenewalDetail(
@@ -590,15 +630,4 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .replace(" ", "");
     }
 
-    private String toJson(List<String> values) {
-        try {
-            return objectMapper.writeValueAsString(
-                    values == null ? List.of() : values
-            );
-        } catch (JsonProcessingException e) {
-            throw new BusinessException(
-                    ConsultationErrorCode.CONSULTATION_DETAIL_SERIALIZE_FAILED
-            );
-        }
-    }
 }

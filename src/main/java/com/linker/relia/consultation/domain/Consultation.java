@@ -64,7 +64,7 @@ public class Consultation extends BaseEntity {
     @Column(name = "consulted_at")
     private LocalDateTime consultedAt;
 
-    @Column(name = "special_note")
+    @Column(name = "special_note", columnDefinition = "TEXT")
     private String specialNote;
 
     @Column(name = "next_scheduled_at")

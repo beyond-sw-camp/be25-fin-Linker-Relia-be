@@ -63,6 +63,8 @@ public class RenewalDetailResponse {
                                 .map(ConsultationRenewalInterest::getInterestType)
                                 .toList()
                 )
+                .nextActions(detail.getNextActions())
+                .decisionExpectedDate(detail.getDecisionExpectedDate())
                 .build();
     }
 }

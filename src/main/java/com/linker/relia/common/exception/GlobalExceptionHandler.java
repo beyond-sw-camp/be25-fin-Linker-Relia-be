@@ -3,6 +3,7 @@ package com.linker.relia.common.exception;
 import com.linker.relia.common.dto.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -55,6 +56,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleBadRequestException(Exception exception) {
         log.warn("잘못된 요청 예외 발생.", exception);
         return ApiResponse.failure(CommonErrorCode.INVALID_REQUEST, null);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolationException(
+            DataIntegrityViolationException exception
+    ) {
+        log.warn("데이터 제약조건 위반이 발생했습니다.", exception);
+        return ApiResponse.failure(CommonErrorCode.INVALID_REQUEST, "요청 값이 데이터 제약조건을 위반했습니다.");
     }
 
     @ExceptionHandler(Exception.class)

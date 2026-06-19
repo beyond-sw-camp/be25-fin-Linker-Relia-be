@@ -1,6 +1,7 @@
 package com.linker.relia.user.repository;
 
 import com.linker.relia.user.domain.User;
+import com.linker.relia.user.domain.UserRole;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -20,5 +21,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @EntityGraph(attributePaths = "organization")
     List<User> findAllByDeletedAtIsNullOrderByEmpCodeAsc();
+
+    @EntityGraph(attributePaths = "organization")
+    Optional<User> findByOrganizationIdAndUserRoleAndDeletedAtIsNull(UUID organizationId, UserRole userRole);
 }
 

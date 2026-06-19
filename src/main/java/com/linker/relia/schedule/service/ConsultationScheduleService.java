@@ -4,6 +4,7 @@ import com.linker.relia.schedule.dto.request.ConsultationScheduleCreateRequest;
 import com.linker.relia.schedule.dto.request.ConsultationScheduleUpdateRequest;
 import com.linker.relia.schedule.dto.response.ConsultationScheduleCreateResponse;
 import com.linker.relia.schedule.dto.response.ConsultationScheduleListResponse;
+import com.linker.relia.schedule.dto.response.ScheduleCalendarResponse;
 import com.linker.relia.user.domain.User;
 
 import java.time.LocalDate;
@@ -30,5 +31,11 @@ public interface ConsultationScheduleService {
     void deleteSchedule(
             UUID fpId,
             UUID scheduleId
+    );
+
+    ScheduleCalendarResponse getMonthlyCalendar(
+            int year,
+            int month,
+            User fp
     );
 }

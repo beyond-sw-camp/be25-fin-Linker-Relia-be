@@ -27,6 +27,8 @@ public class RenewalDetailResponse {
     private List<String> premiumChangeReasonTypes;
     private String otherReason;
     private List<String> interestTypes;
+    private String nextActions;
+    private LocalDate decisionExpectedDate;
 
     public static RenewalDetailResponse from(
             ConsultationRenewalDetail detail,

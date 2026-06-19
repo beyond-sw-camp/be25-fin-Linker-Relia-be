@@ -14,7 +14,8 @@ public record HandoverListItemResponse (
     String currentFpName,
     RequestType requestType,
     RequestStatus requestStatus,
-    LocalDateTime createdAt
+    LocalDateTime createdAt,
+    LocalDateTime approvedAt
 ) {
     public static HandoverListItemResponse of(
             UUID handoverRequestId,
@@ -23,11 +24,11 @@ public record HandoverListItemResponse (
             String currentFpName,
             RequestType requestType,
             RequestStatus requestStatus,
-            LocalDateTime createdAt) {
+            LocalDateTime createdAt,
+            LocalDateTime approvedAt) {
         return new HandoverListItemResponse(
                 handoverRequestId, customerName, customerGrade,
-                currentFpName, requestType, requestStatus, createdAt
+                currentFpName, requestType, requestStatus, createdAt, approvedAt
         );
     }
 }
-

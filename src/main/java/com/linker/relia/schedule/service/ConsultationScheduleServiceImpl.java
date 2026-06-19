@@ -16,6 +16,8 @@ import com.linker.relia.schedule.dto.request.ConsultationScheduleUpdateRequest;
 import com.linker.relia.schedule.dto.response.ConsultationScheduleCreateResponse;
 import com.linker.relia.schedule.dto.response.ConsultationScheduleItemResponse;
 import com.linker.relia.schedule.dto.response.ConsultationScheduleListResponse;
+import com.linker.relia.schedule.dto.response.ScheduleCalendarDayResponse;
+import com.linker.relia.schedule.dto.response.ScheduleCalendarResponse;
 import com.linker.relia.schedule.exception.ScheduleErrorCode;
 import com.linker.relia.schedule.repository.ConsultationScheduleRepository;
 import com.linker.relia.user.domain.User;
@@ -25,8 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -153,6 +158,57 @@ public class ConsultationScheduleServiceImpl implements ConsultationScheduleServ
         validateOwner(schedule, fpId);
 
         schedule.delete(fpId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ScheduleCalendarResponse getMonthlyCalendar(
+            int year,
+            int month,
+            User fp
+    ) {
+        if (month < 1 || month > 12) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "월은 1부터 12 사이여야 합니다.");
+        }
+
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDateTime start = yearMonth.atDay(1).atStartOfDay();
+        LocalDateTime end = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+
+        List<ConsultationSchedule> schedules =
+                consultationScheduleRepository.findAllByFp_IdAndScheduledAtBetweenAndDeletedAtIsNull(
+                        fp.getId(),
+                        start,
+                        end
+                );
+
+        Map<LocalDate, List<ConsultationSchedule>> schedulesByDate = schedules.stream()
+                .collect(Collectors.groupingBy(schedule -> schedule.getScheduledAt().toLocalDate()));
+
+        List<ScheduleCalendarDayResponse> days = schedulesByDate.entrySet().stream()
+                .map(entry -> {
+                    long consultationCount = entry.getValue().stream()
+                            .filter(schedule -> schedule.getScheduleType() == ScheduleType.CONSULTATION)
+                            .count();
+
+                    long contractExpiryCount = entry.getValue().stream()
+                            .filter(schedule -> schedule.getScheduleType() == ScheduleType.CONTRACT_EXPIRY)
+                            .count();
+
+                    return ScheduleCalendarDayResponse.builder()
+                            .date(entry.getKey())
+                            .consultationCount(consultationCount)
+                            .contractExpiryCount(contractExpiryCount)
+                            .build();
+                })
+                .sorted((a, b) -> a.getDate().compareTo(b.getDate()))
+                .toList();
+
+        return ScheduleCalendarResponse.builder()
+                .year(year)
+                .month(month)
+                .days(days)
+                .build();
     }
 
     private void validateOwner(ConsultationSchedule schedule, UUID fpId) {

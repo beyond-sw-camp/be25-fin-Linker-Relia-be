@@ -1,18 +1,17 @@
 package com.linker.relia.dashboard.repository;
 
-import com.linker.relia.dashboard.dto.DashboardFpRankingItemResponse;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingItemResponse;
 import com.linker.relia.dashboard.dto.DashboardRankOrder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.Optional;
-import java.util.UUID;
 
-public interface DashboardFpRankingQueryRepository {
+public interface DashboardBranchRankingQueryRepository {
 
-    Page<DashboardFpRankingItemResponse> findFpRankings(
+    Page<DashboardBranchRankingItemResponse> findBranchRankings(
             String closingMonth,
-            UUID organizationId,
+            String comparisonClosingMonth,
             DashboardRankOrder rankOrder,
             Pageable pageable
     );

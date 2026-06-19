@@ -15,12 +15,14 @@ import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
 import com.linker.relia.dashboard.dto.DashboardKpiQueryResult;
 import com.linker.relia.dashboard.dto.DashboardKpiRequest;
 import com.linker.relia.dashboard.dto.DashboardMonthlyContractCustomerTrendQueryResult;
+import com.linker.relia.dashboard.dto.DashboardOrganizationContractDistributionRequest;
 import com.linker.relia.dashboard.dto.DashboardSummaryQueryResult;
 import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
 import com.linker.relia.dashboard.dto.FpDashboardMonthlyCommissionTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardMonthlyContractCustomerTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
+import com.linker.relia.dashboard.dto.OrganizationDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.OrganizationDashboardKpiResponse;
 import com.linker.relia.dashboard.repository.DashboardContractDistributionQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardContractStatusQueryRepository;
@@ -113,6 +115,51 @@ public class DashboardServiceImpl implements DashboardService {
                 .netIncomeCommissionDiffAmount(current.netIncomeCommissionAmount().subtract(previous.netIncomeCommissionAmount()))
                 .totalPaymentCommissionAmount(current.totalPaymentCommissionAmount())
                 .totalPaymentCommissionDiffAmount(current.totalPaymentCommissionAmount().subtract(previous.totalPaymentCommissionAmount()))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationDashboardContractDistributionResponse getOrganizationContractDistribution(
+            PrincipalDetails principalDetails,
+            DashboardOrganizationContractDistributionRequest request
+    ) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateManagerScope(accessScope);
+
+        String closingMonth = normalizeRequiredClosingMonth(request.getClosingMonth());
+        Organization targetOrganization = resolveTargetOrganization(accessScope, principalDetails, request.getOrganizationCode());
+
+        List<DashboardContractDistributionQueryResult> insuranceCompanyResults = targetOrganization == null
+                ? dashboardContractDistributionQueryRepository.summarizeAllInsuranceCompanyContractCounts(closingMonth)
+                : dashboardContractDistributionQueryRepository.summarizeInsuranceCompanyContractCountsByOrganization(
+                targetOrganization.getId(),
+                closingMonth
+        );
+        List<DashboardContractDistributionQueryResult> insuranceCategoryResults = targetOrganization == null
+                ? dashboardContractDistributionQueryRepository.summarizeAllInsuranceCategoryContractCounts(closingMonth)
+                : dashboardContractDistributionQueryRepository.summarizeInsuranceCategoryContractCountsByOrganization(
+                targetOrganization.getId(),
+                closingMonth
+        );
+
+        long totalContractCount = calculateTotalContractCount(insuranceCompanyResults);
+
+        return OrganizationDashboardContractDistributionResponse.builder()
+                .closingMonth(closingMonth)
+                .organizationCode(targetOrganization == null ? null : targetOrganization.getOrganizationCode())
+                .organizationName(targetOrganization == null ? null : targetOrganization.getOrganizationName())
+                .totalContractCount(totalContractCount)
+                .insuranceCompanies(
+                        insuranceCompanyResults.stream()
+                                .map(result -> toOrganizationInsuranceCompanyDistributionItem(result, totalContractCount))
+                                .toList()
+                )
+                .insuranceCategories(
+                        insuranceCategoryResults.stream()
+                                .map(result -> toOrganizationInsuranceCategoryDistributionItem(result, totalContractCount))
+                                .toList()
+                )
                 .build();
     }
 
@@ -382,10 +429,46 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
+    private OrganizationDashboardContractDistributionResponse.InsuranceCompanyDistributionItem
+    toOrganizationInsuranceCompanyDistributionItem(
+            DashboardContractDistributionQueryResult queryResult,
+            long totalContractCount
+    ) {
+        return OrganizationDashboardContractDistributionResponse.InsuranceCompanyDistributionItem.builder()
+                .insuranceCompanyId(queryResult.id())
+                .insuranceCompanyName(queryResult.name())
+                .contractCount(queryResult.contractCount())
+                .contractRatio(calculateContractRatio(queryResult.contractCount(), totalContractCount))
+                .build();
+    }
+
+    private OrganizationDashboardContractDistributionResponse.InsuranceCategoryDistributionItem
+    toOrganizationInsuranceCategoryDistributionItem(
+            DashboardContractDistributionQueryResult queryResult,
+            long totalContractCount
+    ) {
+        return OrganizationDashboardContractDistributionResponse.InsuranceCategoryDistributionItem.builder()
+                .insuranceCategoryId(queryResult.id())
+                .insuranceCategoryName(queryResult.name())
+                .contractCount(queryResult.contractCount())
+                .contractRatio(calculateContractRatio(queryResult.contractCount(), totalContractCount))
+                .build();
+    }
+
     private long calculateTotalContractCount(List<DashboardContractDistributionQueryResult> queryResults) {
         return queryResults.stream()
                 .mapToLong(DashboardContractDistributionQueryResult::contractCount)
                 .sum();
+    }
+
+    private BigDecimal calculateContractRatio(long contractCount, long totalContractCount) {
+        if (totalContractCount == 0L) {
+            return BigDecimal.ZERO;
+        }
+
+        return BigDecimal.valueOf(contractCount)
+                .multiply(new BigDecimal("100"))
+                .divide(BigDecimal.valueOf(totalContractCount), 2, java.math.RoundingMode.HALF_UP);
     }
 
     private Map<String, DashboardMonthlyContractCustomerTrendQueryResult> mapMonthlyContractCustomerTrends(

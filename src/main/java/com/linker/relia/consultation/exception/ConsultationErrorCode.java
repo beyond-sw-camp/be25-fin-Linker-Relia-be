@@ -81,6 +81,18 @@ public enum ConsultationErrorCode implements ErrorCode {
             "CONSULTATION_013",
             "STT 세션 조회 권한이 없습니다.",
             HttpStatus.FORBIDDEN
+    ),
+
+    CONSULTATION_AI_NOTE_NOT_FOUND(
+            "CONSULTATION_014",
+            "AI 상담 초안을 찾을 수 없습니다.",
+            HttpStatus.NOT_FOUND
+    ),
+
+    CONSULTATION_AI_NOTE_INVALID_DATA(
+            "CONSULTATION_015",
+            "AI 상담 초안 데이터가 올바르지 않습니다.",
+            HttpStatus.INTERNAL_SERVER_ERROR
     );
 
     private final String code;

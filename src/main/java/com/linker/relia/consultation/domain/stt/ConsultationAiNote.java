@@ -40,6 +40,10 @@ public class ConsultationAiNote extends BaseEntity {
     @JoinColumn(name = "audio_record_id")
     private ConsultationAudioRecord audioRecord;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stt_session_id")
+    private ConsultationSttSession sttSession;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "consultation_type")
     private ConsultationType consultationType;

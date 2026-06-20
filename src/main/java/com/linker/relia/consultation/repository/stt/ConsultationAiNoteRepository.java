@@ -12,6 +12,8 @@ public interface ConsultationAiNoteRepository extends JpaRepository<Consultation
 
     Optional<ConsultationAiNote> findTopByAudioRecord_IdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID audioRecordId);
 
+    Optional<ConsultationAiNote> findTopBySttSession_IdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID sttSessionId);
+
     List<ConsultationAiNote> findAllByAudioRecord_IdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID audioRecordId);
 
     List<ConsultationAiNote> findAllByDraftStatusAndDeletedAtIsNull(ConsultationAiNoteStatus draftStatus);

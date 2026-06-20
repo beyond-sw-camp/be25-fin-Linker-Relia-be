@@ -3,7 +3,9 @@ package com.linker.relia.consultation.controller;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.consultation.dto.request.ConsultationSttSessionCompleteRequest;
 import com.linker.relia.consultation.dto.request.ConsultationSttSessionStartRequest;
+import com.linker.relia.consultation.dto.response.ConsultationAiDraftResponse;
 import com.linker.relia.consultation.dto.response.ConsultationSttSessionResponse;
+import com.linker.relia.consultation.service.stt.ConsultationAiNoteService;
 import com.linker.relia.consultation.service.stt.ConsultationSttSessionService;
 import com.linker.relia.security.principal.PrincipalDetails;
 import jakarta.validation.Valid;
@@ -24,6 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @RequestMapping("/api/consultation-stt-sessions")
 public class ConsultationSttSessionController {
+    private final ConsultationAiNoteService consultationAiNoteService;
     private final ConsultationSttSessionService consultationSttSessionService;
 
     @PostMapping
@@ -46,6 +49,7 @@ public class ConsultationSttSessionController {
         UUID fpId = principalDetails.getUser().getId();
         ConsultationSttSessionResponse response =
                 consultationSttSessionService.completeSession(sessionId, fpId, request);
+        consultationAiNoteService.processSttCompleted(sessionId, fpId, request.getFinalText());
 
         return ApiResponse.success(HttpStatus.OK, "STT 세션이 종료되었습니다.", response);
     }
@@ -59,5 +63,16 @@ public class ConsultationSttSessionController {
         ConsultationSttSessionResponse response = consultationSttSessionService.getSession(sessionId, fpId);
 
         return ApiResponse.success(HttpStatus.OK, "STT 세션 조회에 성공했습니다.", response);
+    }
+
+    @GetMapping("/{sessionId}/ai-draft")
+    public ResponseEntity<ApiResponse<ConsultationAiDraftResponse>> getAiDraft(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @PathVariable UUID sessionId
+    ) {
+        UUID fpId = principalDetails.getUser().getId();
+        ConsultationAiDraftResponse response = consultationAiNoteService.getAiDraft(sessionId, fpId);
+
+        return ApiResponse.success(HttpStatus.OK, "AI 상담 초안 조회에 성공했습니다.", response);
     }
 }

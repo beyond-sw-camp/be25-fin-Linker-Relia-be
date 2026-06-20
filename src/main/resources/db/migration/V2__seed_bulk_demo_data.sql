@@ -1523,7 +1523,7 @@ INSERT INTO consultation_new_details (
 SELECT
     CONCAT('71000000-0000-0000-0000-', LPAD(seq_no, 12, '0')) AS id,
     consultation_id,
-    customer_annual_income / 12,
+    ROUND(customer_annual_income / 12, 2),
     CASE WHEN MOD(seq_no, 3) = 0 THEN FALSE ELSE TRUE END,
     CASE WHEN MOD(seq_no, 3) = 0 THEN NULL ELSE 80000 + (MOD(seq_no, 8) * 10000) END,
     CASE

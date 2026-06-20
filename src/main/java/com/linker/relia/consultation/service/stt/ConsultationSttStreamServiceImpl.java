@@ -80,7 +80,12 @@ public class ConsultationSttStreamServiceImpl implements ConsultationSttStreamSe
 
     @Override
     public void handleAudioChunk(UUID sessionId, byte[] audioBytes) {
-        ConsultationSttStreamRegistry.StreamContext context = getRequiredContext(sessionId);
+        ConsultationSttStreamRegistry.StreamContext context = consultationSttStreamRegistry.get(sessionId)
+                .orElse(null);
+        if (context == null) {
+            log.warn("Skip audio chunk because no active STT stream context exists. sessionId={}", sessionId);
+            return;
+        }
         context.getClovaSpeechStream().sendAudio(audioBytes);
     }
 

@@ -16,7 +16,7 @@ import io.grpc.Status;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
-import lombok.RequiredArgsConstructor;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -32,13 +32,19 @@ import java.util.function.Consumer;
 // CLOVA Speech gRPC 스트림 생성과 응답 파싱을 담당한다.
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ClovaSpeechGrpcClient {
     private static final String DEFAULT_LANGUAGE = "ko";
     private static final long FINAL_RESPONSE_WAIT_MS = 1500L;
 
     private final ClovaSttProperties clovaSttProperties;
     private final ObjectMapper objectMapper;
+    private final ManagedChannel sharedChannel;
+
+    public ClovaSpeechGrpcClient(ClovaSttProperties clovaSttProperties, ObjectMapper objectMapper) {
+        this.clovaSttProperties = clovaSttProperties;
+        this.objectMapper = objectMapper;
+        this.sharedChannel = buildChannel();
+    }
 
     public ClovaSpeechStream openStream(
             UUID sessionId,
@@ -46,8 +52,7 @@ public class ClovaSpeechGrpcClient {
             Consumer<String> finalTextConsumer,
             Consumer<Throwable> errorConsumer
     ) {
-        ManagedChannel channel = buildChannel();
-        NestServiceGrpc.NestServiceStub stub = NestServiceGrpc.newStub(channel)
+        NestServiceGrpc.NestServiceStub stub = NestServiceGrpc.newStub(sharedChannel)
                 .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(buildMetadata()));
 
         ResponseAccumulator accumulator = new ResponseAccumulator(partialTextConsumer);
@@ -62,7 +67,6 @@ public class ClovaSpeechGrpcClient {
             @Override
             public void onError(Throwable throwable) {
                 log.warn("CLOVA STT 응답 스트림 오류가 발생했습니다. sessionId={}", sessionId, throwable);
-                shutdownChannel(channel);
                 if (terminated.compareAndSet(false, true)) {
                     errorConsumer.accept(throwable);
                 }
@@ -71,12 +75,12 @@ public class ClovaSpeechGrpcClient {
             @Override
             public void onCompleted() {
                 log.info("CLOVA STT 응답 스트림이 종료되었습니다. sessionId={}", sessionId);
-                shutdownChannel(channel);
+                terminated.set(true);
             }
         });
 
         sendConfigRequest(sessionId, requestObserver, errorConsumer);
-        return new DefaultClovaSpeechStream(sessionId, channel, requestObserver, errorConsumer, terminated);
+        return new DefaultClovaSpeechStream(sessionId, requestObserver, errorConsumer, terminated);
     }
 
     // gRPC 서버 주소를 읽어 TLS 채널을 생성한다.
@@ -86,7 +90,7 @@ public class ClovaSpeechGrpcClient {
                 .build();
     }
 
-    // Secret Key를 Authorization 헤더의 Bearer 토큰으로 넣는다.
+    // Secret Key를 Authorization 헤더의 Bearer 토큰으로 싣는다.
     private Metadata buildMetadata() {
         Metadata metadata = new Metadata();
         metadata.put(
@@ -96,7 +100,7 @@ public class ClovaSpeechGrpcClient {
         return metadata;
     }
 
-    // 스트림 시작 직후 필수 Config JSON을 한 번 전송한다.
+    // 스트림 시작 직후 필수 Config JSON을 서버로 전송한다.
     private void sendConfigRequest(
             UUID sessionId,
             StreamObserver<NestRequest> requestObserver,
@@ -193,7 +197,7 @@ public class ClovaSpeechGrpcClient {
         return false;
     }
 
-    // gRPC URL이 URL이든 host:port 형태든 모두 forTarget에 맞게 정규화한다.
+    // gRPC URL을 URL이든 host:port 형태든 forTarget에 맞게 정규화한다.
     private String normalizeGrpcTarget(String grpcUrl) {
         String normalized = grpcUrl.trim();
         normalized = normalized.replaceFirst("^https?://", "");
@@ -201,9 +205,9 @@ public class ClovaSpeechGrpcClient {
         return normalized.toLowerCase(Locale.ROOT);
     }
 
-    // 채널 종료 시 예외를 숨기고 조용히 처리한다.
-    private void shutdownChannel(ManagedChannel channel) {
-        channel.shutdownNow();
+    @PreDestroy
+    void shutdownSharedChannel() {
+        sharedChannel.shutdownNow();
     }
 
     public interface ClovaSpeechStream {
@@ -214,10 +218,9 @@ public class ClovaSpeechGrpcClient {
         void cancel(Throwable throwable);
     }
 
-    // 내부 request observer에 DATA 요청을 전달하는 실제 스트림 구현체다.
+    // 내부 request observer로 DATA 요청을 전달하는 실제 스트림 구현체다.
     private static final class DefaultClovaSpeechStream implements ClovaSpeechStream {
         private final UUID sessionId;
-        private final ManagedChannel channel;
         private final StreamObserver<NestRequest> requestObserver;
         private final Consumer<Throwable> errorConsumer;
         private final AtomicBoolean terminated;
@@ -225,13 +228,11 @@ public class ClovaSpeechGrpcClient {
 
         private DefaultClovaSpeechStream(
                 UUID sessionId,
-                ManagedChannel channel,
                 StreamObserver<NestRequest> requestObserver,
                 Consumer<Throwable> errorConsumer,
                 AtomicBoolean terminated
         ) {
             this.sessionId = sessionId;
-            this.channel = channel;
             this.requestObserver = requestObserver;
             this.errorConsumer = errorConsumer;
             this.terminated = terminated;
@@ -270,22 +271,19 @@ public class ClovaSpeechGrpcClient {
                         .setData(NestData.newBuilder()
                                 .setChunk(ByteString.EMPTY)
                                 .setExtraContents(extraContents)
-                                .build())
+                        .build())
                         .build());
-                log.info(
-                        "CLOVA STT 최종 epFlag 청크 전송이 완료되었습니다. sessionId={}, onCompleted는 즉시 호출하지 않고 {}ms 동안 최종 응답을 기다립니다.",
-                        sessionId,
-                        FINAL_RESPONSE_WAIT_MS
-                );
                 CompletableFuture.delayedExecutor(FINAL_RESPONSE_WAIT_MS, TimeUnit.MILLISECONDS)
-                        .execute(() -> log.info(
-                                "CLOVA STT 최종 응답 대기 시간이 지났지만 자동 onCompleted는 호출하지 않았습니다. sessionId={}",
-                                sessionId
-                        ));
+                        .execute(() -> {
+                            try {
+                                requestObserver.onCompleted();
+                            } catch (Exception exception) {
+                                log.warn("CLOVA STT onCompleted 호출에 실패했습니다. sessionId={}", sessionId, exception);
+                            }
+                        });
             } catch (Exception exception) {
                 log.warn("CLOVA STT complete 처리에 실패했습니다. sessionId={}", sessionId, exception);
                 errorConsumer.accept(exception);
-                channel.shutdownNow();
             }
         }
 
@@ -295,14 +293,10 @@ public class ClovaSpeechGrpcClient {
                 return;
             }
 
-            try {
-                requestObserver.onError(Status.CANCELLED
-                        .withDescription("STT stream was cancelled. sessionId=" + sessionId)
-                        .withCause(throwable)
-                        .asRuntimeException());
-            } finally {
-                channel.shutdownNow();
-            }
+            requestObserver.onError(Status.CANCELLED
+                    .withDescription("STT stream was cancelled. sessionId=" + sessionId)
+                    .withCause(throwable)
+                    .asRuntimeException());
         }
     }
 

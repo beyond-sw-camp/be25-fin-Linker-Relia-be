@@ -1,8 +1,8 @@
 package com.linker.relia.consultation.dto.response;
 
 import com.linker.relia.consultation.domain.ConsultationClaimDetail;
+import com.linker.relia.consultation.domain.ConsultationClaimNextAction;
 import com.linker.relia.consultation.domain.ConsultationClaimReviewItem;
-import com.linker.relia.consultation.domain.ConsultationClaimType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -13,44 +13,37 @@ import java.util.List;
 @Builder
 public class ClaimDetailResponse {
 
-    private String claimStage;
-    private LocalDate claimEventDate;
-    private String claimReasonDetail;
+    private String claimType;
+    private String claimReason;
     private String hospitalName;
     private String diagnosisOrTreatment;
     private String hospitalizationStatus;
     private String surgeryStatus;
-    private String claimResult;
-    private String guidanceSummary;
-
-    private List<String> claimTypes;
-    private List<String> reviewTypes;
+    private LocalDate incidentDate;
+    private List<String> reviewItems;
+    private String result;
+    private List<String> nextActions;
 
     public static ClaimDetailResponse from(
             ConsultationClaimDetail detail,
-            List<ConsultationClaimType> claimTypes,
-            List<ConsultationClaimReviewItem> reviewItems
+            List<ConsultationClaimReviewItem> reviewItems,
+            List<ConsultationClaimNextAction> nextActions
     ) {
         return ClaimDetailResponse.builder()
-                .claimStage(detail.getClaimStage())
-                .claimEventDate(detail.getClaimEventDate())
-                .claimReasonDetail(detail.getClaimReasonDetail())
+                .claimType(detail.getClaimType())
+                .claimReason(detail.getClaimReasonDetail())
                 .hospitalName(detail.getHospitalName())
                 .diagnosisOrTreatment(detail.getDiagnosisOrTreatment())
                 .hospitalizationStatus(detail.getHospitalizationStatus())
                 .surgeryStatus(detail.getSurgeryStatus())
-                .claimResult(detail.getClaimResult())
-                .guidanceSummary(detail.getGuidanceSummary())
-                .claimTypes(
-                        claimTypes.stream()
-                                .map(ConsultationClaimType::getClaimType)
-                                .toList()
-                )
-                .reviewTypes(
-                        reviewItems.stream()
-                                .map(ConsultationClaimReviewItem::getReviewType)
-                                .toList()
-                )
+                .incidentDate(detail.getIncidentDate())
+                .reviewItems(reviewItems.stream()
+                        .map(ConsultationClaimReviewItem::getReviewType)
+                        .toList())
+                .result(detail.getClaimResult())
+                .nextActions(nextActions.stream()
+                        .map(ConsultationClaimNextAction::getActionContent)
+                        .toList())
                 .build();
     }
 }

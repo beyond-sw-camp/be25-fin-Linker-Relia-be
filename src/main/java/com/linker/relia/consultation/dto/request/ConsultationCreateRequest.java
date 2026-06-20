@@ -34,8 +34,15 @@ public class ConsultationCreateRequest {
 
     private LocalDateTime nextScheduledAt;
 
+    @Valid
     private ConsultationNewDetailRequest newDetail;
+
+    @Valid
     private ConsultationClaimDetailRequest claimDetail;
+
+    @Valid
     private ConsultationRenewalDetailRequest renewalDetail;
+
+    @Valid
     private ConsultationCancelDetailRequest cancelDetail;
 }

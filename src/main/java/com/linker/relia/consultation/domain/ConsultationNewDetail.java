@@ -29,13 +29,13 @@ public class ConsultationNewDetail extends BaseEntity {
     @JoinColumn(name = "consultation_id", nullable = false)
     private Consultation consultation;
 
-    @Column(name = "monthly_income")
+    @Column(name = "monthly_income", precision = 15, scale = 2)
     private BigDecimal monthlyIncome;
 
     @Column(name = "has_existing_insurance", nullable = false)
     private Boolean hasExistingInsurance;
 
-    @Column(name = "monthly_insurance_premium")
+    @Column(name = "monthly_insurance_premium", precision = 15, scale = 2)
     private BigDecimal monthlyInsurancePremium;
 
     @Column(name = "existing_insurance_note", length = 500)

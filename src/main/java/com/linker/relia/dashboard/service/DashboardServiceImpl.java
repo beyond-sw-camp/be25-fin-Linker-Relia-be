@@ -1,25 +1,49 @@
 package com.linker.relia.dashboard.service;
 
 import com.linker.relia.auth.exception.AuthErrorCode;
+import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.common.access.AccessScopeResolver;
+import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.commission.domain.IncomeCommissionMonthlyClosing;
 import com.linker.relia.commission.dto.FpCommissionMonthlyTrendQueryResult;
 import com.linker.relia.commission.repository.IncomeCommissionMonthlyClosingRepository;
 import com.linker.relia.commission.repository.custom.FpCommissionTrendQueryRepository;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.dashboard.dto.DashboardClosingMonthOptionResponse;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingItemResponse;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardBranchRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardContractDistributionQueryResult;
+import com.linker.relia.dashboard.dto.DashboardFpRankingItemResponse;
+import com.linker.relia.dashboard.dto.DashboardFpRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardFpRankingResponse;
+import com.linker.relia.dashboard.dto.DashboardRankOrder;
 import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
+import com.linker.relia.dashboard.dto.DashboardKpiQueryResult;
+import com.linker.relia.dashboard.dto.DashboardKpiRequest;
 import com.linker.relia.dashboard.dto.DashboardMonthlyContractCustomerTrendQueryResult;
+import com.linker.relia.dashboard.dto.DashboardOrganizationContractDistributionRequest;
 import com.linker.relia.dashboard.dto.DashboardSummaryQueryResult;
 import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
 import com.linker.relia.dashboard.dto.FpDashboardMonthlyCommissionTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardMonthlyContractCustomerTrendResponse;
 import com.linker.relia.dashboard.dto.FpDashboardSummaryResponse;
+import com.linker.relia.dashboard.dto.OrganizationDashboardContractDistributionResponse;
+import com.linker.relia.dashboard.dto.OrganizationDashboardKpiResponse;
 import com.linker.relia.dashboard.repository.DashboardContractDistributionQueryRepository;
+import com.linker.relia.dashboard.repository.DashboardBranchRankingQueryRepository;
+import com.linker.relia.dashboard.repository.DashboardFpRankingQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardContractStatusQueryRepository;
+import com.linker.relia.dashboard.repository.DashboardKpiQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardMonthlyContractCustomerTrendQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardSummaryQueryRepository;
+import com.linker.relia.organization.domain.Organization;
+import com.linker.relia.organization.domain.OrganizationStatus;
+import com.linker.relia.organization.domain.OrganizationType;
+import com.linker.relia.organization.exception.OrganizationErrorCode;
+import com.linker.relia.organization.repository.OrganizationRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
 import com.linker.relia.user.domain.UserRole;
@@ -37,9 +61,14 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class DashboardServiceImpl implements DashboardService {
+    private final AccessScopeResolver accessScopeResolver;
+    private final OrganizationRepository organizationRepository;
     private final DashboardSummaryQueryRepository dashboardSummaryQueryRepository;
     private final DashboardContractStatusQueryRepository dashboardContractStatusQueryRepository;
     private final DashboardContractDistributionQueryRepository dashboardContractDistributionQueryRepository;
+    private final DashboardBranchRankingQueryRepository dashboardBranchRankingQueryRepository;
+    private final DashboardFpRankingQueryRepository dashboardFpRankingQueryRepository;
+    private final DashboardKpiQueryRepository dashboardKpiQueryRepository;
     private final DashboardMonthlyContractCustomerTrendQueryRepository dashboardMonthlyContractCustomerTrendQueryRepository;
     private final FpCommissionTrendQueryRepository fpCommissionTrendQueryRepository;
     private final IncomeCommissionMonthlyClosingRepository incomeCommissionMonthlyClosingRepository;
@@ -51,6 +80,165 @@ public class DashboardServiceImpl implements DashboardService {
                 .stream()
                 .map(this::toClosingMonthOption)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationDashboardKpiResponse getOrganizationKpi(
+            PrincipalDetails principalDetails,
+            DashboardKpiRequest request
+    ) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateManagerScope(accessScope);
+
+        String closingMonth = normalizeRequiredClosingMonth(request.getClosingMonth());
+        String comparisonClosingMonth = YearMonth.parse(closingMonth).minusMonths(1).toString();
+        Organization targetOrganization = resolveTargetOrganization(accessScope, principalDetails, request.getOrganizationCode());
+
+        DashboardKpiQueryResult current = targetOrganization == null
+                ? dashboardKpiQueryRepository.findHqKpi(closingMonth)
+                : dashboardKpiQueryRepository.findBranchKpi(targetOrganization.getId(), closingMonth);
+
+        DashboardKpiQueryResult previous = targetOrganization == null
+                ? dashboardKpiQueryRepository.findHqKpi(comparisonClosingMonth)
+                : dashboardKpiQueryRepository.findBranchKpi(targetOrganization.getId(), comparisonClosingMonth);
+
+        return OrganizationDashboardKpiResponse.builder()
+                .closingMonth(closingMonth)
+                .comparisonClosingMonth(comparisonClosingMonth)
+                .organizationCode(targetOrganization == null ? null : targetOrganization.getOrganizationCode())
+                .organizationName(targetOrganization == null ? null : targetOrganization.getOrganizationName())
+                .fpCount(current.fpCount())
+                .fpCountDiff(current.fpCount() - previous.fpCount())
+                .customerCount(current.customerCount())
+                .customerCountDiff(current.customerCount() - previous.customerCount())
+                .totalContractCount(current.totalContractCount())
+                .totalContractCountDiff(current.totalContractCount() - previous.totalContractCount())
+                .interestCustomerCount(current.interestCustomerCount())
+                .interestCustomerCountDiff(current.interestCustomerCount() - previous.interestCustomerCount())
+                .interestCustomerRate(calculateInterestCustomerRate(current.interestCustomerCount(), current.customerCount()))
+                .contractSuccessRate(current.contractSuccessRate())
+                .contractSuccessRateDiff(current.contractSuccessRate().subtract(previous.contractSuccessRate()))
+                .retentionRate(current.retentionRate())
+                .retentionRateDiff(current.retentionRate().subtract(previous.retentionRate()))
+                .terminatedContractCount(current.terminatedContractCount())
+                .terminatedContractCountDiff(current.terminatedContractCount() - previous.terminatedContractCount())
+                .netIncomeCommissionAmount(current.netIncomeCommissionAmount())
+                .netIncomeCommissionDiffAmount(current.netIncomeCommissionAmount().subtract(previous.netIncomeCommissionAmount()))
+                .totalPaymentCommissionAmount(current.totalPaymentCommissionAmount())
+                .totalPaymentCommissionDiffAmount(current.totalPaymentCommissionAmount().subtract(previous.totalPaymentCommissionAmount()))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationDashboardContractDistributionResponse getOrganizationContractDistribution(
+            PrincipalDetails principalDetails,
+            DashboardOrganizationContractDistributionRequest request
+    ) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateManagerScope(accessScope);
+
+        String closingMonth = normalizeRequiredClosingMonth(request.getClosingMonth());
+        Organization targetOrganization = resolveTargetOrganization(accessScope, principalDetails, request.getOrganizationCode());
+
+        List<DashboardContractDistributionQueryResult> insuranceCompanyResults = targetOrganization == null
+                ? dashboardContractDistributionQueryRepository.summarizeAllInsuranceCompanyContractCounts(closingMonth)
+                : dashboardContractDistributionQueryRepository.summarizeInsuranceCompanyContractCountsByOrganization(
+                targetOrganization.getId(),
+                closingMonth
+        );
+        List<DashboardContractDistributionQueryResult> insuranceCategoryResults = targetOrganization == null
+                ? dashboardContractDistributionQueryRepository.summarizeAllInsuranceCategoryContractCounts(closingMonth)
+                : dashboardContractDistributionQueryRepository.summarizeInsuranceCategoryContractCountsByOrganization(
+                targetOrganization.getId(),
+                closingMonth
+        );
+
+        long totalContractCount = calculateTotalContractCount(insuranceCompanyResults);
+
+        return OrganizationDashboardContractDistributionResponse.builder()
+                .closingMonth(closingMonth)
+                .organizationCode(targetOrganization == null ? null : targetOrganization.getOrganizationCode())
+                .organizationName(targetOrganization == null ? null : targetOrganization.getOrganizationName())
+                .totalContractCount(totalContractCount)
+                .insuranceCompanies(
+                        insuranceCompanyResults.stream()
+                                .map(result -> toOrganizationInsuranceCompanyDistributionItem(result, totalContractCount))
+                                .toList()
+                )
+                .insuranceCategories(
+                        insuranceCategoryResults.stream()
+                                .map(result -> toOrganizationInsuranceCategoryDistributionItem(result, totalContractCount))
+                                .toList()
+                )
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardFpRankingResponse getOrganizationFpRankings(
+            PrincipalDetails principalDetails,
+            DashboardFpRankingRequest request
+    ) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateManagerScope(accessScope);
+        validateRankingPageSize(request.getSize());
+
+        String closingMonth = resolveRankingClosingMonth(request.getClosingMonth());
+        Organization targetOrganization =
+                resolveTargetOrganization(accessScope, principalDetails, request.getOrganizationCode());
+        DashboardRankOrder rankOrder = request.getRankOrder() == null
+                ? DashboardRankOrder.TOP
+                : request.getRankOrder();
+
+        PageResponse<DashboardFpRankingItemResponse> rankings =
+                PageResponse.from(dashboardFpRankingQueryRepository.findFpRankings(
+                        closingMonth,
+                        targetOrganization == null ? null : targetOrganization.getId(),
+                        rankOrder,
+                        request.toPageable()
+                ));
+
+        return DashboardFpRankingResponse.builder()
+                .closingMonth(closingMonth)
+                .organizationCode(targetOrganization == null ? null : targetOrganization.getOrganizationCode())
+                .organizationName(targetOrganization == null ? null : targetOrganization.getOrganizationName())
+                .rankOrder(rankOrder)
+                .rankings(rankings)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardBranchRankingResponse getOrganizationBranchRankings(
+            PrincipalDetails principalDetails,
+            DashboardBranchRankingRequest request
+    ) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateHqScope(accessScope);
+        validateRankingPageSize(request.getSize());
+
+        String closingMonth = resolveBranchRankingClosingMonth(request.getClosingMonth());
+        String comparisonClosingMonth = YearMonth.parse(closingMonth).minusMonths(1).toString();
+        DashboardRankOrder rankOrder = request.getRankOrder() == null
+                ? DashboardRankOrder.TOP
+                : request.getRankOrder();
+
+        PageResponse<DashboardBranchRankingItemResponse> rankings =
+                PageResponse.from(dashboardBranchRankingQueryRepository.findBranchRankings(
+                        closingMonth,
+                        comparisonClosingMonth,
+                        rankOrder,
+                        request.toPageable()
+                ));
+
+        return DashboardBranchRankingResponse.builder()
+                .closingMonth(closingMonth)
+                .comparisonClosingMonth(comparisonClosingMonth)
+                .rankOrder(rankOrder)
+                .rankings(rankings)
+                .build();
     }
 
     @Override
@@ -231,6 +419,112 @@ public class DashboardServiceImpl implements DashboardService {
         }
     }
 
+    private void validateManagerScope(AccessScope accessScope) {
+        if (accessScope.isOwnScope()) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
+    }
+
+    private void validateHqScope(AccessScope accessScope) {
+        if (!accessScope.isAllScope()) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+        }
+    }
+
+    private String normalizeRequiredClosingMonth(String closingMonth) {
+        if (closingMonth == null || closingMonth.isBlank()) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "closingMonth는 필수입니다.");
+        }
+
+        try {
+            return YearMonth.parse(closingMonth.trim()).toString();
+        } catch (Exception exception) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "closingMonth는 YYYY-MM 형식이어야 합니다.");
+        }
+    }
+
+    private String resolveRankingClosingMonth(String closingMonth) {
+        if (closingMonth != null && !closingMonth.isBlank()) {
+            try {
+                return YearMonth.parse(closingMonth.trim()).toString();
+            } catch (Exception exception) {
+                throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "closingMonth는 YYYY-MM 형식이어야 합니다.");
+            }
+        }
+
+        return dashboardFpRankingQueryRepository.findLatestClosingMonth()
+                .orElseThrow(() -> new BusinessException(
+                        CommonErrorCode.INVALID_REQUEST,
+                        "조회할 수 있는 설계사 실적 마감 데이터가 없습니다."
+                ));
+    }
+
+    private String resolveBranchRankingClosingMonth(String closingMonth) {
+        if (closingMonth != null && !closingMonth.isBlank()) {
+            try {
+                return YearMonth.parse(closingMonth.trim()).toString();
+            } catch (Exception exception) {
+                throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "closingMonth는 YYYY-MM 형식이어야 합니다.");
+            }
+        }
+
+        return dashboardBranchRankingQueryRepository.findLatestClosingMonth()
+                .orElseThrow(() -> new BusinessException(
+                        CommonErrorCode.INVALID_REQUEST,
+                        "조회할 수 있는 지점 수입수수료 마감 데이터가 없습니다."
+                ));
+    }
+
+    private void validateRankingPageSize(Integer size) {
+        if (size != null && size > 100) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "size는 100 이하여야 합니다.");
+        }
+    }
+
+    private Organization resolveTargetOrganization(
+            AccessScope accessScope,
+            PrincipalDetails principalDetails,
+            String organizationCode
+    ) {
+        if (accessScope.isBranchScope()) {
+            Organization ownOrganization = principalDetails.getUser().getOrganization();
+            if (ownOrganization == null) {
+                throw new BusinessException(AuthErrorCode.INVALID_USER_STATE);
+            }
+
+            if (organizationCode == null || organizationCode.isBlank()) {
+                return ownOrganization;
+            }
+
+            if (!organizationCode.trim().equals(ownOrganization.getOrganizationCode())) {
+                throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+            }
+            return ownOrganization;
+        }
+
+        if (organizationCode == null || organizationCode.isBlank()) {
+            return null;
+        }
+
+        Organization organization = organizationRepository.findByOrganizationCode(organizationCode.trim())
+                .filter(found -> found.getDeletedAt() == null)
+                .filter(found -> found.getOrganizationType() == OrganizationType.BRANCH)
+                .filter(found -> found.getOrganizationStatus() == OrganizationStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND));
+
+        return organization;
+    }
+
+    private BigDecimal calculateInterestCustomerRate(long interestCustomerCount, long customerCount) {
+        if (customerCount == 0L) {
+            return BigDecimal.ZERO;
+        }
+
+        return BigDecimal.valueOf(interestCustomerCount)
+                .multiply(new BigDecimal("100"))
+                .divide(BigDecimal.valueOf(customerCount), 2, java.math.RoundingMode.HALF_UP);
+    }
+
     private Integer calculateRankChange(Integer currentRank, Integer previousRank) {
         if (currentRank == null || previousRank == null) {
             return null;
@@ -257,10 +551,46 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
+    private OrganizationDashboardContractDistributionResponse.InsuranceCompanyDistributionItem
+    toOrganizationInsuranceCompanyDistributionItem(
+            DashboardContractDistributionQueryResult queryResult,
+            long totalContractCount
+    ) {
+        return OrganizationDashboardContractDistributionResponse.InsuranceCompanyDistributionItem.builder()
+                .insuranceCompanyId(queryResult.id())
+                .insuranceCompanyName(queryResult.name())
+                .contractCount(queryResult.contractCount())
+                .contractRatio(calculateContractRatio(queryResult.contractCount(), totalContractCount))
+                .build();
+    }
+
+    private OrganizationDashboardContractDistributionResponse.InsuranceCategoryDistributionItem
+    toOrganizationInsuranceCategoryDistributionItem(
+            DashboardContractDistributionQueryResult queryResult,
+            long totalContractCount
+    ) {
+        return OrganizationDashboardContractDistributionResponse.InsuranceCategoryDistributionItem.builder()
+                .insuranceCategoryId(queryResult.id())
+                .insuranceCategoryName(queryResult.name())
+                .contractCount(queryResult.contractCount())
+                .contractRatio(calculateContractRatio(queryResult.contractCount(), totalContractCount))
+                .build();
+    }
+
     private long calculateTotalContractCount(List<DashboardContractDistributionQueryResult> queryResults) {
         return queryResults.stream()
                 .mapToLong(DashboardContractDistributionQueryResult::contractCount)
                 .sum();
+    }
+
+    private BigDecimal calculateContractRatio(long contractCount, long totalContractCount) {
+        if (totalContractCount == 0L) {
+            return BigDecimal.ZERO;
+        }
+
+        return BigDecimal.valueOf(contractCount)
+                .multiply(new BigDecimal("100"))
+                .divide(BigDecimal.valueOf(totalContractCount), 2, java.math.RoundingMode.HALF_UP);
     }
 
     private Map<String, DashboardMonthlyContractCustomerTrendQueryResult> mapMonthlyContractCustomerTrends(

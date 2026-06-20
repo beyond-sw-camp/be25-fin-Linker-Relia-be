@@ -31,8 +31,11 @@ public class ConsultationClaimDetail {
     @Column(name = "claim_stage", nullable = false, length = 30)
     private String claimStage;
 
-    @Column(name = "claim_event_date")
-    private LocalDate claimEventDate;
+    @Column(name = "incident_date")
+    private LocalDate incidentDate;
+
+    @Column(name = "claim_type", length = 50)
+    private String claimType;
 
     @Column(name = "claim_reason_detail", length = 500)
     private String claimReasonDetail;
@@ -51,9 +54,6 @@ public class ConsultationClaimDetail {
 
     @Column(name = "claim_result", nullable = false, length = 30)
     private String claimResult;
-
-    @Column(name = "guidance_summary", length = 500)
-    private String guidanceSummary;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

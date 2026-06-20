@@ -79,17 +79,16 @@ public class ConsultationController {
                                                       "specialNote": "보험금 청구 상담",
                                                       "nextScheduledAt": "2026-06-15T14:00:00",
                                                       "claimDetail": {
-                                                        "claimStage": "RECEIPT",
-                                                        "claimEventDate": "2026-06-01",
-                                                        "claimReasonDetail": "통원 치료",
+                                                        "incidentDate": "2026-06-01",
+                                                        "claimReason": "통원 치료",
                                                         "hospitalName": "서울병원",
                                                         "diagnosisOrTreatment": "허리 통증 치료",
                                                         "hospitalizationStatus": "OUTPATIENT",
                                                         "surgeryStatus": "NONE",
-                                                        "claimResult": "GUIDED",
-                                                        "guidanceSummary": "보험금 청구 필요 서류 안내",
-                                                        "claimTypes": ["OUTPATIENT"],
-                                                        "reviewTypes": ["COVERAGE_ELIGIBLE"]
+                                                        "result": "GUIDED",
+                                                        "claimType": "OUTPATIENT",
+                                                        "reviewItems": ["COVERAGE_ELIGIBLE"],
+                                                        "nextActions": ["보험사 접수"]
                                                       }
                                                     }
                                                     """

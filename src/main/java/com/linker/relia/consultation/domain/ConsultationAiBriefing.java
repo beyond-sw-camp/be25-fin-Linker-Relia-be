@@ -34,14 +34,14 @@ public class ConsultationAiBriefing extends BaseEntity {
     @Column(name = "id")
     private UUID id;
 
-    @Column(name = "update_sequence")
+    @Column(name = "update_sequence", nullable = false)
     private Integer updateSequence;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id")
+    @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
-    @Column(name = "briefing_content")
+    @Column(name = "briefing_content", nullable = false, columnDefinition = "TEXT")
     private String briefingContent;
 
     @Column(name = "deleted_at")

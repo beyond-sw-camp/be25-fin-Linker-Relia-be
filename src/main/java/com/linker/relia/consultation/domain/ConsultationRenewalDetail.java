@@ -32,16 +32,22 @@ public class ConsultationRenewalDetail {
     @Column(name = "renewal_reason", nullable = false, length = 50)
     private String renewalReason;
 
+    @Column(name = "next_actions", length = 500)
+    private String nextActions;
+
+    @Column(name = "decision_expected_date")
+    private LocalDate decisionExpectedDate;
+
     @Column(name = "renewal_scheduled_date", nullable = false)
     private LocalDate renewalScheduledDate;
 
-    @Column(name = "current_premium", nullable = false)
+    @Column(name = "current_premium", nullable = false, precision = 15, scale = 2)
     private BigDecimal currentPremium;
 
-    @Column(name = "renewal_premium", nullable = false)
+    @Column(name = "renewal_premium", nullable = false, precision = 15, scale = 2)
     private BigDecimal renewalPremium;
 
-    @Column(name = "premium_change_rate", nullable = false)
+    @Column(name = "premium_change_rate", nullable = false, precision = 5, scale = 2)
     private BigDecimal premiumChangeRate;
 
     @Column(name = "coverage_change_type", nullable = false, length = 30)

@@ -6,8 +6,6 @@ import com.linker.relia.common.access.AccessScopeResolver;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.organization.domain.Organization;
-import com.linker.relia.organization.domain.OrganizationStatus;
-import com.linker.relia.organization.domain.OrganizationType;
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
 import com.linker.relia.organization.dto.FpContractListRequest;
 import com.linker.relia.organization.dto.FpContractListResponse;
@@ -49,14 +47,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Override
     @Transactional(readOnly = true)
     public List<BranchOrganizationResponse> getBranchOrganizations() {
-        return organizationRepository
-                .findAllByOrganizationTypeAndOrganizationStatusAndDeletedAtIsNullOrderByCreatedAtAsc(
-                        OrganizationType.BRANCH,
-                        OrganizationStatus.ACTIVE
-                )
-                .stream()
-                .map(BranchOrganizationResponse::from)
-                .toList();
+        return organizationRepository.findBranchOrganizationsWithAdvisorCount();
     }
 
     @Override

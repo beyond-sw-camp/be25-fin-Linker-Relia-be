@@ -49,7 +49,7 @@ public enum ConsultationErrorCode implements ErrorCode {
 
     DUPLICATE_CUSTOMER_PHONE(
             "CONSULTATION_008",
-            "동일한 휴대폰 번호의 고객이 이미 존재합니다.",
+            "동일한 휴대전화 번호의 고객이 이미 존재합니다.",
             HttpStatus.CONFLICT
     ),
 
@@ -61,13 +61,13 @@ public enum ConsultationErrorCode implements ErrorCode {
 
     CUSTOMER_TARGET_REQUIRED(
             "CONSULTATION_010",
-            "NEW_CONTRACT 상담은 customerId 또는 customerInfo가 필요합니다.",
+            "NEW_CONTRACT 상담에는 customerId 또는 customerInfo가 필요합니다.",
             HttpStatus.BAD_REQUEST
     ),
 
     CUSTOMER_ID_REQUIRED(
             "CONSULTATION_011",
-            "CLAIM, RENEWAL, TERMINATION 상담은 customerId가 필요합니다.",
+            "CLAIM, RENEWAL, TERMINATION 상담에는 customerId가 필요합니다.",
             HttpStatus.BAD_REQUEST
     ),
 
@@ -93,6 +93,18 @@ public enum ConsultationErrorCode implements ErrorCode {
             "CONSULTATION_015",
             "AI 상담 초안 데이터가 올바르지 않습니다.",
             HttpStatus.INTERNAL_SERVER_ERROR
+    ),
+
+    CONSULTATION_AI_NOTE_NOT_APPLICABLE(
+            "CONSULTATION_016",
+            "AI 상담 초안은 GPT 완료 상태에서만 반영할 수 있습니다.",
+            HttpStatus.BAD_REQUEST
+    ),
+
+    CONSULTATION_AI_NOTE_ALREADY_APPLIED(
+            "CONSULTATION_017",
+            "이미 상담일지에 반영된 AI 상담 초안입니다.",
+            HttpStatus.CONFLICT
     );
 
     private final String code;

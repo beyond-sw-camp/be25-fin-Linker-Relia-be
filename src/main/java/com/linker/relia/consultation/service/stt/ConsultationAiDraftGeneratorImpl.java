@@ -4,14 +4,12 @@ import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.domain.stt.ConsultationSttSession;
 import com.linker.relia.consultation.dto.response.ConsultationAiGenerationResult;
 import com.linker.relia.consultation.dto.response.ConsultationAiStructuredDraft;
-import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGenerator {
     private final ChatClient chatClient;
 

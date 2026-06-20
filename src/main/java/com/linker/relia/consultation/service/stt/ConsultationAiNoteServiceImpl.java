@@ -2,6 +2,7 @@ package com.linker.relia.consultation.service.stt;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linker.relia.common.audit.AuditContextHolder;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.domain.stt.ConsultationAiNote;
@@ -31,21 +32,26 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
     @Override
     @Transactional
     public void processSttCompleted(UUID sessionId, UUID fpId, String sttRawText) {
-        ConsultationSttSession session = consultationSttSessionService.getOwnedSession(sessionId, fpId);
-        ConsultationAiNote aiNote = findOrCreateAiNote(session);
-        aiNote.completeStt(sttRawText);
-
+        AuditContextHolder.setCurrentAuditor(fpId);
         try {
-            ConsultationAiGenerationResult result = consultationAiDraftGenerator.generate(session, sttRawText);
-            ConsultationAiStructuredDraft structuredDraft =
-                    enrichStructuredDraft(session, result.getStructuredData());
-            aiNote.completeGpt(
-                    result.getSummaryText(),
-                    objectMapper.writeValueAsString(structuredDraft)
-            );
-        } catch (Exception e) {
-            log.warn("AI 상담 초안 생성에 실패했습니다. sessionId={}", sessionId, e);
-            aiNote.markFailed(e.getMessage());
+            ConsultationSttSession session = consultationSttSessionService.getOwnedSession(sessionId, fpId);
+            ConsultationAiNote aiNote = findOrCreateAiNote(session);
+            aiNote.completeStt(sttRawText);
+
+            try {
+                ConsultationAiGenerationResult result = consultationAiDraftGenerator.generate(session, sttRawText);
+                ConsultationAiStructuredDraft structuredDraft =
+                        enrichStructuredDraft(session, result.getStructuredData());
+                aiNote.completeGpt(
+                        result.getSummaryText(),
+                        objectMapper.writeValueAsString(structuredDraft)
+                );
+            } catch (Exception e) {
+                log.warn("AI consultation draft generation failed. sessionId={}", sessionId, e);
+                aiNote.markFailed(e.getMessage());
+            }
+        } finally {
+            AuditContextHolder.clear();
         }
     }
 

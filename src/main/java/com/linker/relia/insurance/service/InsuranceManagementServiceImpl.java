@@ -6,6 +6,7 @@ import com.linker.relia.insurance.domain.InsuranceCompany;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
+import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
 import com.linker.relia.insurance.exception.InsuranceErrorCode;
 import com.linker.relia.insurance.repository.InsuranceCompanyRepository;
@@ -62,6 +63,15 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
                 .insuranceCompanyCode(savedInsuranceCompany.getInsuranceCompanyCode())
                 .insuranceCompanyName(savedInsuranceCompany.getInsuranceCompanyName())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InsuranceCompanyDetailResponse getInsuranceCompanyDetail(UUID insuranceCompanyId) {
+        InsuranceCompany insuranceCompany = insuranceCompanyRepository.findById(insuranceCompanyId)
+                .orElseThrow(() -> new BusinessException(InsuranceErrorCode.INSURANCE_COMPANY_NOT_FOUND));
+
+        return InsuranceCompanyDetailResponse.from(insuranceCompany);
     }
 
     private String generateInsuranceCompanyCode() {

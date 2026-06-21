@@ -5,6 +5,7 @@ import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
+import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
 import com.linker.relia.insurance.service.InsuranceManagementService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -15,10 +16,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -35,6 +39,16 @@ public class InsuranceManagementController {
         PageResponse<InsuranceManagementCompanyListItemResponse> response =
                 insuranceManagementService.getInsuranceCompanies(request);
         return ApiResponse.success(HttpStatus.OK, "보험사 목록 조회 성공", response);
+    }
+
+    @GetMapping("/companies/{insuranceCompanyId}")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<InsuranceCompanyDetailResponse>> getInsuranceCompanyDetail(
+            @PathVariable UUID insuranceCompanyId
+    ) {
+        InsuranceCompanyDetailResponse response =
+                insuranceManagementService.getInsuranceCompanyDetail(insuranceCompanyId);
+        return ApiResponse.success(HttpStatus.OK, "보험사 상세 조회 성공", response);
     }
 
     @PostMapping("/companies")

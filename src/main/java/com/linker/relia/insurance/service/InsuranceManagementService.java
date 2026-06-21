@@ -4,7 +4,10 @@ import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
+import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
+
+import java.util.UUID;
 
 public interface InsuranceManagementService {
     PageResponse<InsuranceManagementCompanyListItemResponse> getInsuranceCompanies(
@@ -12,4 +15,6 @@ public interface InsuranceManagementService {
     );
 
     InsuranceCompanyCreateResponse createInsuranceCompany(InsuranceCompanyCreateRequest request);
+
+    InsuranceCompanyDetailResponse getInsuranceCompanyDetail(UUID insuranceCompanyId);
 }

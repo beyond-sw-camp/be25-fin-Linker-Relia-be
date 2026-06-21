@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -46,6 +47,18 @@ public class InsuranceProduct {
 
     @Column(name = "insurance_product_status")
     private String insuranceProductStatus;
+
+    @Column(name = "insurance_start_date")
+    private LocalDate insuranceStartDate;
+
+    @Column(name = "insurance_end_date")
+    private LocalDate insuranceEndDate;
+
+    @Column(name = "coverage_period_years")
+    private Integer coveragePeriodYears;
+
+    @Column(name = "coverage_age_limit")
+    private Integer coverageAgeLimit;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

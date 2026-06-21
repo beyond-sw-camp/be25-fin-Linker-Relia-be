@@ -6,15 +6,19 @@ import com.linker.relia.insurance.domain.InsuranceCompany;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
+import com.linker.relia.insurance.dto.request.InsuranceManagementProductListRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
+import com.linker.relia.insurance.dto.response.InsuranceManagementProductListItemResponse;
 import com.linker.relia.insurance.exception.InsuranceErrorCode;
 import com.linker.relia.insurance.repository.InsuranceCompanyRepository;
+import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Service
@@ -24,6 +28,7 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
     private static final String INSURANCE_COMPANY_CODE_PREFIX = "LC";
 
     private final InsuranceCompanyRepository insuranceCompanyRepository;
+    private final InsuranceProductRepository insuranceProductRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -37,6 +42,24 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
                                 request.toPageable()
                         )
                         .map(InsuranceManagementCompanyListItemResponse::from)
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<InsuranceManagementProductListItemResponse> getInsuranceProducts(
+            InsuranceManagementProductListRequest request
+    ) {
+        return PageResponse.from(
+                insuranceProductRepository.searchManagementInsuranceProducts(
+                                request.getInsuranceCompanyId(),
+                                request.getInsuranceCategoryId(),
+                                request.normalizedInsuranceProductName(),
+                                request.normalizedSaleStatus(),
+                                LocalDate.now(),
+                                request.toPageable()
+                        )
+                        .map(InsuranceManagementProductListItemResponse::from)
         );
     }
 

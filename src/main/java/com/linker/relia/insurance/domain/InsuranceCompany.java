@@ -37,6 +37,9 @@ public class InsuranceCompany extends BaseEntity {
     @Column(name = "insurance_company_status")
     private String insuranceCompanyStatus;
 
+    @Column(name = "insurance_company_phone")
+    private String insuranceCompanyPhone;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 }

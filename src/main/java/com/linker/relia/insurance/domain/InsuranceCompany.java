@@ -42,4 +42,17 @@ public class InsuranceCompany extends BaseEntity {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    public void update(String insuranceCompanyName, String insuranceCompanyPhone, String insuranceCompanyStatus) {
+        this.insuranceCompanyName = insuranceCompanyName;
+        this.insuranceCompanyPhone = insuranceCompanyPhone;
+        this.insuranceCompanyStatus = insuranceCompanyStatus;
+
+        if ("INACTIVE".equals(insuranceCompanyStatus)) {
+            this.deletedAt = LocalDateTime.now();
+            return;
+        }
+
+        this.deletedAt = null;
+    }
 }

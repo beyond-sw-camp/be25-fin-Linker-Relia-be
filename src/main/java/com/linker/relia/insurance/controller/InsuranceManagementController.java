@@ -3,6 +3,7 @@ package com.linker.relia.insurance.controller;
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
+import com.linker.relia.insurance.dto.request.InsuranceCompanyUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -58,5 +60,16 @@ public class InsuranceManagementController {
     ) {
         InsuranceCompanyCreateResponse response = insuranceManagementService.createInsuranceCompany(request);
         return ApiResponse.success(HttpStatus.CREATED, "보험사 등록 성공", response);
+    }
+
+    @PatchMapping("/companies/{insuranceCompanyId}")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<InsuranceCompanyDetailResponse>> updateInsuranceCompany(
+            @PathVariable UUID insuranceCompanyId,
+            @Valid @RequestBody InsuranceCompanyUpdateRequest request
+    ) {
+        InsuranceCompanyDetailResponse response =
+                insuranceManagementService.updateInsuranceCompany(insuranceCompanyId, request);
+        return ApiResponse.success(HttpStatus.OK, "보험사 수정 성공", response);
     }
 }

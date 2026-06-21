@@ -4,6 +4,7 @@ import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.insurance.domain.InsuranceCompany;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
+import com.linker.relia.insurance.dto.request.InsuranceCompanyUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
@@ -70,6 +71,24 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
     public InsuranceCompanyDetailResponse getInsuranceCompanyDetail(UUID insuranceCompanyId) {
         InsuranceCompany insuranceCompany = insuranceCompanyRepository.findById(insuranceCompanyId)
                 .orElseThrow(() -> new BusinessException(InsuranceErrorCode.INSURANCE_COMPANY_NOT_FOUND));
+
+        return InsuranceCompanyDetailResponse.from(insuranceCompany);
+    }
+
+    @Override
+    @Transactional
+    public InsuranceCompanyDetailResponse updateInsuranceCompany(
+            UUID insuranceCompanyId,
+            InsuranceCompanyUpdateRequest request
+    ) {
+        InsuranceCompany insuranceCompany = insuranceCompanyRepository.findById(insuranceCompanyId)
+                .orElseThrow(() -> new BusinessException(InsuranceErrorCode.INSURANCE_COMPANY_NOT_FOUND));
+
+        insuranceCompany.update(
+                request.getInsuranceCompanyName().trim(),
+                request.getInsuranceCompanyPhone().trim(),
+                request.getInsuranceCompanyStatus().trim()
+        );
 
         return InsuranceCompanyDetailResponse.from(insuranceCompany);
     }

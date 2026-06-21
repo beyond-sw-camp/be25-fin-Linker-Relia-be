@@ -8,6 +8,11 @@ server:
 spring:
   application:
     name: relia
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        model: gpt-4.1-mini
 
 app:
   monthly-closing:
@@ -19,3 +24,19 @@ jwt:
   secret: ${JWT_SECRET_KEY}
   accessExpiredMs: ${JWT_ACCESS_EXPIRED_MS}
   refreshExpiredMs: ${JWT_REFRESH_EXPIRED_MS}
+
+clova:
+  stt:
+    api-key: ${CLOVA_STT_API_KEY}
+    invoke-url: ${CLOVA_STT_INVOKE_URL}
+    grpc-url: ${CLOVA_STT_GRPC_URL}
+
+storage:
+  ncp:
+    endpoint: ${NCP_STORAGE_ENDPOINT}
+    region: ${NCP_STORAGE_REGION}
+    access-key: ${NCP_STORAGE_ACCESS_KEY}
+    secret-key: ${NCP_STORAGE_SECRET_KEY}
+    bucket: ${NCP_STORAGE_BUCKET}
+    presigned-url-expiration-minutes: 10
+    consultation-audio-prefix: consultation-audio/

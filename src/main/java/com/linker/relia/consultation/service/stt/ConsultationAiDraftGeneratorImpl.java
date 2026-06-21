@@ -3,7 +3,6 @@ package com.linker.relia.consultation.service.stt;
 import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.domain.stt.ConsultationSttSession;
 import com.linker.relia.consultation.dto.response.ConsultationAiGenerationResult;
-import com.linker.relia.consultation.dto.response.ConsultationAiStructuredDraft;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.converter.BeanOutputConverter;
@@ -33,11 +32,11 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
 
     private String buildSystemPrompt(String outputFormat, ConsultationType consultationType) {
         return """
-                너는 보험 상담 내용을 구조화하는 백엔드 AI 추출기다.
-                반환은 반드시 JSON 하나만 해야 한다.
-                설명 문장, 마크다운, 코드블록은 절대 포함하지 마라.
-                값이 확실하지 않으면 추측하지 말고 null 로 둬라.
-                UUID, 상품코드, 질병코드, 계약ID, 고객ID, 일정 시간은 대화에 근거가 없으면 만들지 마라.
+                당신은 보험 상담 STT를 구조화하는 백엔드용 추출기다.
+                반드시 JSON 하나만 반환한다.
+                설명 문장, 마크다운, 코드블록은 포함하지 않는다.
+                근거가 없으면 추측하지 말고 null 로 둔다.
+                UUID, 상품 코드, 계약 ID, 고객 ID, 일정 시각은 STT 또는 메타데이터에 근거가 없으면 만들지 않는다.
                 상담 유형은 반드시 %s 로 맞춘다.
 
                 top-level 필드:
@@ -54,9 +53,9 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
                 - renewalDetail
                 - cancelDetail
 
-                규칙:
+                핵심 규칙:
                 - NEW_CONTRACT 상담에서 기존 고객으로 보이면 customerInfo 는 null 로 둔다.
-                - NEW_CONTRACT 상담에서 잠재 고객 정보가 충분하면 customerInfo 를 채운다.
+                - NEW_CONTRACT 상담에서 신규 고객 정보가 충분하면 customerInfo 를 채운다.
                 - CLAIM 는 claimDetail 만 채우고 나머지 상세 객체는 null 로 둔다.
                 - RENEWAL 는 renewalDetail 만 채우고 나머지 상세 객체는 null 로 둔다.
                 - TERMINATION 는 cancelDetail 만 채우고 나머지 상세 객체는 null 로 둔다.
@@ -64,10 +63,22 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
                 - 배열 값은 근거가 있을 때만 채운다.
                 - summaryText 는 한국어 3~5문장으로 상담 핵심, 요청사항, 후속 액션을 요약한다.
 
-                허용 enum 예시:
+                newDetail 구조화 규칙:
+                - coverageTypes 는 enum 코드 배열만 허용한다.
+                - 허용 enum: CANCER, HEART, LIFE, DEATH, LONG_TERM_CARE
+                - coverageTypes 에 사람 친화적 라벨, 상품명, 상품 코드, 자유 텍스트를 넣지 말 것
+                - 예: 암, 암 보장, 암 진단비는 summaryText 에는 써도 되지만 structuredData.coverageTypes 에는 CANCER 로만 저장
+                - 예: 심장, 심혈관 -> HEART / 생명, 종신 -> LIFE / 사망 보장 -> DEATH / 장기요양, 간병 -> LONG_TERM_CARE
+                - 실손, 수술비, 진단비, 건강 특약 플랜 03 같은 값은 coverageTypes 에 넣지 말 것
+                - proposedProductCodes 는 실제 상품 코드 배열만 허용한다.
+                - proposedProductCodes 에는 LP003 같은 코드만 저장하고, 상품명이나 라벨은 저장하지 말 것
+                - 예: 건강 특약 플랜 03 같은 표현은 summaryText 에만 쓰고 structuredData 에는 LP003 처럼 코드만 저장
+                - coverageTypes 와 proposedProductCodes 를 섞지 말 것
+
+                사용 enum 예시:
                 - consultationType: NEW_CONTRACT, CLAIM, TERMINATION, RENEWAL
                 - consultationChannel: VISIT, PHONE
-                - customerMaritalStatus: SINGLE, MARRIED, DIVORCED, WIDOWED
+                - customerMaritalStatus: SINGLE, MARRIED
                 - retentionPossibility: LOW, MEDIUM, HIGH
 
                 출력 형식:
@@ -81,7 +92,7 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
         return """
                 아래는 보험 상담 STT 원문이다.
 
-                이미 알고 있는 메타데이터:
+                현재 알고 있는 메타데이터:
                 - consultationType: %s
                 - knownCustomerId: %s
                 - startedAt: %s

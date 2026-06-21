@@ -4,45 +4,46 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linker.relia.common.audit.AuditContextHolder;
 import com.linker.relia.common.exception.BusinessException;
-import com.linker.relia.consultation.domain.ConsultationChannel;
 import com.linker.relia.consultation.domain.ConsultationNewCoverageType;
 import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.domain.stt.ConsultationAiNote;
 import com.linker.relia.consultation.domain.stt.ConsultationAiNoteStatus;
 import com.linker.relia.consultation.domain.stt.ConsultationSttSession;
-import com.linker.relia.consultation.dto.request.ConsultationCancelDetailRequest;
-import com.linker.relia.consultation.dto.request.ConsultationClaimDetailRequest;
-import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
-import com.linker.relia.consultation.dto.request.ConsultationNewDetailRequest;
-import com.linker.relia.consultation.dto.request.ConsultationRenewalDetailRequest;
-import com.linker.relia.consultation.dto.request.CustomerInfoRequest;
 import com.linker.relia.consultation.dto.response.ConsultationAiDraftResponse;
 import com.linker.relia.consultation.dto.response.ConsultationAiGenerationResult;
 import com.linker.relia.consultation.dto.response.ConsultationAiNoteApplyResponse;
 import com.linker.relia.consultation.dto.response.ConsultationAiStructuredDraft;
-import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
 import com.linker.relia.consultation.exception.ConsultationErrorCode;
 import com.linker.relia.consultation.repository.stt.ConsultationAiNoteRepository;
-import com.linker.relia.consultation.service.ConsultationService;
-import com.linker.relia.customer.domain.CustomerMaritalStatus;
+import com.linker.relia.insurance.domain.InsuranceProduct;
+import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService {
+    private static final Pattern PRODUCT_CODE_PATTERN =
+            Pattern.compile("\\bLP\\s*0*(\\d{1,3})\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TRAILING_NUMBER_PATTERN = Pattern.compile("(\\d{1,3})\\s*$");
+
     private final ConsultationSttSessionService consultationSttSessionService;
     private final ConsultationAiNoteRepository consultationAiNoteRepository;
     private final ConsultationAiDraftGenerator consultationAiDraftGenerator;
-    private final ConsultationService consultationService;
+    private final InsuranceProductRepository insuranceProductRepository;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -58,9 +59,14 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
                 ConsultationAiGenerationResult result = consultationAiDraftGenerator.generate(session, sttRawText);
                 ConsultationAiStructuredDraft structuredDraft =
                         enrichStructuredDraft(session, result.getStructuredData());
+                NormalizationResult normalized = normalizeWithWarnings(structuredDraft);
+                if (!normalized.warnings().isEmpty()) {
+                    log.info("Normalized AI structured draft during STT completion. sessionId={} warnings={}",
+                            sessionId, normalized.warnings());
+                }
                 aiNote.completeGpt(
                         result.getSummaryText(),
-                        objectMapper.writeValueAsString(structuredDraft)
+                        objectMapper.writeValueAsString(normalized.draft())
                 );
             } catch (Exception e) {
                 log.warn("AI consultation draft generation failed. sessionId={}", sessionId, e);
@@ -108,21 +114,28 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
             consultationSttSessionService.getOwnedSession(session.getId(), fpId);
             validateApplicableStatus(aiNote.getDraftStatus());
 
-            ConsultationAiStructuredDraft structuredDraft = parseStructuredData(aiNote.getGptStructuredData());
-            if (structuredDraft == null) {
-                throw new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_INVALID_DATA);
+            aiNote.markApplied();
+            NormalizationResult normalized = normalizeStoredStructuredData(aiNote.getGptStructuredData());
+
+            if (normalized.draft() != null) {
+                aiNote.completeGpt(
+                        aiNote.getGptSummaryText(),
+                        writeStructuredData(normalized.draft())
+                );
+                aiNote.markApplied();
             }
 
-            ConsultationCreateRequest createRequest = toCreateRequest(structuredDraft);
-            ConsultationCreateResponse created = consultationService.createConsultation(createRequest, session.getFp());
-            aiNote.markApplied();
+            if (!normalized.warnings().isEmpty()) {
+                log.info("Applied AI draft with warnings. aiNoteId={} warnings={}", aiNoteId, normalized.warnings());
+            }
             consultationAiNoteRepository.flush();
 
             return ConsultationAiNoteApplyResponse.builder()
                     .aiNoteId(aiNote.getId())
-                    .consultationId(created.getConsultationId())
-                    .draftStatus(aiNote.getDraftStatus())
+                    .status(aiNote.getDraftStatus())
                     .appliedAt(aiNote.getUpdatedAt())
+                    .structuredData(normalized.draft())
+                    .warnings(normalized.warnings())
                     .build();
         } finally {
             AuditContextHolder.clear();
@@ -151,179 +164,6 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
         }
     }
 
-    private ConsultationCreateRequest toCreateRequest(ConsultationAiStructuredDraft draft) {
-        ConsultationCreateRequest request = new ConsultationCreateRequest();
-
-        setField(request, "customerId", draft.getCustomerId());
-        setField(request, "customerInfo", toCustomerInfoRequest(draft.getCustomerInfo()));
-        setField(request, "contractId", draft.getContractId());
-        setField(request, "consultationType", draft.getConsultationType());
-        setField(request, "consultationChannel", parseEnum(
-                ConsultationChannel.class,
-                draft.getConsultationChannel()
-        ));
-        setField(request, "consultedAt", draft.getConsultedAt());
-        setField(request, "specialNote", draft.getSpecialNote());
-        setField(request, "nextScheduledAt", draft.getNextScheduledAt());
-        setField(request, "newDetail", toNewDetailRequest(draft.getNewDetail()));
-        setField(request, "claimDetail", toClaimDetailRequest(draft.getClaimDetail()));
-        setField(request, "renewalDetail", toRenewalDetailRequest(draft.getRenewalDetail()));
-        setField(request, "cancelDetail", toCancelDetailRequest(draft.getCancelDetail()));
-
-        return request;
-    }
-
-    private CustomerInfoRequest toCustomerInfoRequest(ConsultationAiStructuredDraft.CustomerInfo customerInfo) {
-        if (customerInfo == null) {
-            return null;
-        }
-
-        CustomerInfoRequest request = new CustomerInfoRequest();
-        setField(request, "customerName", customerInfo.getCustomerName());
-        setField(request, "customerGender", customerInfo.getCustomerGender());
-        setField(request, "customerBirthDate", customerInfo.getCustomerBirthDate());
-        setField(request, "customerPhone", customerInfo.getCustomerPhone());
-        setField(request, "customerEmail", customerInfo.getCustomerEmail());
-        setField(request, "customerZipcode", customerInfo.getCustomerZipcode());
-        setField(request, "customerAddressRoad", customerInfo.getCustomerAddressRoad());
-        setField(request, "customerAddressDetail", customerInfo.getCustomerAddressDetail());
-        setField(request, "customerJob", customerInfo.getCustomerJob());
-        setField(request, "customerCompanyName", customerInfo.getCustomerCompanyName());
-        setField(request, "customerAnnualIncome", toBigDecimal(customerInfo.getCustomerAnnualIncome()));
-        setField(request, "customerAssetSize", toBigDecimal(customerInfo.getCustomerAssetSize()));
-        setField(request, "customerDebtStatus", customerInfo.getCustomerDebtStatus());
-        setField(request, "customerIsSmoker", customerInfo.getCustomerIsSmoker());
-        setField(request, "customerIsDrinker", customerInfo.getCustomerIsDrinker());
-        setField(request, "customerMaritalStatus", parseEnum(
-                CustomerMaritalStatus.class,
-                customerInfo.getCustomerMaritalStatus()
-        ));
-        setField(request, "customerDependentsCount", customerInfo.getCustomerDependentsCount());
-        setField(request, "underlyingDiseaseCodes", customerInfo.getUnderlyingDiseaseCodes());
-        return request;
-    }
-
-    private ConsultationNewDetailRequest toNewDetailRequest(ConsultationAiStructuredDraft.NewDetail newDetail) {
-        if (newDetail == null) {
-            return null;
-        }
-
-        ConsultationNewDetailRequest request = new ConsultationNewDetailRequest();
-        setField(request, "monthlyIncome", toBigDecimal(newDetail.getMonthlyIncome()));
-        setField(request, "hasExistingInsurance", newDetail.getHasExistingInsurance());
-        setField(request, "monthlyInsurancePremium", toBigDecimal(newDetail.getMonthlyInsurancePremium()));
-        setField(request, "existingInsuranceNote", newDetail.getExistingInsuranceNote());
-        setField(request, "insurancePriority", newDetail.getInsurancePriority());
-        setField(request, "coverageTypes", mapCoverageTypes(newDetail.getCoverageTypes()));
-        setField(request, "proposedProductCodes", newDetail.getProposedProductCodes());
-        return request;
-    }
-
-    private ConsultationClaimDetailRequest toClaimDetailRequest(ConsultationAiStructuredDraft.ClaimDetail claimDetail) {
-        if (claimDetail == null) {
-            return null;
-        }
-
-        ConsultationClaimDetailRequest request = new ConsultationClaimDetailRequest();
-        setField(request, "claimType", claimDetail.getClaimType());
-        setField(request, "claimReason", claimDetail.getClaimReason());
-        setField(request, "incidentDate", claimDetail.getIncidentDate());
-        setField(request, "reviewItems", claimDetail.getReviewItems());
-        setField(request, "result", claimDetail.getResult());
-        setField(request, "nextActions", claimDetail.getNextActions());
-        return request;
-    }
-
-    private ConsultationRenewalDetailRequest toRenewalDetailRequest(
-            ConsultationAiStructuredDraft.RenewalDetail renewalDetail
-    ) {
-        if (renewalDetail == null) {
-            return null;
-        }
-
-        ConsultationRenewalDetailRequest request = new ConsultationRenewalDetailRequest();
-        setField(request, "renewalReason", renewalDetail.getRenewalReason());
-        setField(request, "renewalScheduledDate", renewalDetail.getRenewalScheduledDate());
-        setField(request, "currentPremium", toBigDecimal(renewalDetail.getCurrentPremium()));
-        setField(request, "renewalPremium", toBigDecimal(renewalDetail.getRenewalPremium()));
-        setField(request, "premiumChangeRate", renewalDetail.getPremiumChangeRate());
-        setField(request, "coverageChangeType", renewalDetail.getCoverageChangeType());
-        setField(request, "coverageChangeDetail", renewalDetail.getCoverageChangeDetail());
-        setField(request, "customerReaction", renewalDetail.getCustomerReaction());
-        setField(request, "consultationResult", renewalDetail.getConsultationResult());
-        setField(request, "premiumChangeReasonTypes", renewalDetail.getPremiumChangeReasons());
-        setField(request, "otherReason", renewalDetail.getOtherReason());
-        setField(request, "interestTypes", renewalDetail.getInterestTypes());
-        setField(request, "nextActions", joinActions(renewalDetail.getNextActions()));
-        setField(request, "decisionExpectedDate", renewalDetail.getDecisionExpectedDate());
-        return request;
-    }
-
-    private ConsultationCancelDetailRequest toCancelDetailRequest(
-            ConsultationAiStructuredDraft.CancelDetail cancelDetail
-    ) {
-        if (cancelDetail == null) {
-            return null;
-        }
-
-        ConsultationCancelDetailRequest request = new ConsultationCancelDetailRequest();
-        setField(request, "premiumBurden", cancelDetail.getPremiumBurden());
-        setField(request, "renewalPremiumBurden", cancelDetail.getRenewalPremiumBurden());
-        setField(request, "paymentDifficulty", cancelDetail.getPaymentDifficulty());
-        setField(request, "coverageDissatisfaction", cancelDetail.getCoverageDissatisfaction());
-        setField(request, "duplicateInsurance", cancelDetail.getDuplicateInsurance());
-        setField(request, "productRemodelingReview", cancelDetail.getProductRemodelingReview());
-        setField(request, "comparingOtherCompany", cancelDetail.getComparingOtherCompany());
-        setField(request, "movingToOtherCompany", cancelDetail.getMovingToOtherCompany());
-        setField(request, "plannerContactDissatisfaction", cancelDetail.getPlannerContactDissatisfaction());
-        setField(request, "managementDissatisfaction", cancelDetail.getManagementDissatisfaction());
-        setField(request, "retentionPossibility", cancelDetail.getRetentionPossibility());
-        return request;
-    }
-
-    private List<ConsultationNewCoverageType> mapCoverageTypes(List<String> coverageTypes) {
-        if (coverageTypes == null) {
-            return null;
-        }
-
-        return coverageTypes.stream()
-                .map(value -> parseEnum(ConsultationNewCoverageType.class, value))
-                .toList();
-    }
-
-    private String joinActions(List<String> actions) {
-        if (actions == null || actions.isEmpty()) {
-            return null;
-        }
-        return String.join(", ", actions);
-    }
-
-    private BigDecimal toBigDecimal(Long value) {
-        return value == null ? null : BigDecimal.valueOf(value);
-    }
-
-    private <E extends Enum<E>> E parseEnum(Class<E> enumType, String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-
-        try {
-            return Enum.valueOf(enumType, value.trim());
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_INVALID_DATA);
-        }
-    }
-
-    private void setField(Object target, String fieldName, Object value) {
-        try {
-            Field field = target.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(target, value);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Failed to map AI draft field: " + fieldName, e);
-        }
-    }
-
     private ConsultationAiStructuredDraft enrichStructuredDraft(
             ConsultationSttSession session,
             ConsultationAiStructuredDraft structuredDraft
@@ -346,14 +186,195 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
     }
 
     private ConsultationAiStructuredDraft parseStructuredData(String rawJson) {
+        return normalizeStoredStructuredData(rawJson).draft();
+    }
+
+    private NormalizationResult normalizeStoredStructuredData(String rawJson) {
         if (rawJson == null || rawJson.isBlank()) {
-            return null;
+            return new NormalizationResult(null, List.of());
         }
 
         try {
-            return objectMapper.readValue(rawJson, ConsultationAiStructuredDraft.class);
+            return normalizeWithWarnings(objectMapper.readValue(rawJson, ConsultationAiStructuredDraft.class));
         } catch (JsonProcessingException e) {
             throw new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_INVALID_DATA);
         }
+    }
+
+    private String writeStructuredData(ConsultationAiStructuredDraft draft) {
+        try {
+            return objectMapper.writeValueAsString(draft);
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_INVALID_DATA);
+        }
+    }
+
+    private NormalizationResult normalizeWithWarnings(ConsultationAiStructuredDraft draft) {
+        if (draft == null) {
+            return new NormalizationResult(null, List.of());
+        }
+
+        List<String> warnings = new ArrayList<>();
+
+        if (draft.getConsultationType() == ConsultationType.NEW_CONTRACT && draft.getCustomerId() != null) {
+            if (draft.getCustomerInfo() != null) {
+                warnings.add("customerId and customerInfo existed together. customerInfo was dropped.");
+                log.info("Normalized invalid structured draft value. field=customerInfo reason=customerId_and_customerInfo_conflict");
+            }
+            draft.setCustomerInfo(null);
+        }
+
+        if (draft.getNewDetail() != null) {
+            normalizeNewDetail(draft.getNewDetail(), warnings);
+        }
+
+        return new NormalizationResult(draft, List.copyOf(warnings));
+    }
+
+    private void normalizeNewDetail(ConsultationAiStructuredDraft.NewDetail newDetail, List<String> warnings) {
+        Set<String> normalizedCoverageTypes = new LinkedHashSet<>();
+        Set<String> normalizedProductCodes = new LinkedHashSet<>();
+
+        if (newDetail.getCoverageTypes() != null) {
+            for (String rawValue : newDetail.getCoverageTypes()) {
+                if (rawValue == null || rawValue.isBlank()) {
+                    continue;
+                }
+
+                String normalizedCoverage = normalizeCoverageType(rawValue);
+                if (normalizedCoverage != null) {
+                    normalizedCoverageTypes.add(normalizedCoverage);
+                    continue;
+                }
+
+                String candidateProductCode = resolveProductCode(rawValue);
+                if (candidateProductCode != null) {
+                    normalizedProductCodes.add(candidateProductCode);
+                    warnings.add("coverageTypes contained product-like value '" + rawValue
+                            + "'. moved to proposedProductCodes as " + candidateProductCode + ".");
+                    log.info("Normalized invalid coverageTypes value to proposedProductCodes. field=coverageTypes rawValue={} normalizedCode={}",
+                            rawValue, candidateProductCode);
+                    continue;
+                }
+
+                warnings.add("coverageTypes contained unsupported value '" + rawValue + "'. dropped.");
+                log.warn("Dropped invalid structured draft value. field=coverageTypes rawValue={}", rawValue);
+            }
+        }
+
+        if (newDetail.getProposedProductCodes() != null) {
+            for (String rawValue : newDetail.getProposedProductCodes()) {
+                if (rawValue == null || rawValue.isBlank()) {
+                    continue;
+                }
+
+                String candidateProductCode = resolveProductCode(rawValue);
+                if (candidateProductCode != null) {
+                    normalizedProductCodes.add(candidateProductCode);
+                    continue;
+                }
+
+                warnings.add("proposedProductCodes contained non-code value '" + rawValue + "'. dropped.");
+                log.warn("Dropped invalid structured draft value. field=proposedProductCodes rawValue={}", rawValue);
+            }
+        }
+
+        newDetail.setCoverageTypes(toNullableList(normalizedCoverageTypes));
+        newDetail.setProposedProductCodes(toNullableList(normalizedProductCodes));
+    }
+
+    private String normalizeCoverageType(String rawValue) {
+        String compact = rawValue.replace(" ", "").trim().toUpperCase(Locale.ROOT);
+
+        if (isCoverageEnumCode(compact)) {
+            return compact;
+        }
+        if (containsAny(compact, "암", "암보장", "암진단비")) {
+            return ConsultationNewCoverageType.CANCER.name();
+        }
+        if (containsAny(compact, "심장", "심장보장", "심혈관")) {
+            return ConsultationNewCoverageType.HEART.name();
+        }
+        if (containsAny(compact, "생명", "생명보장", "종신")) {
+            return ConsultationNewCoverageType.LIFE.name();
+        }
+        if (containsAny(compact, "사망", "사망보장")) {
+            return ConsultationNewCoverageType.DEATH.name();
+        }
+        if (containsAny(compact, "장기요양", "장기요양보장", "장기요양보험", "장기요양특약", "간병")) {
+            return ConsultationNewCoverageType.LONG_TERM_CARE.name();
+        }
+
+        return null;
+    }
+
+    private boolean isCoverageEnumCode(String value) {
+        for (ConsultationNewCoverageType type : ConsultationNewCoverageType.values()) {
+            if (type.name().equals(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsAny(String source, String... keywords) {
+        for (String keyword : keywords) {
+            if (source.contains(keyword.toUpperCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String resolveProductCode(String rawValue) {
+        String trimmed = rawValue.trim();
+        Matcher codeMatcher = PRODUCT_CODE_PATTERN.matcher(trimmed);
+        if (codeMatcher.find()) {
+            return formatProductCode(codeMatcher.group(1));
+        }
+
+        Optional<InsuranceProduct> exactMatch = insuranceProductRepository
+                .findByInsuranceProductNameAndDeletedAtIsNull(trimmed);
+        if (exactMatch.isPresent()) {
+            return exactMatch.get().getInsuranceProductCode();
+        }
+
+        if (looksLikeProductLabel(trimmed)) {
+            Matcher trailingNumberMatcher = TRAILING_NUMBER_PATTERN.matcher(trimmed);
+            if (trailingNumberMatcher.find()) {
+                return formatProductCode(trailingNumberMatcher.group(1));
+            }
+        }
+
+        return null;
+    }
+
+    private boolean looksLikeProductLabel(String value) {
+        String compact = value.replace(" ", "");
+        return compact.contains("플랜")
+                || compact.contains("보험")
+                || compact.contains("특약")
+                || compact.contains("보장");
+    }
+
+    private String formatProductCode(String rawNumber) {
+        int number = Integer.parseInt(rawNumber);
+        if (number <= 0 || number > 999) {
+            return null;
+        }
+        return "LP" + String.format("%03d", number);
+    }
+
+    private List<String> toNullableList(Set<String> values) {
+        if (values.isEmpty()) {
+            return null;
+        }
+        return new ArrayList<>(values);
+    }
+
+    private record NormalizationResult(
+            ConsultationAiStructuredDraft draft,
+            List<String> warnings
+    ) {
     }
 }

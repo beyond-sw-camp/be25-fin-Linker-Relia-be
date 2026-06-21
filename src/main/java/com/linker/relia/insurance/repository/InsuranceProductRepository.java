@@ -40,4 +40,6 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
     List<InsuranceProduct> findAllByInsuranceProductCodeInAndDeletedAtIsNull(Set<String> insuranceProductCodes);
 
     Optional<InsuranceProduct> findByInsuranceProductCodeAndDeletedAtIsNull(String insuranceProductCode);
+
+    Optional<InsuranceProduct> findByInsuranceProductNameAndDeletedAtIsNull(String insuranceProductName);
 }

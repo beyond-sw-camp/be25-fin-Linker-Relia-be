@@ -2,7 +2,9 @@ package com.linker.relia.insurance.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.dto.response.PageResponse;
+import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
+import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
 import com.linker.relia.insurance.service.InsuranceManagementService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -13,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,5 +35,14 @@ public class InsuranceManagementController {
         PageResponse<InsuranceManagementCompanyListItemResponse> response =
                 insuranceManagementService.getInsuranceCompanies(request);
         return ApiResponse.success(HttpStatus.OK, "보험사 목록 조회 성공", response);
+    }
+
+    @PostMapping("/companies")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<InsuranceCompanyCreateResponse>> createInsuranceCompany(
+            @Valid @RequestBody InsuranceCompanyCreateRequest request
+    ) {
+        InsuranceCompanyCreateResponse response = insuranceManagementService.createInsuranceCompany(request);
+        return ApiResponse.success(HttpStatus.CREATED, "보험사 등록 성공", response);
     }
 }

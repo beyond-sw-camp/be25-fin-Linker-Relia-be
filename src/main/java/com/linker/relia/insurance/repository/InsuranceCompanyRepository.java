@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface InsuranceCompanyRepository extends JpaRepository<InsuranceCompany, UUID>, InsuranceCompanyRepositoryCustom {
@@ -34,4 +35,15 @@ public interface InsuranceCompanyRepository extends JpaRepository<InsuranceCompa
             @Param("insuranceCompanyName") String insuranceCompanyName,
             Pageable pageable
     );
+
+    boolean existsByInsuranceCompanyCode(String insuranceCompanyCode);
+
+    @Query("""
+            select coalesce(max(cast(substring(ic.insuranceCompanyCode, 3) as integer)), 0)
+            from InsuranceCompany ic
+            where ic.insuranceCompanyCode like 'LC%'
+            """)
+    long findMaxInsuranceCompanyCodeSequence();
+
+    Optional<InsuranceCompany> findById(UUID id);
 }

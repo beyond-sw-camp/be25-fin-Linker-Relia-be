@@ -22,6 +22,7 @@ public interface InsuranceCompanyRepository extends JpaRepository<InsuranceCompa
                     from InsuranceCompany ic
                     where (:insuranceCompanyName is null
                            or lower(ic.insuranceCompanyName) like lower(concat('%', :insuranceCompanyName, '%')))
+                      and (:insuranceCompanyStatus is null or ic.insuranceCompanyStatus = :insuranceCompanyStatus)
                     order by ic.createdAt desc, ic.id desc
                     """,
             countQuery = """
@@ -29,14 +30,20 @@ public interface InsuranceCompanyRepository extends JpaRepository<InsuranceCompa
                     from InsuranceCompany ic
                     where (:insuranceCompanyName is null
                            or lower(ic.insuranceCompanyName) like lower(concat('%', :insuranceCompanyName, '%')))
+                      and (:insuranceCompanyStatus is null or ic.insuranceCompanyStatus = :insuranceCompanyStatus)
                     """
     )
     Page<InsuranceCompany> searchManagementInsuranceCompanies(
             @Param("insuranceCompanyName") String insuranceCompanyName,
+            @Param("insuranceCompanyStatus") String insuranceCompanyStatus,
             Pageable pageable
     );
 
     boolean existsByInsuranceCompanyCode(String insuranceCompanyCode);
+
+    boolean existsByInsuranceCompanyName(String insuranceCompanyName);
+
+    boolean existsByInsuranceCompanyNameAndIdNot(String insuranceCompanyName, UUID id);
 
     @Query("""
             select coalesce(max(cast(substring(ic.insuranceCompanyCode, 3) as integer)), 0)

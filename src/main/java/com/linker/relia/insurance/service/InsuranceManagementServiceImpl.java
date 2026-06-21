@@ -33,6 +33,7 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
         return PageResponse.from(
                 insuranceCompanyRepository.searchManagementInsuranceCompanies(
                                 request.normalizedInsuranceCompanyName(),
+                                request.normalizedInsuranceCompanyStatus(),
                                 request.toPageable()
                         )
                         .map(InsuranceManagementCompanyListItemResponse::from)
@@ -42,7 +43,12 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
     @Override
     @Transactional
     public InsuranceCompanyCreateResponse createInsuranceCompany(InsuranceCompanyCreateRequest request) {
+        String insuranceCompanyName = request.getInsuranceCompanyName().trim();
         String insuranceCompanyCode = generateInsuranceCompanyCode();
+
+        if (insuranceCompanyRepository.existsByInsuranceCompanyName(insuranceCompanyName)) {
+            throw new BusinessException(InsuranceErrorCode.DUPLICATE_INSURANCE_COMPANY_NAME);
+        }
 
         if (insuranceCompanyRepository.existsByInsuranceCompanyCode(insuranceCompanyCode)) {
             throw new BusinessException(InsuranceErrorCode.DUPLICATE_INSURANCE_COMPANY_CODE);
@@ -51,7 +57,7 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
         InsuranceCompany insuranceCompany = InsuranceCompany.builder()
                 .id(UUID.randomUUID())
                 .insuranceCompanyCode(insuranceCompanyCode)
-                .insuranceCompanyName(request.getInsuranceCompanyName().trim())
+                .insuranceCompanyName(insuranceCompanyName)
                 .insuranceCompanyStatus(ACTIVE_STATUS)
                 .insuranceCompanyPhone(request.getInsuranceCompanyPhone().trim())
                 .deletedAt(null)
@@ -81,11 +87,16 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
             UUID insuranceCompanyId,
             InsuranceCompanyUpdateRequest request
     ) {
+        String insuranceCompanyName = request.getInsuranceCompanyName().trim();
         InsuranceCompany insuranceCompany = insuranceCompanyRepository.findById(insuranceCompanyId)
                 .orElseThrow(() -> new BusinessException(InsuranceErrorCode.INSURANCE_COMPANY_NOT_FOUND));
 
+        if (insuranceCompanyRepository.existsByInsuranceCompanyNameAndIdNot(insuranceCompanyName, insuranceCompanyId)) {
+            throw new BusinessException(InsuranceErrorCode.DUPLICATE_INSURANCE_COMPANY_NAME);
+        }
+
         insuranceCompany.update(
-                request.getInsuranceCompanyName().trim(),
+                insuranceCompanyName,
                 request.getInsuranceCompanyPhone().trim(),
                 request.getInsuranceCompanyStatus().trim()
         );

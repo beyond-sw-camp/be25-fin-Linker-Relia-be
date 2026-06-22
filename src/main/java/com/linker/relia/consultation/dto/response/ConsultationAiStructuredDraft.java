@@ -36,6 +36,18 @@ public class ConsultationAiStructuredDraft {
         private String targetContractHint;
         private List<String> mentionedProductNames;
         private List<String> mentionedDiseaseNames;
+        private String claimTypeHint;
+        private List<String> claimReviewItemHints;
+        private String claimResultHint;
+        private List<String> claimNextActionHints;
+        private String renewalConsultationResultHint;
+        private String renewalCoverageChangeTypeHint;
+        private String renewalCustomerReactionHint;
+        private List<String> renewalInterestTypeHints;
+        private List<String> renewalPremiumChangeReasonHints;
+        private String renewalNextActionHint;
+        private List<String> terminationReasonHints;
+        private String terminationRetentionPossibilityHint;
     }
 
     @Getter

@@ -1,7 +1,9 @@
 package com.linker.relia.consultation.service.stt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linker.relia.consultation.domain.ConsultationType;
 import com.linker.relia.consultation.dto.response.ConsultationAiResolutionResponse;
+import com.linker.relia.consultation.dto.response.ConsultationAiStructuredDraft;
 import com.linker.relia.consultation.repository.stt.ConsultationAiNoteRepository;
 import com.linker.relia.contract.repository.ContractRepository;
 import com.linker.relia.customer.repository.DiseaseCodeRepository;
@@ -95,6 +97,42 @@ class ConsultationAiNoteServiceImplTest {
         Object result = ReflectionTestUtils.invokeMethod(service, "findProductCandidates", "스마트 전기보험");
 
         assertThat((String) ReflectionTestUtils.invokeMethod(result, "autoMappedCode")).isEqualTo("LP001");
+    }
+
+    @Test
+    void normalizeAiHints_keepsTypeSpecificHintsAndTrimsValues() {
+        ConsultationAiStructuredDraft draft = new ConsultationAiStructuredDraft();
+        ConsultationAiStructuredDraft.AiHints aiHints = new ConsultationAiStructuredDraft.AiHints();
+        aiHints.setClaimTypeHint("  실손 청구  ");
+        aiHints.setClaimReviewItemHints(List.of("  면책기간  ", "면책기간", "  "));
+        aiHints.setRenewalConsultationResultHint("  추후 결정  ");
+        aiHints.setTerminationReasonHints(List.of("  보험료 부담  "));
+        draft.setAiHints(aiHints);
+
+        ReflectionTestUtils.invokeMethod(service, "normalizeAiHints", draft);
+
+        assertThat(draft.getAiHints()).isNotNull();
+        assertThat(draft.getAiHints().getClaimTypeHint()).isEqualTo("실손 청구");
+        assertThat(draft.getAiHints().getClaimReviewItemHints()).containsExactly("면책기간");
+        assertThat(draft.getAiHints().getRenewalConsultationResultHint()).isEqualTo("추후 결정");
+        assertThat(draft.getAiHints().getTerminationReasonHints()).containsExactly("보험료 부담");
+    }
+
+    @Test
+    void backfillAiHintsFromReferenceText_extractsProductHintFromTranscript() {
+        ConsultationAiStructuredDraft draft = new ConsultationAiStructuredDraft();
+        draft.setConsultationType(ConsultationType.NEW_CONTRACT);
+        draft.setNewDetail(new ConsultationAiStructuredDraft.NewDetail());
+
+        ReflectionTestUtils.invokeMethod(
+                service,
+                "backfillAiHintsFromReferenceText",
+                draft,
+                "관심있는 상품은 스마트 전기 보험 13 입니다."
+        );
+
+        assertThat(draft.getAiHints()).isNotNull();
+        assertThat(draft.getAiHints().getMentionedProductNames()).containsExactly("스마트 전기 보험 13");
     }
 
     private InsuranceProduct insuranceProduct(String code, String name) {

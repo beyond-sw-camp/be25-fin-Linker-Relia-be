@@ -109,6 +109,10 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
                 - reviewItems 는 아래 코드만 사용한다:
                   COVERAGE_ELIGIBLE, EXEMPTION_PERIOD, EXCLUSION_POSSIBILITY, PREVIOUS_CLAIM_HISTORY
                 - claimType, result, hospitalizationStatus, surgeryStatus 는 근거가 있을 때만 채운다.
+                - claimType 을 확정할 수 없으면 aiHints.claimTypeHint 에 남긴다.
+                - reviewItems 를 코드로 확정할 수 없으면 aiHints.claimReviewItemHints 에 남긴다.
+                - result 를 확정할 수 없으면 aiHints.claimResultHint 에 남긴다.
+                - nextActions 를 구조화하기 애매하면 aiHints.claimNextActionHints 에 남긴다.
 
                 RENEWAL 규칙:
                 - premiumChangeReasonTypes 는 아래 코드만 사용한다:
@@ -116,9 +120,17 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
                 - interestTypes 는 아래 코드만 사용한다:
                   PREMIUM, COVERAGE, MATURITY, REFUND, ALTERNATIVE_PRODUCT
                 - otherReason 은 premiumChangeReasonTypes 에 OTHER 가 있을 때만 채운다.
+                - consultationResult 를 확정할 수 없으면 aiHints.renewalConsultationResultHint 에 남긴다.
+                - coverageChangeType 을 확정할 수 없으면 aiHints.renewalCoverageChangeTypeHint 에 남긴다.
+                - customerReaction 을 확정할 수 없으면 aiHints.renewalCustomerReactionHint 에 남긴다.
+                - interestTypes 를 코드로 확정할 수 없으면 aiHints.renewalInterestTypeHints 에 남긴다.
+                - premiumChangeReasonTypes 또는 premiumChangeReasons 를 확정하기 애매하면 aiHints.renewalPremiumChangeReasonHints 에 남긴다.
+                - nextActions 를 하나의 구조화 값으로 정리하기 애매하면 aiHints.renewalNextActionHint 에 남긴다.
 
                 TERMINATION 규칙:
                 - retentionPossibility 는 HIGH, MEDIUM, LOW 중 하나만 사용한다.
+                - 해지 사유가 자유서술 위주라면 aiHints.terminationReasonHints 에 남긴다.
+                - retentionPossibility 를 확정할 수 없으면 aiHints.terminationRetentionPossibilityHint 에 남긴다.
 
                 customerInfo 규칙:
                 - underlyingDiseaseCodes 는 질병명 배열이 아니라 diseaseCode 배열이어야 한다.
@@ -128,6 +140,18 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
                 - targetContractHint: 특정 계약 또는 상품을 가리키지만 contractId 를 확정할 수 없을 때 사용한다.
                 - mentionedProductNames: 상품명은 언급되었지만 product code 를 확정할 수 없을 때 사용한다.
                 - mentionedDiseaseNames: 질병명은 언급되었지만 disease code 를 확정할 수 없을 때 사용한다.
+                - claimTypeHint: 청구 유형은 언급되었지만 claimType 을 확정할 수 없을 때 사용한다.
+                - claimReviewItemHints: 청구 검토 포인트는 언급되었지만 reviewItems 코드로 확정할 수 없을 때 사용한다.
+                - claimResultHint: 청구 결과/판단은 언급되었지만 result 로 확정하기 애매할 때 사용한다.
+                - claimNextActionHints: 청구 후속 조치는 언급되었지만 nextActions 로 확정하기 애매할 때 사용한다.
+                - renewalConsultationResultHint: 갱신 상담 결과는 언급되었지만 consultationResult 를 확정할 수 없을 때 사용한다.
+                - renewalCoverageChangeTypeHint: 보장 변경 유형은 언급되었지만 coverageChangeType 을 확정할 수 없을 때 사용한다.
+                - renewalCustomerReactionHint: 고객 반응은 언급되었지만 customerReaction 을 확정할 수 없을 때 사용한다.
+                - renewalInterestTypeHints: 관심 포인트는 언급되었지만 interestTypes 코드로 확정할 수 없을 때 사용한다.
+                - renewalPremiumChangeReasonHints: 보험료 변동 사유는 언급되었지만 코드/구조화 값으로 확정할 수 없을 때 사용한다.
+                - renewalNextActionHint: 갱신 후속 조치는 언급되었지만 nextActions 로 확정하기 애매할 때 사용한다.
+                - terminationReasonHints: 해지 사유는 언급되었지만 boolean 필드로 깔끔히 분해되지 않을 때 사용한다.
+                - terminationRetentionPossibilityHint: 유지 가능성은 언급되었지만 HIGH/MEDIUM/LOW 를 확정할 수 없을 때 사용한다.
                 - contractId, proposedProductCodes, underlyingDiseaseCodes 가 이미 확정되었으면 같은 정보는 aiHints 에 중복해서 넣지 않는다.
 
                 출력 형식:

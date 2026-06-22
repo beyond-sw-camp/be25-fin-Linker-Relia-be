@@ -48,8 +48,20 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
             Pattern.compile("\\bLP\\s*0*(\\d{1,3})\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern TRAILING_NUMBER_PATTERN = Pattern.compile("(\\d{1,3})\\s*$");
     private static final Pattern PRODUCT_KEYWORD_SPLIT_PATTERN = Pattern.compile("[\\s,/()\\[\\]{}]+");
+    private static final Pattern PRODUCT_HINT_PATTERN = Pattern.compile(
+            "([가-힣A-Za-z0-9]+(?:\\s+[가-힣A-Za-z0-9]+){0,5}\\s*(?:보험|보장|특약)(?:\\s*본)?(?:\\s*\\d{1,3})?)"
+    );
     private static final Set<String> PRODUCT_SEARCH_STOPWORDS = Set.of(
             "보험", "보장", "특약", "상품", "플랜", "추천", "가입", "설계", "상담", "고객", "본"
+    );
+    private static final List<String> PRODUCT_HINT_PREFIXES = List.of(
+            "관심있는 상품은",
+            "관심 상품은",
+            "추천 상품은",
+            "추천받은 상품은",
+            "상품은",
+            "상품명은",
+            "보험은"
     );
 
     private final ConsultationSttSessionService consultationSttSessionService;
@@ -100,7 +112,10 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
                 .orElseThrow(() -> new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_NOT_FOUND));
 
         ConsultationSttSession session = aiNote.getSttSession();
-        ConsultationAiStructuredDraft draft = parseStructuredData(aiNote.getGptStructuredData());
+        ConsultationAiStructuredDraft draft = normalizeStoredStructuredData(
+                aiNote.getGptStructuredData(),
+                aiNote.getSttRawText()
+        ).draft();
         DraftResolution resolved = resolveMappings(session, draft);
 
         return ConsultationAiDraftResponse.builder()
@@ -249,6 +264,7 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
             normalizeNewDetail(draft.getNewDetail(), warnings, referenceText);
         }
 
+        backfillAiHintsFromReferenceText(draft, referenceText);
         normalizeAiHints(draft);
         return new NormalizationResult(draft, List.copyOf(warnings));
     }
@@ -750,6 +766,73 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
         return new ArrayList<>(values);
     }
 
+    private void backfillAiHintsFromReferenceText(ConsultationAiStructuredDraft draft, String referenceText) {
+        if (draft == null || referenceText == null || referenceText.isBlank()) {
+            return;
+        }
+        if (draft.getConsultationType() != ConsultationType.NEW_CONTRACT) {
+            return;
+        }
+        if (draft.getNewDetail() != null
+                && draft.getNewDetail().getProposedProductCodes() != null
+                && !draft.getNewDetail().getProposedProductCodes().isEmpty()) {
+            return;
+        }
+
+        List<String> extractedHints = extractProductHints(referenceText);
+        if (extractedHints.isEmpty()) {
+            return;
+        }
+
+        ConsultationAiStructuredDraft.AiHints aiHints = draft.getAiHints();
+        if (aiHints == null) {
+            aiHints = new ConsultationAiStructuredDraft.AiHints();
+            draft.setAiHints(aiHints);
+        }
+
+        LinkedHashSet<String> mergedHints = new LinkedHashSet<>();
+        if (aiHints.getMentionedProductNames() != null) {
+            mergedHints.addAll(aiHints.getMentionedProductNames());
+        }
+        mergedHints.addAll(extractedHints);
+        aiHints.setMentionedProductNames(new ArrayList<>(mergedHints));
+    }
+
+    private List<String> extractProductHints(String referenceText) {
+        LinkedHashSet<String> matches = new LinkedHashSet<>();
+        Matcher matcher = PRODUCT_HINT_PATTERN.matcher(referenceText);
+        while (matcher.find()) {
+            String candidate = sanitizeProductHintCandidate(matcher.group(1));
+            if (candidate != null) {
+                matches.add(candidate);
+            }
+        }
+        return new ArrayList<>(matches);
+    }
+
+    private String sanitizeProductHintCandidate(String candidate) {
+        if (candidate == null) {
+            return null;
+        }
+
+        String normalized = candidate.trim().replaceAll("\\s+", " ");
+        for (String prefix : PRODUCT_HINT_PREFIXES) {
+            if (normalized.startsWith(prefix)) {
+                normalized = normalized.substring(prefix.length()).trim();
+            }
+        }
+
+        String compact = normalized.replace(" ", "");
+        if (compact.length() < 3) {
+            return null;
+        }
+        if (!(compact.contains("보험") || compact.contains("보장") || compact.contains("특약"))) {
+            return null;
+        }
+
+        return normalized;
+    }
+
     private void normalizeAiHints(ConsultationAiStructuredDraft draft) {
         if (draft == null || draft.getAiHints() == null) {
             return;
@@ -759,10 +842,34 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
         aiHints.setTargetContractHint(blankToNull(aiHints.getTargetContractHint()));
         aiHints.setMentionedProductNames(normalizeHintValues(aiHints.getMentionedProductNames()));
         aiHints.setMentionedDiseaseNames(normalizeHintValues(aiHints.getMentionedDiseaseNames()));
+        aiHints.setClaimTypeHint(blankToNull(aiHints.getClaimTypeHint()));
+        aiHints.setClaimReviewItemHints(normalizeHintValues(aiHints.getClaimReviewItemHints()));
+        aiHints.setClaimResultHint(blankToNull(aiHints.getClaimResultHint()));
+        aiHints.setClaimNextActionHints(normalizeHintValues(aiHints.getClaimNextActionHints()));
+        aiHints.setRenewalConsultationResultHint(blankToNull(aiHints.getRenewalConsultationResultHint()));
+        aiHints.setRenewalCoverageChangeTypeHint(blankToNull(aiHints.getRenewalCoverageChangeTypeHint()));
+        aiHints.setRenewalCustomerReactionHint(blankToNull(aiHints.getRenewalCustomerReactionHint()));
+        aiHints.setRenewalInterestTypeHints(normalizeHintValues(aiHints.getRenewalInterestTypeHints()));
+        aiHints.setRenewalPremiumChangeReasonHints(normalizeHintValues(aiHints.getRenewalPremiumChangeReasonHints()));
+        aiHints.setRenewalNextActionHint(blankToNull(aiHints.getRenewalNextActionHint()));
+        aiHints.setTerminationReasonHints(normalizeHintValues(aiHints.getTerminationReasonHints()));
+        aiHints.setTerminationRetentionPossibilityHint(blankToNull(aiHints.getTerminationRetentionPossibilityHint()));
 
         if (aiHints.getTargetContractHint() == null
                 && aiHints.getMentionedProductNames() == null
-                && aiHints.getMentionedDiseaseNames() == null) {
+                && aiHints.getMentionedDiseaseNames() == null
+                && aiHints.getClaimTypeHint() == null
+                && aiHints.getClaimReviewItemHints() == null
+                && aiHints.getClaimResultHint() == null
+                && aiHints.getClaimNextActionHints() == null
+                && aiHints.getRenewalConsultationResultHint() == null
+                && aiHints.getRenewalCoverageChangeTypeHint() == null
+                && aiHints.getRenewalCustomerReactionHint() == null
+                && aiHints.getRenewalInterestTypeHints() == null
+                && aiHints.getRenewalPremiumChangeReasonHints() == null
+                && aiHints.getRenewalNextActionHint() == null
+                && aiHints.getTerminationReasonHints() == null
+                && aiHints.getTerminationRetentionPossibilityHint() == null) {
             draft.setAiHints(null);
         }
     }

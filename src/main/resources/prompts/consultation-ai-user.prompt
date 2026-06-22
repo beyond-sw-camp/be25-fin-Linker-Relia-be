@@ -1,0 +1,15 @@
+아래는 보험 상담 STT 전사본이다.
+
+메타데이터:
+- consultationType: %s
+- knownCustomerId: %s
+- startedAt: %s
+
+작업 목표:
+- 전사본을 상담일지 저장용 structured draft 로 변환한다.
+- 표시용 언급만 있고 id/code 를 확정할 수 없으면 해당 id/code 필드는 null 로 둔다.
+- customerId, contractId, proposedProductCodes, underlyingDiseaseCodes 는 추측하지 않는다.
+- 최종 출력은 반드시 유효한 JSON 형식만 반환한다.
+
+STT transcript:
+%s

@@ -45,6 +45,11 @@ public interface InsuranceCompanyRepository extends JpaRepository<InsuranceCompa
 
     boolean existsByInsuranceCompanyNameAndIdNot(String insuranceCompanyName, UUID id);
 
+    Optional<InsuranceCompany> findByIdAndInsuranceCompanyStatusAndDeletedAtIsNull(
+            UUID id,
+            String insuranceCompanyStatus
+    );
+
     @Query("""
             select coalesce(max(cast(substring(ic.insuranceCompanyCode, 3) as integer)), 0)
             from InsuranceCompany ic

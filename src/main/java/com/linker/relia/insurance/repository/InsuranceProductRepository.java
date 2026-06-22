@@ -40,6 +40,15 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
             String insuranceProductStatus
     );
 
+    boolean existsByInsuranceProductCode(String insuranceProductCode);
+
+    @Query("""
+            select coalesce(max(cast(substring(ip.insuranceProductCode, 3) as integer)), -1)
+            from InsuranceProduct ip
+            where ip.insuranceProductCode like 'LP%'
+            """)
+    long findMaxInsuranceProductCodeSequence();
+
     List<InsuranceProduct> findAllByInsuranceProductCodeInAndDeletedAtIsNull(Set<String> insuranceProductCodes);
 
     Optional<InsuranceProduct> findByInsuranceProductCodeAndDeletedAtIsNull(String insuranceProductCode);

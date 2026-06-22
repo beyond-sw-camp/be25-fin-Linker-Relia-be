@@ -1,5 +1,6 @@
 package com.linker.relia.insurance.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -25,7 +26,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "insurance_products")
-public class InsuranceProduct {
+public class InsuranceProduct extends BaseEntity {
     @Id
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "id")

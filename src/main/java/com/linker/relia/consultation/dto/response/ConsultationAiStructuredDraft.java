@@ -27,6 +27,28 @@ public class ConsultationAiStructuredDraft {
     private ClaimDetail claimDetail;
     private RenewalDetail renewalDetail;
     private CancelDetail cancelDetail;
+    private AiHints aiHints;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class AiHints {
+        private String targetContractHint;
+        private List<String> mentionedProductNames;
+        private List<String> mentionedDiseaseNames;
+        private String claimTypeHint;
+        private List<String> claimReviewItemHints;
+        private String claimResultHint;
+        private List<String> claimNextActionHints;
+        private String renewalConsultationResultHint;
+        private String renewalCoverageChangeTypeHint;
+        private String renewalCustomerReactionHint;
+        private List<String> renewalInterestTypeHints;
+        private List<String> renewalPremiumChangeReasonHints;
+        private String renewalNextActionHint;
+        private List<String> terminationReasonHints;
+        private String terminationRetentionPossibilityHint;
+    }
 
     @Getter
     @Setter

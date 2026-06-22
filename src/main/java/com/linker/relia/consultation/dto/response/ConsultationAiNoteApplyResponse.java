@@ -5,13 +5,16 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
 @Builder
 public class ConsultationAiNoteApplyResponse {
     private UUID aiNoteId;
-    private UUID consultationId;
-    private ConsultationAiNoteStatus draftStatus;
+    private ConsultationAiNoteStatus status;
     private LocalDateTime appliedAt;
+    private ConsultationAiStructuredDraft structuredData;
+    private ConsultationAiResolutionResponse resolutions;
+    private List<String> warnings;
 }

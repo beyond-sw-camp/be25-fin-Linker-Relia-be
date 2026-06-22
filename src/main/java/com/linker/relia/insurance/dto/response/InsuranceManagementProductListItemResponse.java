@@ -12,6 +12,7 @@ import java.util.UUID;
 public class InsuranceManagementProductListItemResponse {
     private final UUID insuranceProductId;
     private final String insuranceProductName;
+    private final String insuranceProductStatus;
     private final UUID insuranceCompanyId;
     private final String insuranceCompanyName;
     private final UUID insuranceCategoryId;
@@ -25,6 +26,7 @@ public class InsuranceManagementProductListItemResponse {
         return InsuranceManagementProductListItemResponse.builder()
                 .insuranceProductId(insuranceProduct.getId())
                 .insuranceProductName(insuranceProduct.getInsuranceProductName())
+                .insuranceProductStatus(insuranceProduct.getInsuranceProductStatus())
                 .insuranceCompanyId(insuranceProduct.getInsuranceCompany().getId())
                 .insuranceCompanyName(insuranceProduct.getInsuranceCompany().getInsuranceCompanyName())
                 .insuranceCategoryId(insuranceProduct.getInsuranceCategory().getId())

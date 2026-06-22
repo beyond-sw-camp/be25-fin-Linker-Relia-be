@@ -10,6 +10,7 @@ import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementProductListItemResponse;
+import com.linker.relia.insurance.dto.response.InsuranceProductDetailResponse;
 import com.linker.relia.insurance.service.InsuranceManagementService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -52,7 +53,17 @@ public class InsuranceManagementController {
     ) {
         PageResponse<InsuranceManagementProductListItemResponse> response =
                 insuranceManagementService.getInsuranceProducts(request);
-        return ApiResponse.success(HttpStatus.OK, "보험 상품 목록 조회 성공", response);
+        return ApiResponse.success(HttpStatus.OK, "보험상품 목록 조회 성공", response);
+    }
+
+    @GetMapping("/products/{insuranceProductId}")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<InsuranceProductDetailResponse>> getInsuranceProductDetail(
+            @PathVariable UUID insuranceProductId
+    ) {
+        InsuranceProductDetailResponse response =
+                insuranceManagementService.getInsuranceProductDetail(insuranceProductId);
+        return ApiResponse.success(HttpStatus.OK, "보험상품 상세 조회 성공", response);
     }
 
     @GetMapping("/companies/{insuranceCompanyId}")

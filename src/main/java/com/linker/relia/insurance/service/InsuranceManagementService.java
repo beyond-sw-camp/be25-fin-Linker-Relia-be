@@ -9,6 +9,7 @@ import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementProductListItemResponse;
+import com.linker.relia.insurance.dto.response.InsuranceProductDetailResponse;
 
 import java.util.UUID;
 
@@ -26,4 +27,6 @@ public interface InsuranceManagementService {
     PageResponse<InsuranceManagementProductListItemResponse> getInsuranceProducts(
             InsuranceManagementProductListRequest request
     );
+
+    InsuranceProductDetailResponse getInsuranceProductDetail(UUID insuranceProductId);
 }

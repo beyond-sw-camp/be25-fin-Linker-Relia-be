@@ -44,6 +44,16 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
 
     Optional<InsuranceProduct> findByInsuranceProductCodeAndDeletedAtIsNull(String insuranceProductCode);
 
+    @Query("""
+            select ip
+            from InsuranceProduct ip
+            join fetch ip.insuranceCompany ic
+            join fetch ip.insuranceCategory category
+            where ip.id = :insuranceProductId
+              and ip.deletedAt is null
+            """)
+    Optional<InsuranceProduct> findManagementInsuranceProductDetail(@Param("insuranceProductId") UUID insuranceProductId);
+
     @Query(
             value = """
                     select ip

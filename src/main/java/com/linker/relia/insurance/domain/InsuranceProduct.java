@@ -54,11 +54,26 @@ public class InsuranceProduct {
     @Column(name = "insurance_end_date")
     private LocalDate insuranceEndDate;
 
+    @Column(name = "coverage_period_type")
+    private String coveragePeriodType;
+
     @Column(name = "coverage_period_years")
     private Integer coveragePeriodYears;
 
     @Column(name = "coverage_age_limit")
     private Integer coverageAgeLimit;
+
+    @Column(name = "is_lifetime_coverage")
+    private Boolean isLifetimeCoverage;
+
+    @Column(name = "is_renewable")
+    private Boolean isRenewable;
+
+    @Column(name = "renewal_cycle")
+    private Integer renewalCycle;
+
+    @Column(name = "product_description")
+    private String productDescription;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

@@ -11,6 +11,7 @@ import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementProductListItemResponse;
+import com.linker.relia.insurance.dto.response.InsuranceProductDetailResponse;
 import com.linker.relia.insurance.exception.InsuranceErrorCode;
 import com.linker.relia.insurance.repository.InsuranceCompanyRepository;
 import com.linker.relia.insurance.repository.InsuranceProductRepository;
@@ -61,6 +62,14 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
                         )
                         .map(InsuranceManagementProductListItemResponse::from)
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InsuranceProductDetailResponse getInsuranceProductDetail(UUID insuranceProductId) {
+        return insuranceProductRepository.findManagementInsuranceProductDetail(insuranceProductId)
+                .map(InsuranceProductDetailResponse::from)
+                .orElseThrow(() -> new BusinessException(InsuranceErrorCode.INSURANCE_PRODUCT_NOT_FOUND));
     }
 
     @Override

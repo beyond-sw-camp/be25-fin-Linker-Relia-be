@@ -15,5 +15,6 @@ public class ConsultationAiNoteApplyResponse {
     private ConsultationAiNoteStatus status;
     private LocalDateTime appliedAt;
     private ConsultationAiStructuredDraft structuredData;
+    private ConsultationAiResolutionResponse resolutions;
     private List<String> warnings;
 }

@@ -42,4 +42,8 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
     Optional<InsuranceProduct> findByInsuranceProductCodeAndDeletedAtIsNull(String insuranceProductCode);
 
     Optional<InsuranceProduct> findByInsuranceProductNameAndDeletedAtIsNull(String insuranceProductName);
+
+    List<InsuranceProduct> findTop10ByInsuranceProductNameContainingAndDeletedAtIsNullOrderByInsuranceProductNameAsc(
+            String insuranceProductName
+    );
 }

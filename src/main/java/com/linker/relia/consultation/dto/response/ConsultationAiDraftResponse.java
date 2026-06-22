@@ -17,5 +17,6 @@ public class ConsultationAiDraftResponse {
     private String sttRawText;
     private String summaryText;
     private ConsultationAiStructuredDraft structuredData;
+    private ConsultationAiResolutionResponse resolutions;
     private String errorMessage;
 }

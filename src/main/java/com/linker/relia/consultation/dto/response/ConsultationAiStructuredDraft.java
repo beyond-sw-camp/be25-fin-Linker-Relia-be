@@ -27,6 +27,16 @@ public class ConsultationAiStructuredDraft {
     private ClaimDetail claimDetail;
     private RenewalDetail renewalDetail;
     private CancelDetail cancelDetail;
+    private AiHints aiHints;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class AiHints {
+        private String targetContractHint;
+        private List<String> mentionedProductNames;
+        private List<String> mentionedDiseaseNames;
+    }
 
     @Getter
     @Setter

@@ -37,9 +37,9 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
                 설명 문장, 마크다운, 코드블록은 절대 포함하지 않는다.
 
                 가장 중요한 원칙:
-                - 화면 표시값이 아니라 저장값 기준으로 채운다.
-                - 모르면 추측하지 말고 null 로 둔다.
-                - STT 또는 메타데이터에 근거가 없는 UUID, 계약 ID, 고객 ID, 상품 코드, 질병 코드는 만들지 않는다.
+                - 화면 표시용 추정값이 아니라 실제 저장값 기준으로 채운다.
+                - 확실하지 않으면 추측하지 말고 null 로 둔다.
+                - 근거 없는 UUID, 고객 ID, 계약 ID, 상품 코드, 질병 코드를 새로 만들지 않는다.
                 - 상담 유형은 반드시 %s 로 맞춘다.
 
                 top-level 필드:
@@ -55,8 +55,9 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
                 - claimDetail
                 - renewalDetail
                 - cancelDetail
+                - aiHints
 
-                저장 형식 기준:
+                저장 형식 규칙:
                 - customerId: UUID
                 - contractId: UUID
                 - consultationType: NEW_CONTRACT, CLAIM, TERMINATION, RENEWAL
@@ -65,39 +66,47 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
                 - customerInfo.underlyingDiseaseCodes: 질병명이 아니라 diseaseCode 배열
                 - newDetail.coverageTypes: 보장 니즈 enum 배열
                 - newDetail.proposedProductCodes: 상품명이 아니라 insuranceProductCode 배열
-                - cancelDetail.retentionPossibility: HIGH, MEDIUM, LOW 중 하나
+                - cancelDetail.retentionPossibility: HIGH, MEDIUM, LOW
 
                 공통 규칙:
-                - summaryText 는 한국어 3~5문장으로 상담 핵심, 고객 요청, 후속 액션을 요약한다.
+                - summaryText 는 한국어 3~5문장으로 상담 목적, 고객 요청, 후속 조치를 요약한다.
+                - 보험사명, 상품명, 질병명 같은 고유명사를 근거 없이 임의로 교정하거나 다른 단어로 바꾸지 않는다.
+                - STT 표현이 다소 어색하거나 오타처럼 보여도, 근거 없이 정답처럼 고쳐 쓰지 않는다.
+                - 상품명이 불명확하면 summaryText 에서 단정하지 말고 "스마트 계열 상품 언급", "정확한 상품명은 불명확"처럼 보수적으로 적는다.
                 - 구조화 데이터는 실제 저장 요청에 최대한 가깝게 채운다.
                 - 배열은 근거가 있는 값만 넣고, 없으면 null 로 둔다.
                 - 해당 상담 유형과 무관한 detail 객체는 반드시 null 로 둔다.
-                - NEW_CONTRACT 가 아닌데 customerInfo 를 만들지 않는다.
-                - knownCustomerId 가 있으면 customerId 에 그대로 사용하고 customerInfo 는 가능한 한 비운다.
+                - NEW_CONTRACT 가 아닌 경우 customerInfo 를 새로 만들지 않는다.
+                - knownCustomerId 가 있으면 customerId 에 그대로 사용하고 customerInfo 는 꼭 필요한 경우만 채운다.
                 - 대상 계약이 특정되지 않으면 contractId 는 null 로 둔다.
                 - 상품명, 보험사명, 질병명 같은 표시용 텍스트를 id/code 필드에 넣지 않는다.
+                - id/code 를 확정할 수 없는 표시값은 aiHints 에 남긴다.
 
                 상담 유형별 규칙:
                 - NEW_CONTRACT: newDetail 만 채우고 claimDetail, renewalDetail, cancelDetail 은 null
-                - CLAIM: claimDetail 만 채우고 나머지 detail 은 null
-                - RENEWAL: renewalDetail 만 채우고 나머지 detail 은 null
-                - TERMINATION: cancelDetail 만 채우고 나머지 detail 은 null
+                - CLAIM: claimDetail 만 채우고 나머지 detail 객체는 null
+                - RENEWAL: renewalDetail 만 채우고 나머지 detail 객체는 null
+                - TERMINATION: cancelDetail 만 채우고 나머지 detail 객체는 null
 
                 NEW_CONTRACT 규칙:
+                - insurancePriority 는 고객이 보험 선택 시 가장 중요하게 보는 기준을 짧은 한국어 라벨로 채운다.
+                - 대표 예시는 "보험료", "보장 범위", "보험사", "갱신 안정성"이다.
+                - 보험료 부담, 저렴함, 가성비, 비용 민감도가 강조되면 "보험료"를 사용한다.
+                - 보장의 넓이, 보장 범위, 보호 수준이 강조되면 "보장 범위"를 사용한다.
                 - coverageTypes 는 아래 enum 코드만 허용한다:
                   CANCER, HEART, LIFE, DEATH, LONG_TERM_CARE
-                - "암", "암 보장", "암 진단비" 계열은 CANCER
-                - "심장", "심혈관" 계열은 HEART
-                - "생명", "종신" 계열은 LIFE
-                - "사망 보장" 계열은 DEATH
-                - "장기요양", "간병" 계열은 LONG_TERM_CARE
+                - 암 관련 니즈는 CANCER
+                - 심장, 심혈관 관련 니즈는 HEART
+                - 생명, 종신 관련 니즈는 LIFE
+                - 사망 보장 관련 니즈는 DEATH
+                - 장기요양, 간병 관련 니즈는 LONG_TERM_CARE
                 - coverageTypes 에 상품명, 상품코드, 자유서술을 넣지 않는다.
                 - proposedProductCodes 는 LP003 같은 상품 코드만 허용한다.
-                - 상품명만 언급되고 코드 근거가 없으면 proposedProductCodes 는 null 로 둔다.
+                - 상품명이 언급되었더라도 코드 근거가 없으면 proposedProductCodes 는 null 로 두고 aiHints.mentionedProductNames 에 남긴다.
                 - coverageTypes 와 proposedProductCodes 를 섞지 않는다.
 
                 CLAIM 규칙:
-                - reviewItems 는 가능하면 아래 코드만 사용한다:
+                - reviewItems 는 아래 코드만 사용한다:
                   COVERAGE_ELIGIBLE, EXEMPTION_PERIOD, EXCLUSION_POSSIBILITY, PREVIOUS_CLAIM_HISTORY
                 - claimType, result, hospitalizationStatus, surgeryStatus 는 근거가 있을 때만 채운다.
 
@@ -113,7 +122,13 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
 
                 customerInfo 규칙:
                 - underlyingDiseaseCodes 는 질병명 배열이 아니라 diseaseCode 배열이어야 한다.
-                - 질병명만 있고 코드 근거가 없으면 underlyingDiseaseCodes 는 null 로 둔다.
+                - 질병명만 언급되고 코드 근거가 없으면 underlyingDiseaseCodes 는 null 로 두고 aiHints.mentionedDiseaseNames 에 남긴다.
+
+                aiHints 규칙:
+                - targetContractHint: 특정 계약 또는 상품을 가리키지만 contractId 를 확정할 수 없을 때 사용한다.
+                - mentionedProductNames: 상품명은 언급되었지만 product code 를 확정할 수 없을 때 사용한다.
+                - mentionedDiseaseNames: 질병명은 언급되었지만 disease code 를 확정할 수 없을 때 사용한다.
+                - contractId, proposedProductCodes, underlyingDiseaseCodes 가 이미 확정되었으면 같은 정보는 aiHints 에 중복해서 넣지 않는다.
 
                 출력 형식:
                 %s
@@ -126,16 +141,16 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
         return """
                 아래는 보험 상담 STT 전사본이다.
 
-                현재 알고 있는 메타데이터:
+                메타데이터:
                 - consultationType: %s
                 - knownCustomerId: %s
                 - startedAt: %s
 
                 작업 목표:
                 - 전사본을 상담일지 저장용 structured draft 로 변환한다.
-                - 저장값이 아닌 표시값만 알 수 있는 경우 해당 id/code 필드는 null 로 둔다.
-                - customerId, contractId, proposedProductCodes, underlyingDiseaseCodes 는 추측 금지다.
-                - 최종 출력은 반드시 지정된 JSON 형식만 반환한다.
+                - 표시용 언급만 있고 id/code 를 확정할 수 없으면 해당 id/code 필드는 null 로 둔다.
+                - customerId, contractId, proposedProductCodes, underlyingDiseaseCodes 는 추측하지 않는다.
+                - 최종 출력은 반드시 유효한 JSON 형식만 반환한다.
 
                 STT transcript:
                 %s

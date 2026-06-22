@@ -34,4 +34,14 @@ public interface ConsultationAiBriefingRepository extends JpaRepository<Consulta
               )
             """)
     Optional<CustomerAiBriefingResponse> findOwnCustomerLatestAiBriefing(@Param("customerId") UUID customerId);
+
+    @Query("""
+            select coalesce(max(b.updateSequence), 0)
+            from ConsultationAiBriefing b
+            where b.customer.id = :customerId
+              and b.deletedAt is null
+            """)
+    Integer findMaxUpdateSequenceByCustomerId(@Param("customerId") UUID customerId);
+
+
 }

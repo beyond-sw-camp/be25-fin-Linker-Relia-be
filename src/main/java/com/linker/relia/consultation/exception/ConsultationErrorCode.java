@@ -105,6 +105,12 @@ public enum ConsultationErrorCode implements ErrorCode {
             "CONSULTATION_017",
             "이미 상담일지에 반영된 AI 상담 초안입니다.",
             HttpStatus.CONFLICT
+    ),
+
+    CONSULTATION_AI_BRIEFING_UP_TO_DATE(
+            "CONSULTATION_018",
+            "최신 AI 브리핑이 이미 생성되어 있습니다.",
+            HttpStatus.CONFLICT
     );
 
     private final String code;

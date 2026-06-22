@@ -8,6 +8,8 @@ import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
 import com.linker.relia.organization.dto.FpMonthlyPerformanceResponse;
+import com.linker.relia.organization.dto.FpResignRequest;
+import com.linker.relia.organization.dto.FpResignResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
 import com.linker.relia.organization.service.OrganizationService;
@@ -20,7 +22,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -98,6 +102,17 @@ public class OrganizationController {
                 toClosingMonth
         );
         return ApiResponse.success(HttpStatus.OK, "설계사 월별 성과 조회 성공", responseDto);
+    }
+
+    @PatchMapping("/fps/{fpId}/resign")
+    @PreAuthorize("hasRole('BRANCH_MANAGER')")
+    public ResponseEntity<ApiResponse<FpResignResponse>> resignFp(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @PathVariable UUID fpId,
+            @Valid @RequestBody FpResignRequest request
+    ) {
+        FpResignResponse responseDto = organizationService.resignFp(principalDetails, fpId, request);
+        return ApiResponse.success(HttpStatus.OK, "설계사 해촉 처리 성공", responseDto);
     }
 
     @GetMapping

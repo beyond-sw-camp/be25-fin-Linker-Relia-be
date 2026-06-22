@@ -85,6 +85,11 @@ public class User extends BaseEntity {
         return UserStatus.ACTIVE == userStatus;
     }
 
+    public void resign(LocalDate resignedAt) {
+        this.userStatus = UserStatus.RESIGNED;
+        this.resignedAt = resignedAt;
+    }
+
     public void updateLastLoginAt(LocalDateTime lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
     }

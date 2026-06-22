@@ -50,7 +50,6 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
             join fetch ip.insuranceCompany ic
             join fetch ip.insuranceCategory category
             where ip.id = :insuranceProductId
-              and ip.deletedAt is null
             """)
     Optional<InsuranceProduct> findManagementInsuranceProductDetail(@Param("insuranceProductId") UUID insuranceProductId);
 
@@ -60,8 +59,7 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
                     from InsuranceProduct ip
                     join fetch ip.insuranceCompany ic
                     join fetch ip.insuranceCategory category
-                    where ip.deletedAt is null
-                      and (:insuranceCompanyId is null or ic.id = :insuranceCompanyId)
+                    where (:insuranceCompanyId is null or ic.id = :insuranceCompanyId)
                       and (:insuranceCategoryId is null or category.id = :insuranceCategoryId)
                       and (:insuranceProductName is null
                            or lower(ip.insuranceProductName) like lower(concat('%', :insuranceProductName, '%')))
@@ -77,8 +75,7 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
                     from InsuranceProduct ip
                     join ip.insuranceCompany ic
                     join ip.insuranceCategory category
-                    where ip.deletedAt is null
-                      and (:insuranceCompanyId is null or ic.id = :insuranceCompanyId)
+                    where (:insuranceCompanyId is null or ic.id = :insuranceCompanyId)
                       and (:insuranceCategoryId is null or category.id = :insuranceCategoryId)
                       and (:insuranceProductName is null
                            or lower(ip.insuranceProductName) like lower(concat('%', :insuranceProductName, '%')))

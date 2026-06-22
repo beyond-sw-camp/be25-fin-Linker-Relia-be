@@ -6,6 +6,7 @@ import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementProductListRequest;
+import com.linker.relia.insurance.dto.request.InsuranceProductUpdateRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
@@ -64,6 +65,17 @@ public class InsuranceManagementController {
         InsuranceProductDetailResponse response =
                 insuranceManagementService.getInsuranceProductDetail(insuranceProductId);
         return ApiResponse.success(HttpStatus.OK, "보험상품 상세 조회 성공", response);
+    }
+
+    @PatchMapping("/products/{insuranceProductId}")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<InsuranceProductDetailResponse>> updateInsuranceProduct(
+            @PathVariable UUID insuranceProductId,
+            @Valid @RequestBody InsuranceProductUpdateRequest request
+    ) {
+        InsuranceProductDetailResponse response =
+                insuranceManagementService.updateInsuranceProduct(insuranceProductId, request);
+        return ApiResponse.success(HttpStatus.OK, "보험상품 수정 성공", response);
     }
 
     @GetMapping("/companies/{insuranceCompanyId}")

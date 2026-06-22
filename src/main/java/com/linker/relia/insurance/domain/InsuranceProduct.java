@@ -77,4 +77,16 @@ public class InsuranceProduct {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    public void updateManagementInfo(String insuranceProductStatus, String productDescription) {
+        this.insuranceProductStatus = insuranceProductStatus;
+        this.productDescription = productDescription;
+
+        if ("INACTIVE".equals(insuranceProductStatus)) {
+            this.deletedAt = LocalDateTime.now();
+            return;
+        }
+
+        this.deletedAt = null;
+    }
 }

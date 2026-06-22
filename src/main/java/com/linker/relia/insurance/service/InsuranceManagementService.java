@@ -5,6 +5,7 @@ import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementProductListRequest;
+import com.linker.relia.insurance.dto.request.InsuranceProductUpdateRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
@@ -29,4 +30,9 @@ public interface InsuranceManagementService {
     );
 
     InsuranceProductDetailResponse getInsuranceProductDetail(UUID insuranceProductId);
+
+    InsuranceProductDetailResponse updateInsuranceProduct(
+            UUID insuranceProductId,
+            InsuranceProductUpdateRequest request
+    );
 }

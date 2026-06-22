@@ -3,10 +3,12 @@ package com.linker.relia.insurance.service;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.insurance.domain.InsuranceCompany;
+import com.linker.relia.insurance.domain.InsuranceProduct;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementProductListRequest;
+import com.linker.relia.insurance.dto.request.InsuranceProductUpdateRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
@@ -70,6 +72,23 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
         return insuranceProductRepository.findManagementInsuranceProductDetail(insuranceProductId)
                 .map(InsuranceProductDetailResponse::from)
                 .orElseThrow(() -> new BusinessException(InsuranceErrorCode.INSURANCE_PRODUCT_NOT_FOUND));
+    }
+
+    @Override
+    @Transactional
+    public InsuranceProductDetailResponse updateInsuranceProduct(
+            UUID insuranceProductId,
+            InsuranceProductUpdateRequest request
+    ) {
+        InsuranceProduct insuranceProduct = insuranceProductRepository.findManagementInsuranceProductDetail(insuranceProductId)
+                .orElseThrow(() -> new BusinessException(InsuranceErrorCode.INSURANCE_PRODUCT_NOT_FOUND));
+
+        insuranceProduct.updateManagementInfo(
+                request.normalizedInsuranceProductStatus(),
+                request.normalizedProductDescription()
+        );
+
+        return InsuranceProductDetailResponse.from(insuranceProduct);
     }
 
     @Override

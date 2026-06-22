@@ -7,6 +7,9 @@
 - 확실하지 않으면 추측하지 말고 null 로 둔다.
 - 근거 없는 UUID, 고객 ID, 계약 ID, 상품 코드, 질병 코드를 새로 만들지 않는다.
 - 상담 유형은 반드시 %s 로 맞춘다.
+- 금액 필드는 모두 원 단위 숫자로 작성한다.
+- 예: 300만원은 3000000, 15만원은 150000, 275만 8000원은 2758000 으로 작성한다.
+- STT 에 "300", "월 300", "300만원"처럼 만원 단위 축약 표현이 나오면 실제 저장값인 원 단위 숫자로 환산해서 넣는다.
 
 top-level 필드:
 - consultationType
@@ -40,6 +43,7 @@ top-level 필드:
 - STT 표현이 다소 어색하거나 오타처럼 보여도, 근거 없이 정답처럼 고쳐 쓰지 않는다.
 - 상품명이 불명확하면 summaryText 에서 단정하지 말고 "특정 보험 상품 언급", "정확한 상품명은 불명확"처럼 보수적으로 적는다.
 - 구조화 데이터는 실제 저장 요청에 최대한 가깝게 채운다.
+- customerAnnualIncome, customerAssetSize, monthlyIncome, monthlyInsurancePremium, currentPremium, renewalPremium 은 모두 원 단위 숫자다.
 - 배열은 근거가 있는 값만 넣고, 없으면 null 로 둔다.
 - 해당 상담 유형과 무관한 detail 객체는 반드시 null 로 둔다.
 - NEW_CONTRACT 가 아닌 경우 customerInfo 를 새로 만들지 않는다.

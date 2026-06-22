@@ -12,6 +12,7 @@ import com.linker.relia.organization.dto.FpContractListResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
+import com.linker.relia.organization.dto.FpMonthlyPerformanceResponse;
 import com.linker.relia.organization.dto.OrganizationChartItemResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
@@ -122,6 +123,30 @@ public class OrganizationServiceImpl implements OrganizationService {
         ));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public FpMonthlyPerformanceResponse getFpMonthlyPerformances(PrincipalDetails principalDetails,
+                                                                 UUID fpId,
+                                                                 String fromClosingMonth,
+                                                                 String toClosingMonth) {
+        String normalizedFromClosingMonth = normalizeClosingMonth(fromClosingMonth);
+        String normalizedToClosingMonth = normalizeClosingMonth(toClosingMonth);
+        validateClosingMonthRange(normalizedFromClosingMonth, normalizedToClosingMonth);
+
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateFpAccessible(accessScope, fpId);
+
+        return FpMonthlyPerformanceResponse.builder()
+                .fpId(fpId)
+                .performances(organizationFpRepository.findFpMonthlyPerformances(
+                        accessScope,
+                        fpId,
+                        normalizedFromClosingMonth,
+                        normalizedToClosingMonth
+                ))
+                .build();
+    }
+
     private void validateFpContractPageSize(Integer size) {
         if (size != null && size > MAX_FP_CONTRACT_PAGE_SIZE) {
             throw new BusinessException(
@@ -187,6 +212,16 @@ public class OrganizationServiceImpl implements OrganizationService {
             return normalizedClosingMonth;
         } catch (DateTimeParseException exception) {
             throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "closingMonth는 YYYY-MM 형식이어야 합니다.");
+        }
+    }
+
+    private void validateClosingMonthRange(String fromClosingMonth, String toClosingMonth) {
+        if (fromClosingMonth == null || toClosingMonth == null) {
+            return;
+        }
+
+        if (YearMonth.parse(fromClosingMonth).isAfter(YearMonth.parse(toClosingMonth))) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "fromClosingMonth는 toClosingMonth보다 이전이어야 합니다.");
         }
     }
 

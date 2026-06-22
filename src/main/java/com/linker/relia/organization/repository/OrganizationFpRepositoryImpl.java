@@ -4,6 +4,7 @@ import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.organization.dto.FpContractListItemResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListItemResponse;
+import com.linker.relia.organization.dto.FpMonthlyPerformanceItemResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -165,6 +166,45 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
         return rows.stream()
                 .findFirst()
                 .map(this::toFpDetailResponse);
+    }
+
+    @Override
+    public List<FpMonthlyPerformanceItemResponse> findFpMonthlyPerformances(AccessScope accessScope,
+                                                                           UUID fpId,
+                                                                           String fromClosingMonth,
+                                                                           String toClosingMonth) {
+        String sql = """
+                select
+                    fmpc.closing_month,
+                    fmpc.completed_contract_count,
+                    fmpc.new_contract_count,
+                    fmpc.retention_rate,
+                    fmpc.total_rank,
+                    fmpc.branch_rank
+                from fp_monthly_performance_closing fmpc
+                join users fp on fp.id = fmpc.fp_id
+                join organizations org on org.id = fmpc.organization_id
+                where fp.id = :fpId
+                  and fp.user_role = 'FP'
+                  and fp.deleted_at is null
+                  and org.deleted_at is null
+                  and (:fromClosingMonth is null or fmpc.closing_month >= :fromClosingMonth)
+                  and (:toClosingMonth is null or fmpc.closing_month <= :toClosingMonth)
+                """ + buildAccessScopeWhereClause(accessScope) + """
+                order by fmpc.closing_month asc
+                """;
+
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("fpId", fpId.toString());
+        query.setParameter("fromClosingMonth", fromClosingMonth);
+        query.setParameter("toClosingMonth", toClosingMonth);
+        bindAccessScopeParameters(query, accessScope);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream()
+                .map(this::toFpMonthlyPerformanceItemResponse)
+                .toList();
     }
 
     @Override
@@ -397,6 +437,17 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 .retentionRate(toBigDecimal(row[11]))
                 .totalRank(toInt(row[12]))
                 .branchRank(toInt(row[13]))
+                .build();
+    }
+
+    private FpMonthlyPerformanceItemResponse toFpMonthlyPerformanceItemResponse(Object[] row) {
+        return FpMonthlyPerformanceItemResponse.builder()
+                .closingMonth((String) row[0])
+                .completedContractCount(toInt(row[1]))
+                .newContractCount(toInt(row[2]))
+                .retentionRate(toBigDecimal(row[3]))
+                .totalRank(toInt(row[4]))
+                .branchRank(toInt(row[5]))
                 .build();
     }
 

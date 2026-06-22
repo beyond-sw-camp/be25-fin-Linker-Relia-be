@@ -26,6 +26,7 @@ import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
 import com.linker.relia.user.exception.UserErrorCode;
+import com.linker.relia.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -62,6 +63,7 @@ public class ContractServiceImpl implements ContractService {
     private final InsuranceProductRepository insuranceProductRepository;
     private final AccessScopeResolver accessScopeResolver;
     private final PlatformTransactionManager transactionManager;
+    private final UserRepository userRepository;
 
     @Override
     public synchronized ContractCreateResponse createContract(PrincipalDetails principalDetails,
@@ -82,8 +84,7 @@ public class ContractServiceImpl implements ContractService {
 
     private ContractCreateResponse createContractInTransaction(PrincipalDetails principalDetails,
                                                               ContractCreateRequest request) {
-        User fp = principalDetails.getUser();
-        validateActiveFp(fp);
+        User fp = resolveActiveFp(principalDetails.getUser());
 
         Customer customer = customerRepository.findByIdAndDeletedAtIsNull(request.getCustomerId())
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
@@ -264,10 +265,15 @@ public class ContractServiceImpl implements ContractService {
         }
     }
 
-    private void validateActiveFp(User fp) {
-        if (!fp.isActive()) {
+    private User resolveActiveFp(User fpSnapshot) {
+        User latestFp = userRepository.findByIdAndDeletedAtIsNull(fpSnapshot.getId())
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!latestFp.isActive()) {
             throw new BusinessException(UserErrorCode.USER_RESIGNED);
         }
+
+        return latestFp;
     }
 
     private String generateContractCode() {

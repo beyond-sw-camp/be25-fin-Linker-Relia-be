@@ -163,11 +163,11 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Override
     @Transactional
     public FpResignResponse resignFp(PrincipalDetails principalDetails, UUID fpId, FpResignRequest request) {
-        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
-        validateFpAccessible(accessScope, fpId);
-
         User fp = userRepository.findByIdForUpdate(fpId)
                 .orElseThrow(() -> new BusinessException(OrganizationErrorCode.FP_NOT_FOUND));
+
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateFpAccessible(accessScope, fpId);
 
         if (UserStatus.RESIGNED == fp.getUserStatus()) {
             throw new BusinessException(OrganizationErrorCode.FP_ALREADY_RESIGNED);

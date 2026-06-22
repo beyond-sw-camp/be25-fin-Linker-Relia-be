@@ -29,6 +29,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @EntityGraph(attributePaths = "organization")
     Optional<User> findByOrganizationIdAndUserRoleAndDeletedAtIsNull(UUID organizationId, UserRole userRole);
 
+    @EntityGraph(attributePaths = "organization")
+    Optional<User> findByIdAndDeletedAtIsNull(UUID id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = "organization")
     @Query("select u from User u where u.id = :id and u.deletedAt is null")

@@ -8,6 +8,11 @@ import com.linker.relia.handover.domain.HandoverRequest;
 import com.linker.relia.handover.exception.HandoverErrorCode;
 import com.linker.relia.handover.repository.HandoverRecommendationQueryRepository;
 import com.linker.relia.handover.repository.HandoverRecommendationRepository;
+import com.linker.relia.handover.service.RecommendationCommentService.CustomerCommentContext;
+import com.linker.relia.handover.service.RecommendationCommentService.MatchPoint;
+import com.linker.relia.handover.service.RecommendationCommentService.ScoreBreakdown;
+import com.linker.relia.handover.service.RecommendationCommentService.TopCandidateContext;
+import com.linker.relia.handover.service.RecommendationCommentService.ValuePoint;
 import com.linker.relia.user.domain.FpMonthlyInfo;
 import com.linker.relia.user.domain.User;
 import com.linker.relia.user.domain.UserRole;
@@ -15,6 +20,7 @@ import com.linker.relia.user.domain.UserStatus;
 import com.linker.relia.user.repository.FpMonthlyInfoRepository;
 import com.linker.relia.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +40,7 @@ import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -45,6 +52,7 @@ public class RecommendationService {
     private final FpMonthlyInfoRepository fpMonthlyInfoRepository;
     private final HandoverRecommendationRepository handoverRecommendationRepository;
     private final HandoverRecommendationQueryRepository handoverRecommendationQueryRepository;
+    private final RecommendationCommentService recommendationCommentService;
 
     public HandoverRecommendation recommend(HandoverRequest handoverRequest) {
         Customer customer = handoverRequest.getCustomer();
@@ -112,7 +120,7 @@ public class RecommendationService {
                 .orElseThrow(() -> new BusinessException(HandoverErrorCode.NO_AVAILABLE_FP));
 
         // 6. 추천 사유 생성
-        String reason = buildReason(best, profile);
+        String reason = generateReason(best, profile);
         return HandoverRecommendation.create(handoverRequest, best.user(), reason);
     }
 
@@ -171,6 +179,55 @@ public class RecommendationService {
         }
 
         return score;
+    }
+
+    private String generateReason(FpRecommendationCandidate candidate, CustomerProfile profile) {
+        if (candidate.monthlyInfo() == null) {
+            return buildReason(candidate, profile);
+        }
+
+        try {
+            CustomerCommentContext customerContext = toCustomerContext(profile);
+            TopCandidateContext candidateContext = toTopCandidateContext(candidate, profile);
+            return recommendationCommentService.generateComment(customerContext, candidateContext);
+        } catch (Exception e) {
+            log.warn("LLM recommendation comment generation failed. empCode={}", candidate.user().getEmpCode(), e);
+            return buildReason(candidate, profile);
+        }
+    }
+
+    private CustomerCommentContext toCustomerContext(CustomerProfile profile) {
+        return new CustomerCommentContext(
+                profile.ageGroup() + "대",
+                profile.mainChannel(),
+                profile.categoryList()
+        );
+    }
+
+    private TopCandidateContext toTopCandidateContext(FpRecommendationCandidate candidate, CustomerProfile profile) {
+        FpMonthlyInfo fp = candidate.monthlyInfo();
+        boolean categoryMatched = fp != null && isCategoryMatched(profile, fp);
+        boolean ageMatched = fp != null
+                && fp.getPreferredCustomerAge() != null
+                && fp.getPreferredCustomerAge() == profile.ageGroup();
+        boolean channelMatched = fp != null
+                && fp.getConsultationChannel() != null
+                && fp.getConsultationChannel().equals(profile.mainChannel());
+        BigDecimal retentionRate = getRetentionRate(fp);
+
+        ScoreBreakdown breakdown = new ScoreBreakdown(
+                new MatchPoint(categoryMatched, categoryMatched ? 40 : 0),
+                new ValuePoint(retentionRate, retentionRate.multiply(BigDecimal.valueOf(0.3)).intValue()),
+                new MatchPoint(ageMatched, ageMatched ? 20 : 0),
+                new MatchPoint(channelMatched, channelMatched ? 10 : 0)
+        );
+
+        int totalScore = breakdown.categoryMatch().points()
+                + breakdown.retentionRate().points()
+                + breakdown.ageGroupMatch().points()
+                + breakdown.channelMatch().points();
+
+        return new TopCandidateContext(candidate.user().getUserName(), totalScore, breakdown);
     }
 
     private CustomerProfile buildCustomerProfile(Customer customer) {

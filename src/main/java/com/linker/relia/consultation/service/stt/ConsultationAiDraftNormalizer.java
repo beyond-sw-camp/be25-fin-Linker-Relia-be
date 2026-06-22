@@ -93,7 +93,7 @@ public class ConsultationAiDraftNormalizer {
 
         if (draft.getConsultationType() == ConsultationType.NEW_CONTRACT && draft.getCustomerId() != null) {
             if (draft.getCustomerInfo() != null) {
-                warnings.add("customerId and customerInfo existed together. customerInfo was dropped.");
+                warnings.add("customerId가 존재해 customerInfo는 제거했습니다.");
                 log.info("Normalized invalid structured draft value. field=customerInfo reason=customerId_and_customerInfo_conflict");
             }
             draft.setCustomerInfo(null);
@@ -131,14 +131,14 @@ public class ConsultationAiDraftNormalizer {
                 String candidateProductCode = resolveProductCode(rawValue);
                 if (candidateProductCode != null) {
                     normalizedProductCodes.add(candidateProductCode);
-                    warnings.add("coverageTypes contained product-like value '" + rawValue
-                            + "'. moved to proposedProductCodes as " + candidateProductCode + ".");
+                    warnings.add("coverageTypes의 상품성 값 '" + rawValue
+                            + "'를 proposedProductCodes의 " + candidateProductCode + "(으)로 이동했습니다.");
                     log.info("Normalized invalid coverageTypes value to proposedProductCodes. field=coverageTypes rawValue={} normalizedCode={}",
                             rawValue, candidateProductCode);
                     continue;
                 }
 
-                warnings.add("coverageTypes contained unsupported value '" + rawValue + "'. dropped.");
+                warnings.add("coverageTypes의 지원하지 않는 값 '" + rawValue + "'를 제거했습니다.");
                 log.warn("Dropped invalid structured draft value. field=coverageTypes rawValue={}", rawValue);
             }
         }
@@ -155,7 +155,7 @@ public class ConsultationAiDraftNormalizer {
                     continue;
                 }
 
-                warnings.add("proposedProductCodes contained non-code value '" + rawValue + "'. dropped.");
+                warnings.add("proposedProductCodes의 코드가 아닌 값 '" + rawValue + "'를 제거했습니다.");
                 log.warn("Dropped invalid structured draft value. field=proposedProductCodes rawValue={}", rawValue);
             }
         }
@@ -173,7 +173,7 @@ public class ConsultationAiDraftNormalizer {
         if (newDetail.getInsurancePriority() != null && !newDetail.getInsurancePriority().isBlank()) {
             String normalized = mapInsurancePriority(newDetail.getInsurancePriority());
             if (!Objects.equals(normalized, newDetail.getInsurancePriority())) {
-                warnings.add("insurancePriority was normalized to '" + normalized + "'.");
+                warnings.add("insurancePriority를 '" + normalized + "'(으)로 정규화했습니다.");
             }
             newDetail.setInsurancePriority(normalized);
             return;
@@ -182,7 +182,7 @@ public class ConsultationAiDraftNormalizer {
         String inferred = inferInsurancePriority(referenceText);
         if (inferred != null) {
             newDetail.setInsurancePriority(inferred);
-            warnings.add("insurancePriority was inferred from transcript as '" + inferred + "'.");
+            warnings.add("insurancePriority를 전사 내용 기준으로 '" + inferred + "'(으)로 추론했습니다.");
         }
     }
 

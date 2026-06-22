@@ -51,6 +51,8 @@ public class ConsultationAiResolutionService {
             draftNormalizer.normalizeAiHints(draft);
         }
 
+        ensureContractSelectionCandidates(session, draft, fields);
+
         return new ConsultationAiDraftResolutionResult(
                 draft,
                 ConsultationAiResolutionResponse.builder()
@@ -150,6 +152,49 @@ public class ConsultationAiResolutionService {
 
         draft.getNewDetail().setProposedProductCodes(productCodes.isEmpty() ? null : new ArrayList<>(productCodes));
         draft.getAiHints().setMentionedProductNames(unresolvedNames.isEmpty() ? null : unresolvedNames);
+    }
+
+    private void ensureContractSelectionCandidates(
+            ConsultationSttSession session,
+            ConsultationAiStructuredDraft draft,
+            List<ConsultationAiResolutionResponse.FieldResolution> fields
+    ) {
+        if (draft == null || session == null || session.getCustomer() == null) {
+            return;
+        }
+        if (draft.getConsultationType() == null || draft.getConsultationType().name().equals("NEW_CONTRACT")) {
+            return;
+        }
+        if (draft.getContractId() != null || hasContractResolution(fields)) {
+            return;
+        }
+
+        List<CustomerOwnedContractResponse> contracts =
+                contractRepository.findOwnCustomerContracts(session.getCustomer().getId());
+        if (contracts.isEmpty()) {
+            return;
+        }
+
+        if (contracts.size() == 1) {
+            CustomerOwnedContractResponse contract = contracts.get(0);
+            draft.setContractId(contract.getContractId());
+            fields.add(ConsultationAiResolutionResponse.FieldResolution.builder()
+                    .fieldPath("contractId")
+                    .rawValue(null)
+                    .status("AUTO_MAPPED")
+                    .message("선택된 고객의 보유 계약이 1건이라 자동으로 연결했습니다.")
+                    .candidates(List.of(toContractCandidate(contract)))
+                    .build());
+            return;
+        }
+
+        fields.add(ConsultationAiResolutionResponse.FieldResolution.builder()
+                .fieldPath("contractId")
+                .rawValue(null)
+                .status("NEEDS_USER_CONFIRMATION")
+                .message("선택된 고객의 보유 계약 목록에서 계약을 선택해 주세요.")
+                .candidates(contracts.stream().map(this::toContractCandidate).toList())
+                .build());
     }
 
     private void resolveDiseaseHints(
@@ -288,8 +333,22 @@ public class ConsultationAiResolutionService {
                 .id(contract.getContractId().toString())
                 .code(null)
                 .label(contract.getInsuranceProductName())
-                .subLabel(contract.getInsuranceCompanyName() + " / " + contract.getContractStatus())
+                .subLabel(buildContractSubLabel(contract))
                 .build();
+    }
+
+    private String buildContractSubLabel(CustomerOwnedContractResponse contract) {
+        List<String> parts = new ArrayList<>();
+        if (contract.getInsuranceCompanyName() != null && !contract.getInsuranceCompanyName().isBlank()) {
+            parts.add(contract.getInsuranceCompanyName());
+        }
+        if (contract.getContractStatus() != null && !contract.getContractStatus().isBlank()) {
+            parts.add(contract.getContractStatus());
+        }
+        if (contract.getMonthlyPremium() != null) {
+            parts.add("보험료 " + contract.getMonthlyPremium().toPlainString() + "원");
+        }
+        return parts.isEmpty() ? null : String.join(" / ", parts);
     }
 
     private ConsultationAiResolutionResponse.Candidate toProductCandidate(InsuranceProduct product) {
@@ -325,6 +384,10 @@ public class ConsultationAiResolutionService {
             return false;
         }
         return source.equals(target) || source.contains(target) || target.contains(source);
+    }
+
+    private boolean hasContractResolution(List<ConsultationAiResolutionResponse.FieldResolution> fields) {
+        return fields.stream().anyMatch(field -> "contractId".equals(field.getFieldPath()));
     }
 
     private List<InsuranceProduct> searchProductCandidates(String rawName) {

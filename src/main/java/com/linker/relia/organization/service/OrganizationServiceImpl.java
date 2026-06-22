@@ -5,6 +5,11 @@ import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeResolver;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.common.exception.CommonErrorCode;
+import com.linker.relia.customer.repository.CustomerRepository;
+import com.linker.relia.handover.domain.HandoverRequest;
+import com.linker.relia.handover.domain.RequestStatus;
+import com.linker.relia.handover.domain.RequestType;
+import com.linker.relia.handover.repository.HandoverRequestRepository;
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
 import com.linker.relia.organization.dto.FpContractListRequest;
@@ -13,6 +18,8 @@ import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
 import com.linker.relia.organization.dto.FpMonthlyPerformanceResponse;
+import com.linker.relia.organization.dto.FpResignRequest;
+import com.linker.relia.organization.dto.FpResignResponse;
 import com.linker.relia.organization.dto.OrganizationChartItemResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
@@ -20,6 +27,9 @@ import com.linker.relia.organization.exception.OrganizationErrorCode;
 import com.linker.relia.organization.repository.OrganizationFpRepository;
 import com.linker.relia.organization.repository.OrganizationRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
+import com.linker.relia.user.domain.User;
+import com.linker.relia.user.domain.UserStatus;
+import com.linker.relia.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,6 +54,9 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationFpRepository organizationFpRepository;
     private final AccessScopeResolver accessScopeResolver;
+    private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
+    private final HandoverRequestRepository handoverRequestRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -144,6 +157,40 @@ public class OrganizationServiceImpl implements OrganizationService {
                         normalizedFromClosingMonth,
                         normalizedToClosingMonth
                 ))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public FpResignResponse resignFp(PrincipalDetails principalDetails, UUID fpId, FpResignRequest request) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        validateFpAccessible(accessScope, fpId);
+
+        User fp = userRepository.findByIdForUpdate(fpId)
+                .orElseThrow(() -> new BusinessException(OrganizationErrorCode.FP_NOT_FOUND));
+
+        if (UserStatus.RESIGNED == fp.getUserStatus()) {
+            throw new BusinessException(OrganizationErrorCode.FP_ALREADY_RESIGNED);
+        }
+
+        List<RequestStatus> blockingStatuses = List.of(RequestStatus.MANAGER_PENDING);
+        List<HandoverRequest> handoverRequests = customerRepository.findAllByCustomerFpIdAndDeletedAtIsNull(fpId)
+                .stream()
+                .filter(customer -> !handoverRequestRepository.existsByCustomerAndRequestStatusIn(
+                        customer,
+                        blockingStatuses
+                ))
+                .map(customer -> HandoverRequest.create(customer, RequestType.RESIGNATION))
+                .toList();
+
+        fp.resign(request.getResignedAt());
+        handoverRequestRepository.saveAll(handoverRequests);
+
+        return FpResignResponse.builder()
+                .id(fp.getId())
+                .userStatus(fp.getUserStatus())
+                .resignedAt(fp.getResignedAt())
+                .handoverRequestCount(handoverRequests.size())
                 .build();
     }
 

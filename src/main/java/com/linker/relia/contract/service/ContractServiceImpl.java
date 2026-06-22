@@ -25,6 +25,7 @@ import com.linker.relia.insurance.domain.InsuranceProduct;
 import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
+import com.linker.relia.user.exception.UserErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -82,6 +83,8 @@ public class ContractServiceImpl implements ContractService {
     private ContractCreateResponse createContractInTransaction(PrincipalDetails principalDetails,
                                                               ContractCreateRequest request) {
         User fp = principalDetails.getUser();
+        validateActiveFp(fp);
+
         Customer customer = customerRepository.findByIdAndDeletedAtIsNull(request.getCustomerId())
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
         validateCustomerOwner(fp, customer);
@@ -258,6 +261,12 @@ public class ContractServiceImpl implements ContractService {
     private void validateCustomerOwner(User fp, Customer customer) {
         if (customer.getCustomerFp() == null || !fp.getId().equals(customer.getCustomerFp().getId())) {
             throw new BusinessException(AuthErrorCode.USER_FORBIDDEN, "담당 고객에 대해서만 계약을 등록할 수 있습니다.");
+        }
+    }
+
+    private void validateActiveFp(User fp) {
+        if (!fp.isActive()) {
+            throw new BusinessException(UserErrorCode.USER_RESIGNED);
         }
     }
 

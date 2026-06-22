@@ -47,6 +47,7 @@ import com.linker.relia.customer.repository.DiseaseCodeRepository;
 import com.linker.relia.insurance.domain.InsuranceProduct;
 import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import com.linker.relia.user.domain.User;
+import com.linker.relia.user.exception.UserErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -91,6 +92,8 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     @Override
     public ConsultationCreateResponse createConsultation(ConsultationCreateRequest request, User fp) {
+        validateActiveFp(fp);
+
         Customer customer = resolveCustomer(request, fp);
         Contract contract = resolveContract(request);
 
@@ -161,6 +164,12 @@ public class ConsultationServiceImpl implements ConsultationService {
                 claimDetail,
                 cancelDetail
         );
+    }
+
+    private void validateActiveFp(User fp) {
+        if (!fp.isActive()) {
+            throw new BusinessException(UserErrorCode.USER_RESIGNED);
+        }
     }
 
     private Customer resolveCustomer(ConsultationCreateRequest request, User fp) {

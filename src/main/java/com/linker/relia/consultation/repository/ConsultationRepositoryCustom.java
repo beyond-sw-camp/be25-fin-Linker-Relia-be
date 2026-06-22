@@ -15,7 +15,6 @@ public interface ConsultationRepositoryCustom {
                                                                        Pageable pageable);
     List<ConsultationAiBriefingSourceResponse> findConsultationsForAiBriefing(
             AccessScope accessScope,
-            UUID customerId,
-            int limit
+            UUID customerId
     );
 }

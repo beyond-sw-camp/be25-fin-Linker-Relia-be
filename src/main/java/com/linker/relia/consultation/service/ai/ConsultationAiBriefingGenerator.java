@@ -1,8 +1,9 @@
 package com.linker.relia.consultation.service.ai;
 
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.stereotype.Service;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 public class ConsultationAiBriefingGenerator {
@@ -14,11 +15,17 @@ public class ConsultationAiBriefingGenerator {
     }
 
     public String generate(String prompt) {
-        return chatClient.prompt()
+        String content = chatClient.prompt()
                 .system(buildSystemPrompt())
                 .user(prompt)
                 .call()
                 .content();
+
+        if (!StringUtils.hasText(content)) {
+            throw new IllegalStateException("AI briefing response must not be blank");
+        }
+
+        return content;
     }
 
     private String buildSystemPrompt() {

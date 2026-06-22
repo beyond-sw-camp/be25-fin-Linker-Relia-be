@@ -77,8 +77,7 @@ public class ConsultationRepositoryImpl implements ConsultationRepositoryCustom 
     @Override
     public List<ConsultationAiBriefingSourceResponse> findConsultationsForAiBriefing(
             AccessScope accessScope,
-            UUID customerId,
-            int limit
+            UUID customerId
     ) {
         String jpql = """
             select new com.linker.relia.consultation.dto.response.ConsultationAiBriefingSourceResponse(
@@ -108,7 +107,6 @@ public class ConsultationRepositoryImpl implements ConsultationRepositoryCustom 
 
         bindAccessScope(query, accessScope);
         query.setParameter("customerId", customerId);
-        query.setMaxResults(limit);
 
         return query.getResultList();
     }

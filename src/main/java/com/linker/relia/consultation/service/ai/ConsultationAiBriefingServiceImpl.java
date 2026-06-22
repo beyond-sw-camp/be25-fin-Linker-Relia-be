@@ -4,6 +4,7 @@ import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.consultation.domain.ConsultationAiBriefing;
 import com.linker.relia.consultation.dto.response.ConsultationAiBriefingSourceResponse;
+import com.linker.relia.consultation.exception.ConsultationErrorCode;
 import com.linker.relia.consultation.repository.ConsultationAiBriefingRepository;
 import com.linker.relia.consultation.repository.ConsultationRepository;
 import com.linker.relia.customer.domain.Customer;
@@ -15,24 +16,25 @@ import com.linker.relia.security.principal.PrincipalDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class ConsultationAiBriefingServiceImpl implements ConsultationAiBriefingService {
 
-    private static final int AI_BRIEFING_CONSULTATION_LIMIT = 10;
 
     private final CustomerRepository customerRepository;
     private final CustomerAccessService customerAccessService;
     private final ConsultationRepository consultationRepository;
     private final ConsultationAiBriefingRepository consultationAiBriefingRepository;
     private final ConsultationAiBriefingGenerator consultationAiBriefingGenerator;
+    private final ConsultationAiBriefingPersistenceService consultationAiBriefingPersistenceService;
 
     @Override
-    @Transactional
     public CustomerAiBriefingResponse generateAiBriefing(PrincipalDetails principalDetails, UUID customerId) {
         AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
         customerAccessService.validateCustomerAccess(accessScope, customerId);
@@ -43,28 +45,30 @@ public class ConsultationAiBriefingServiceImpl implements ConsultationAiBriefing
         List<ConsultationAiBriefingSourceResponse> consultations =
                 consultationRepository.findConsultationsForAiBriefing(
                         accessScope,
-                        customerId,
-                        AI_BRIEFING_CONSULTATION_LIMIT
+                        customerId
                 );
+        String sourceFingerprint = ConsultationAiBriefingFingerprint.create(consultations);
+
+        Optional<ConsultationAiBriefing> latestBriefing = consultationAiBriefingRepository
+                .findFirstByCustomer_IdAndDeletedAtIsNullOrderByUpdateSequenceDescCreatedAtDesc(customerId);
+
+        latestBriefing
+                .filter(briefing -> isUpToDate(briefing, sourceFingerprint, customerId))
+                .ifPresent(briefing -> {
+                    throw new BusinessException(ConsultationErrorCode.CONSULTATION_AI_BRIEFING_UP_TO_DATE);
+                });
+        int expectedLatestSequence = latestBriefing
+                .map(ConsultationAiBriefing::getUpdateSequence)
+                .orElse(0);
 
         String prompt = buildUserPrompt(customer, consultations);
         String briefingContent = consultationAiBriefingGenerator.generate(prompt);
 
-        Integer maxSequence = consultationAiBriefingRepository.findMaxUpdateSequenceByCustomerId(customerId);
-        int nextSequence = maxSequence + 1;
-
-        ConsultationAiBriefing briefing = ConsultationAiBriefing.builder()
-                .customer(customer)
-                .updateSequence(nextSequence)
-                .briefingContent(briefingContent)
-                .build();
-
-        ConsultationAiBriefing savedBriefing = consultationAiBriefingRepository.save(briefing);
-
-        return new CustomerAiBriefingResponse(
-                savedBriefing.getId(),
-                savedBriefing.getBriefingContent(),
-                savedBriefing.getCreatedAt()
+        return consultationAiBriefingPersistenceService.save(
+                customerId,
+                briefingContent,
+                sourceFingerprint,
+                expectedLatestSequence
         );
     }
 
@@ -74,8 +78,48 @@ public class ConsultationAiBriefingServiceImpl implements ConsultationAiBriefing
         AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
         customerAccessService.validateCustomerAccess(accessScope, customerId);
 
-        return consultationAiBriefingRepository.findOwnCustomerLatestAiBriefing(customerId)
+        List<ConsultationAiBriefingSourceResponse> consultations =
+                consultationRepository.findConsultationsForAiBriefing(
+                        accessScope,
+                        customerId
+                );
+        String sourceFingerprint = ConsultationAiBriefingFingerprint.create(consultations);
+
+        return consultationAiBriefingRepository
+                .findFirstByCustomer_IdAndDeletedAtIsNullOrderByUpdateSequenceDescCreatedAtDesc(customerId)
+                .map(briefing -> toResponse(briefing, sourceFingerprint, customerId))
                 .orElseGet(CustomerAiBriefingResponse::empty);
+    }
+
+    private CustomerAiBriefingResponse toResponse(ConsultationAiBriefing briefing,
+                                                   String sourceFingerprint,
+                                                   UUID customerId) {
+        boolean canGenerate = !isUpToDate(
+                briefing,
+                sourceFingerprint,
+                customerId
+        );
+
+        return new CustomerAiBriefingResponse(
+                briefing.getId(),
+                briefing.getBriefingContent(),
+                briefing.getCreatedAt(),
+                canGenerate
+        );
+    }
+
+    private boolean isUpToDate(ConsultationAiBriefing briefing,
+                               String sourceFingerprint,
+                               UUID customerId) {
+        if (StringUtils.hasText(briefing.getSourceFingerprint())) {
+            return briefing.getSourceFingerprint().equals(sourceFingerprint);
+        }
+
+        return briefing.getCreatedAt() != null
+                && !consultationRepository.existsByCustomer_IdAndCreatedAtAfterAndDeletedAtIsNull(
+                        customerId,
+                        briefing.getCreatedAt()
+                );
     }
 
     private String buildUserPrompt(Customer customer, List<ConsultationAiBriefingSourceResponse> consultations) {

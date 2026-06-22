@@ -1,4 +1,4 @@
-package com.linker.relia.consultation.controller;
+package com.linker.relia.customer.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.consultation.service.ai.ConsultationAiBriefingService;
@@ -17,11 +17,11 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
-public class ConsultationAiBriefingController {
+public class CustomerAiBriefingController {
 
     private final ConsultationAiBriefingService consultationAiBriefingService;
 
-    @PostMapping("/api/customers/{customerId}/consultations/ai-briefing")
+    @PostMapping("/api/customers/{customerId}/ai-briefing")
     public ResponseEntity<ApiResponse<CustomerAiBriefingResponse>> generateAiBriefing(
             @AuthenticationPrincipal PrincipalDetails principalDetails,
             @PathVariable UUID customerId
@@ -36,7 +36,7 @@ public class ConsultationAiBriefingController {
         );
     }
 
-    @GetMapping("/api/customers/{customerId}/consultations/ai-briefing")
+    @GetMapping("/api/customers/{customerId}/ai-briefing")
     public ResponseEntity<ApiResponse<CustomerAiBriefingResponse>> getLatestAiBriefing(
             @AuthenticationPrincipal PrincipalDetails principalDetails,
             @PathVariable UUID customerId

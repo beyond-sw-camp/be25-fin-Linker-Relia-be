@@ -46,7 +46,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -155,6 +157,7 @@ public class HandoverService {
         HandoverDetailResponse.CustomerInfo customerInfo = new HandoverDetailResponse.CustomerInfo(
                 customer.getId(),
                 customer.getCustomerName(),
+                calculateAge(customer.getCustomerBirthDate()),
                 customer.getCustomerGrade(),
                 handoverRequest.getCurrentFp() != null ? handoverRequest.getCurrentFp().getUserName() : null,
                 contractSummary,
@@ -525,6 +528,15 @@ public class HandoverService {
         if (!isCurrentFp && !isRecommendedFp) {
             throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
         }
+    }
+
+    private Integer calculateAge(LocalDate birthDate) {
+        if (birthDate == null) {
+            return null;
+        }
+
+        int age = Period.between(birthDate, LocalDate.now()).getYears();
+        return age >= 0 ? age : null;
     }
 
 }

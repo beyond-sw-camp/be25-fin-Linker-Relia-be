@@ -7,6 +7,7 @@ import com.linker.relia.organization.dto.FpContractListResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
+import com.linker.relia.organization.dto.FpMonthlyPerformanceResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
 import com.linker.relia.organization.service.OrganizationService;
@@ -80,6 +81,23 @@ public class OrganizationController {
     ) {
         FpContractListResponse responseDto = organizationService.getFpContracts(principalDetails, fpId, request);
         return ApiResponse.success(HttpStatus.OK, "설계사 계약 목록 조회 성공", responseDto);
+    }
+
+    @GetMapping("/fps/{fpId}/performance-monthly")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<FpMonthlyPerformanceResponse>> getFpMonthlyPerformances(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @PathVariable UUID fpId,
+            @RequestParam(required = false) String fromClosingMonth,
+            @RequestParam(required = false) String toClosingMonth
+    ) {
+        FpMonthlyPerformanceResponse responseDto = organizationService.getFpMonthlyPerformances(
+                principalDetails,
+                fpId,
+                fromClosingMonth,
+                toClosingMonth
+        );
+        return ApiResponse.success(HttpStatus.OK, "설계사 월별 성과 조회 성공", responseDto);
     }
 
     @GetMapping

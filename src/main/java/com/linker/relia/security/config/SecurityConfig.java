@@ -8,6 +8,7 @@ import com.linker.relia.security.handler.CustomAuthenticationEntryPoint;
 import com.linker.relia.security.handler.LoginFailureHandler;
 import com.linker.relia.security.handler.LoginSuccessHandler;
 import com.linker.relia.security.jwt.JwtProperties;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpMethod;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -51,6 +52,8 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        // SSE 연결 종료 후 발생하는 ASYNC/ERROR dispatch만 통과시키고, 최초 요청은 아래 인증 규칙을 적용한다.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/organizations/branches").permitAll()
                         .requestMatchers(

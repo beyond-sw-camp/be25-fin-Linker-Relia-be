@@ -123,18 +123,22 @@ public class RecommendationService {
         FpMonthlyInfo fp = candidate.monthlyInfo();
         int score = 0;
 
+        // 보종 매칭 +40
         if (fp != null) {
             if (isCategoryMatched(profile, fp)) {
                 score += 40;
             }
 
+            // 유지율 +30 (100%면 30점 만점)
             score += getRetentionRate(fp).multiply(BigDecimal.valueOf(0.3)).intValue();
 
+            // 연령대 매칭 +20
             if (fp.getPreferredCustomerAge() != null
                     && fp.getPreferredCustomerAge() == profile.ageGroup()) {
                 score += 20;
             }
 
+            // 상담 채널 매칭 +10
             if (fp.getConsultationChannel() != null
                     && fp.getConsultationChannel().equals(profile.mainChannel())) {
                 score += 10;
@@ -150,6 +154,7 @@ public class RecommendationService {
         );
     }
 
+    // 계약수 페널티 -15 (지점 평균 초과 시)
     private int applyLoadPenalty(int score,
                                  String empCode,
                                  int currentContractCount,
@@ -159,6 +164,7 @@ public class RecommendationService {
             score -= 15;
         }
 
+        // pending 페널티 -15 (2건 이상 추천된 설계사)
         long pendingCount = pendingCountMap.getOrDefault(empCode, 0L);
         if (pendingCount >= 2) {
             score -= 15;

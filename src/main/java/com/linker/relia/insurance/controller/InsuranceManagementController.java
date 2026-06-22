@@ -2,6 +2,9 @@ package com.linker.relia.insurance.controller;
 
 import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.common.dto.response.PageResponse;
+import com.linker.relia.insurance.dto.InsuranceCategoryResponse;
+import com.linker.relia.insurance.dto.request.InsuranceCategoryCreateRequest;
+import com.linker.relia.insurance.dto.request.InsuranceCategoryUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
@@ -10,6 +13,7 @@ import com.linker.relia.insurance.dto.request.InsuranceProductCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceProductUpdateRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
+import com.linker.relia.insurance.dto.response.InsuranceManagementCategoryResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementProductListItemResponse;
 import com.linker.relia.insurance.dto.response.InsuranceProductDetailResponse;
@@ -29,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -37,6 +42,33 @@ import java.util.UUID;
 @SecurityRequirement(name = "Bearer Authentication")
 public class InsuranceManagementController {
     private final InsuranceManagementService insuranceManagementService;
+
+    @PostMapping("/categories")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<InsuranceCategoryResponse>> createInsuranceCategory(
+            @Valid @RequestBody InsuranceCategoryCreateRequest request
+    ) {
+        InsuranceCategoryResponse response = insuranceManagementService.createInsuranceCategory(request);
+        return ApiResponse.success(HttpStatus.CREATED, "보종 등록 성공", response);
+    }
+
+    @PatchMapping("/categories/{insuranceCategoryId}")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<InsuranceCategoryResponse>> updateInsuranceCategory(
+            @PathVariable UUID insuranceCategoryId,
+            @Valid @RequestBody InsuranceCategoryUpdateRequest request
+    ) {
+        InsuranceCategoryResponse response =
+                insuranceManagementService.updateInsuranceCategory(insuranceCategoryId, request);
+        return ApiResponse.success(HttpStatus.OK, "보종 수정 성공", response);
+    }
+
+    @GetMapping("/categories")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<List<InsuranceManagementCategoryResponse>>> getInsuranceCategories() {
+        List<InsuranceManagementCategoryResponse> response = insuranceManagementService.getInsuranceCategories();
+        return ApiResponse.success(HttpStatus.OK, "보종 목록 조회 성공", response);
+    }
 
     @GetMapping("/companies")
     @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")

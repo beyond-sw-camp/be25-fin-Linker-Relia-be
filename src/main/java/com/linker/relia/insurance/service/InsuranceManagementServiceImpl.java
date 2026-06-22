@@ -3,6 +3,9 @@ package com.linker.relia.insurance.service;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.insurance.dto.InsuranceCategoryResponse;
+import com.linker.relia.insurance.dto.request.InsuranceCategoryCreateRequest;
+import com.linker.relia.insurance.dto.request.InsuranceCategoryUpdateRequest;
 import com.linker.relia.insurance.domain.InsuranceCompany;
 import com.linker.relia.insurance.domain.InsuranceCategory;
 import com.linker.relia.insurance.domain.InsuranceProduct;
@@ -14,6 +17,7 @@ import com.linker.relia.insurance.dto.request.InsuranceProductCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceProductUpdateRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
+import com.linker.relia.insurance.dto.response.InsuranceManagementCategoryResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementProductListItemResponse;
 import com.linker.relia.insurance.dto.response.InsuranceProductDetailResponse;
@@ -26,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -33,11 +38,70 @@ import java.util.UUID;
 public class InsuranceManagementServiceImpl implements InsuranceManagementService {
     private static final String ACTIVE_STATUS = "ACTIVE";
     private static final String INSURANCE_COMPANY_CODE_PREFIX = "LC";
+    private static final String INSURANCE_CATEGORY_CODE_PREFIX = "CAT";
     private static final String INSURANCE_PRODUCT_CODE_PREFIX = "LP";
 
     private final InsuranceCompanyRepository insuranceCompanyRepository;
     private final InsuranceCategoryRepository insuranceCategoryRepository;
     private final InsuranceProductRepository insuranceProductRepository;
+
+    @Override
+    @Transactional
+    public InsuranceCategoryResponse createInsuranceCategory(InsuranceCategoryCreateRequest request) {
+        String insuranceCategoryName = request.normalizedInsuranceCategoryName();
+        String insuranceCategoryCode = generateInsuranceCategoryCode();
+
+        if (insuranceCategoryRepository.existsByInsuranceCategoryName(insuranceCategoryName)) {
+            throw new BusinessException(InsuranceErrorCode.DUPLICATE_INSURANCE_CATEGORY_NAME);
+        }
+
+        if (insuranceCategoryRepository.existsByInsuranceCategoryCode(insuranceCategoryCode)) {
+            throw new BusinessException(InsuranceErrorCode.DUPLICATE_INSURANCE_CATEGORY_CODE);
+        }
+
+        InsuranceCategory insuranceCategory = InsuranceCategory.builder()
+                .id(UUID.randomUUID())
+                .insuranceCategoryCode(insuranceCategoryCode)
+                .insuranceCategoryName(insuranceCategoryName)
+                .insuranceCategoryStatus(ACTIVE_STATUS)
+                .deletedAt(null)
+                .build();
+
+        return InsuranceCategoryResponse.from(insuranceCategoryRepository.save(insuranceCategory));
+    }
+
+    @Override
+    @Transactional
+    public InsuranceCategoryResponse updateInsuranceCategory(
+            UUID insuranceCategoryId,
+            InsuranceCategoryUpdateRequest request
+    ) {
+        String insuranceCategoryName = request.normalizedInsuranceCategoryName();
+        String insuranceCategoryStatus = request.normalizedInsuranceCategoryStatus();
+        InsuranceCategory insuranceCategory = insuranceCategoryRepository.findById(insuranceCategoryId)
+                .orElseThrow(() -> new BusinessException(InsuranceErrorCode.INSURANCE_CATEGORY_NOT_FOUND));
+
+        if (insuranceCategoryName == null && insuranceCategoryStatus == null) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "수정할 보종명 또는 보종 상태를 입력해야 합니다.");
+        }
+
+        if (insuranceCategoryName != null
+                && insuranceCategoryRepository.existsByInsuranceCategoryNameAndIdNot(insuranceCategoryName, insuranceCategoryId)) {
+            throw new BusinessException(InsuranceErrorCode.DUPLICATE_INSURANCE_CATEGORY_NAME);
+        }
+
+        insuranceCategory.update(insuranceCategoryName, insuranceCategoryStatus);
+        return InsuranceCategoryResponse.from(insuranceCategory);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InsuranceManagementCategoryResponse> getInsuranceCategories() {
+        return insuranceCategoryRepository.findAllByOrderByInsuranceCategoryNameAsc()
+                .stream()
+                .map(InsuranceManagementCategoryResponse::from)
+                .toList();
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -214,6 +278,11 @@ public class InsuranceManagementServiceImpl implements InsuranceManagementServic
     private String generateInsuranceCompanyCode() {
         long nextSequence = insuranceCompanyRepository.findMaxInsuranceCompanyCodeSequence() + 1;
         return INSURANCE_COMPANY_CODE_PREFIX + String.format("%03d", nextSequence);
+    }
+
+    private String generateInsuranceCategoryCode() {
+        long nextSequence = insuranceCategoryRepository.findMaxInsuranceCategoryCodeSequence() + 1;
+        return INSURANCE_CATEGORY_CODE_PREFIX + String.format("%03d", nextSequence);
     }
 
     private String generateInsuranceProductCode() {

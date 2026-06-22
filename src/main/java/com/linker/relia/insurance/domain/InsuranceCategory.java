@@ -1,5 +1,6 @@
 package com.linker.relia.insurance.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -9,7 +10,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -17,10 +17,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
-@Setter
 @Entity
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "insurance_categories")
-public class InsuranceCategory {
+public class InsuranceCategory extends BaseEntity {
     @Id
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "id")
@@ -37,5 +39,23 @@ public class InsuranceCategory {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
-}
 
+    public void update(String insuranceCategoryName, String insuranceCategoryStatus) {
+        if (insuranceCategoryName != null) {
+            this.insuranceCategoryName = insuranceCategoryName;
+        }
+
+        if (insuranceCategoryStatus == null) {
+            return;
+        }
+
+        this.insuranceCategoryStatus = insuranceCategoryStatus;
+
+        if ("INACTIVE".equals(insuranceCategoryStatus)) {
+            this.deletedAt = LocalDateTime.now();
+            return;
+        }
+
+        this.deletedAt = null;
+    }
+}

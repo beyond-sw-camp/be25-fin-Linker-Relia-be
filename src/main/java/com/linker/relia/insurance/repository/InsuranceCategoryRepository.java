@@ -12,8 +12,23 @@ public interface InsuranceCategoryRepository extends JpaRepository<InsuranceCate
             String insuranceCategoryStatus
     );
 
+    List<InsuranceCategory> findAllByOrderByInsuranceCategoryNameAsc();
+
+    boolean existsByInsuranceCategoryCode(String insuranceCategoryCode);
+
+    boolean existsByInsuranceCategoryName(String insuranceCategoryName);
+
+    boolean existsByInsuranceCategoryNameAndIdNot(String insuranceCategoryName, UUID id);
+
     Optional<InsuranceCategory> findByIdAndInsuranceCategoryStatusAndDeletedAtIsNull(
             UUID id,
             String insuranceCategoryStatus
     );
+
+    @org.springframework.data.jpa.repository.Query("""
+            select coalesce(max(cast(substring(ic.insuranceCategoryCode, 4) as integer)), 0)
+            from InsuranceCategory ic
+            where ic.insuranceCategoryCode like 'CAT%'
+            """)
+    long findMaxInsuranceCategoryCodeSequence();
 }

@@ -9,7 +9,9 @@ public enum InsuranceErrorCode implements ErrorCode {
     DUPLICATE_INSURANCE_COMPANY_NAME("INSURANCE_003", "이미 존재하는 보험사명입니다.", HttpStatus.CONFLICT),
     INSURANCE_PRODUCT_NOT_FOUND("INSURANCE_004", "존재하지 않는 보험상품입니다.", HttpStatus.NOT_FOUND),
     INSURANCE_CATEGORY_NOT_FOUND("INSURANCE_005", "존재하지 않는 보종입니다.", HttpStatus.NOT_FOUND),
-    DUPLICATE_INSURANCE_PRODUCT_CODE("INSURANCE_006", "이미 존재하는 보험상품 식별 코드입니다.", HttpStatus.CONFLICT);
+    DUPLICATE_INSURANCE_PRODUCT_CODE("INSURANCE_006", "이미 존재하는 보험상품 식별 코드입니다.", HttpStatus.CONFLICT),
+    DUPLICATE_INSURANCE_CATEGORY_CODE("INSURANCE_007", "이미 존재하는 보종 코드입니다.", HttpStatus.CONFLICT),
+    DUPLICATE_INSURANCE_CATEGORY_NAME("INSURANCE_008", "이미 존재하는 보종명입니다.", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

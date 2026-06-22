@@ -1,6 +1,9 @@
 package com.linker.relia.insurance.service;
 
 import com.linker.relia.common.dto.response.PageResponse;
+import com.linker.relia.insurance.dto.InsuranceCategoryResponse;
+import com.linker.relia.insurance.dto.request.InsuranceCategoryCreateRequest;
+import com.linker.relia.insurance.dto.request.InsuranceCategoryUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceCompanyUpdateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceManagementCompanyListRequest;
@@ -9,13 +12,21 @@ import com.linker.relia.insurance.dto.request.InsuranceProductCreateRequest;
 import com.linker.relia.insurance.dto.request.InsuranceProductUpdateRequest;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyCreateResponse;
 import com.linker.relia.insurance.dto.response.InsuranceCompanyDetailResponse;
+import com.linker.relia.insurance.dto.response.InsuranceManagementCategoryResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementCompanyListItemResponse;
 import com.linker.relia.insurance.dto.response.InsuranceManagementProductListItemResponse;
 import com.linker.relia.insurance.dto.response.InsuranceProductDetailResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface InsuranceManagementService {
+    InsuranceCategoryResponse createInsuranceCategory(InsuranceCategoryCreateRequest request);
+
+    InsuranceCategoryResponse updateInsuranceCategory(UUID insuranceCategoryId, InsuranceCategoryUpdateRequest request);
+
+    List<InsuranceManagementCategoryResponse> getInsuranceCategories();
+
     PageResponse<InsuranceManagementCompanyListItemResponse> getInsuranceCompanies(
             InsuranceManagementCompanyListRequest request
     );

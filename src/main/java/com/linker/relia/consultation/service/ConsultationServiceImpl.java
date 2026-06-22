@@ -47,6 +47,8 @@ import com.linker.relia.customer.repository.DiseaseCodeRepository;
 import com.linker.relia.insurance.domain.InsuranceProduct;
 import com.linker.relia.insurance.repository.InsuranceProductRepository;
 import com.linker.relia.user.domain.User;
+import com.linker.relia.user.exception.UserErrorCode;
+import com.linker.relia.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -88,9 +90,12 @@ public class ConsultationServiceImpl implements ConsultationService {
     private final ConsultationRenewalInterestRepository consultationRenewalInterestRepository;
 
     private final InsuranceProductRepository insuranceProductRepository;
+    private final UserRepository userRepository;
 
     @Override
     public ConsultationCreateResponse createConsultation(ConsultationCreateRequest request, User fp) {
+        fp = resolveActiveFp(fp);
+
         Customer customer = resolveCustomer(request, fp);
         Contract contract = resolveContract(request);
 
@@ -161,6 +166,17 @@ public class ConsultationServiceImpl implements ConsultationService {
                 claimDetail,
                 cancelDetail
         );
+    }
+
+    private User resolveActiveFp(User fpSnapshot) {
+        User latestFp = userRepository.findByIdAndDeletedAtIsNull(fpSnapshot.getId())
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!latestFp.isActive()) {
+            throw new BusinessException(UserErrorCode.USER_RESIGNED);
+        }
+
+        return latestFp;
     }
 
     private Customer resolveCustomer(ConsultationCreateRequest request, User fp) {

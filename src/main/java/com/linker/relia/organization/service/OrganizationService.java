@@ -6,6 +6,9 @@ import com.linker.relia.organization.dto.FpContractListResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListRequest;
 import com.linker.relia.organization.dto.FpListResponse;
+import com.linker.relia.organization.dto.FpMonthlyPerformanceResponse;
+import com.linker.relia.organization.dto.FpResignRequest;
+import com.linker.relia.organization.dto.FpResignResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
 import com.linker.relia.security.principal.PrincipalDetails;
@@ -25,4 +28,11 @@ public interface OrganizationService {
     FpContractListResponse getFpContracts(PrincipalDetails principalDetails,
                                           UUID fpId,
                                           FpContractListRequest request);
+
+    FpMonthlyPerformanceResponse getFpMonthlyPerformances(PrincipalDetails principalDetails,
+                                                          UUID fpId,
+                                                          String fromClosingMonth,
+                                                          String toClosingMonth);
+
+    FpResignResponse resignFp(PrincipalDetails principalDetails, UUID fpId, FpResignRequest request);
 }

@@ -24,6 +24,7 @@ public record HandoverDetailResponse(
     public record CustomerInfo(
             UUID customerId,
             String customerName,
+            Integer customerAge,
             CustomerGrade customerGrade,
             String currentFpName,
             String contractSummary,        // "실손 2건 · 종신 1건"

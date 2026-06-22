@@ -44,6 +44,14 @@ public class ConsultationAiBriefing extends BaseEntity {
     @Column(name = "briefing_content", nullable = false, columnDefinition = "TEXT")
     private String briefingContent;
 
+    @Column(
+            name = "source_fingerprint",
+            nullable = false,
+            length = 64,
+            columnDefinition = "CHAR(64)"
+    )
+    private String sourceFingerprint;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 

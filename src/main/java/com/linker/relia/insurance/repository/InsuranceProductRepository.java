@@ -65,8 +65,20 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
                            or lower(ip.insuranceProductName) like lower(concat('%', :insuranceProductName, '%')))
                       and (
                            :saleStatus is null
-                           or (:saleStatus = 'ON_SALE' and (ip.insuranceEndDate is null or ip.insuranceEndDate >= :today))
-                           or (:saleStatus = 'SALE_ENDED' and ip.insuranceEndDate is not null and ip.insuranceEndDate < :today)
+                           or (
+                               :saleStatus = 'ON_SALE'
+                               and ip.insuranceProductStatus = 'ACTIVE'
+                               and ip.deletedAt is null
+                               and (ip.insuranceEndDate is null or ip.insuranceEndDate >= :today)
+                           )
+                           or (
+                               :saleStatus = 'SALE_ENDED'
+                               and (
+                                   ip.insuranceProductStatus = 'INACTIVE'
+                                   or ip.deletedAt is not null
+                                   or (ip.insuranceEndDate is not null and ip.insuranceEndDate < :today)
+                               )
+                           )
                       )
                     order by ip.insuranceStartDate desc, ip.id desc
                     """,
@@ -81,8 +93,20 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
                            or lower(ip.insuranceProductName) like lower(concat('%', :insuranceProductName, '%')))
                       and (
                            :saleStatus is null
-                           or (:saleStatus = 'ON_SALE' and (ip.insuranceEndDate is null or ip.insuranceEndDate >= :today))
-                           or (:saleStatus = 'SALE_ENDED' and ip.insuranceEndDate is not null and ip.insuranceEndDate < :today)
+                           or (
+                               :saleStatus = 'ON_SALE'
+                               and ip.insuranceProductStatus = 'ACTIVE'
+                               and ip.deletedAt is null
+                               and (ip.insuranceEndDate is null or ip.insuranceEndDate >= :today)
+                           )
+                           or (
+                               :saleStatus = 'SALE_ENDED'
+                               and (
+                                   ip.insuranceProductStatus = 'INACTIVE'
+                                   or ip.deletedAt is not null
+                                   or (ip.insuranceEndDate is not null and ip.insuranceEndDate < :today)
+                               )
+                           )
                       )
                     """
     )

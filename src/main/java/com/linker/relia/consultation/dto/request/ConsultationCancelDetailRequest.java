@@ -3,6 +3,8 @@ package com.linker.relia.consultation.dto.request;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Getter
 @NoArgsConstructor
 public class ConsultationCancelDetailRequest {
@@ -28,4 +30,16 @@ public class ConsultationCancelDetailRequest {
     private Boolean managementDissatisfaction;
 
     private String retentionPossibility;
+
+    private List<String> reviewReasons;
+
+    private String reasonDetail;
+
+    private List<String> retentionPlans;
+
+    private String customerIntent;
+
+    private String result;
+
+    private List<String> nextActions;
 }

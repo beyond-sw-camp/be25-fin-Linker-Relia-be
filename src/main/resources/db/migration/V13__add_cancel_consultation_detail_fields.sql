@@ -1,0 +1,7 @@
+ALTER TABLE consultation_cancel_details
+    ADD COLUMN IF NOT EXISTS review_reasons JSON NULL,
+    ADD COLUMN IF NOT EXISTS reason_detail VARCHAR(500) NULL,
+    ADD COLUMN IF NOT EXISTS retention_plans JSON NULL,
+    ADD COLUMN IF NOT EXISTS customer_intent VARCHAR(100) NULL,
+    ADD COLUMN IF NOT EXISTS result VARCHAR(100) NULL,
+    ADD COLUMN IF NOT EXISTS next_actions JSON NULL;

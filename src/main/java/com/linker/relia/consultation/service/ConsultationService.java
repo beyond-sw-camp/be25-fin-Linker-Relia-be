@@ -16,7 +16,7 @@ public interface ConsultationService {
             User fp
     );
 
-    Page<ConsultationListResponse> getConsultations(Pageable pageable);
+    Page<ConsultationListResponse> getConsultations(Pageable pageable, User user);
 
     ConsultationDetailResponse getConsultationDetail(
             UUID consultationId,

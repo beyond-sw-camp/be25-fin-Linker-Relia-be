@@ -17,4 +17,5 @@ public class CustomerOwnedContractResponse {
     private final LocalDate contractStartDate;
     private final LocalDate contractEndDate;
     private final String contractStatus;
+    private final LocalDate terminatedAt;
 }

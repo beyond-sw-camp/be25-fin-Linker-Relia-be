@@ -606,7 +606,13 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                     ct.monthlyPremium,
                     ct.contractStartDate,
                     ct.contractEndDate,
-                    ct.contractStatus
+                    ct.contractStatus,
+                    (
+                        select max(cmc.terminatedAt)
+                        from ContractMonthlyClosing cmc
+                        where cmc.contract = ct
+                          and (cmc.terminatedYn = true or cmc.contractStatus = 'TERMINATED')
+                    )
                 )
                 from Contract ct
                 join ct.insuranceProduct ip
@@ -636,7 +642,13 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                     ct.monthlyPremium,
                     ct.contractStartDate,
                     ct.contractEndDate,
-                    ct.contractStatus
+                    ct.contractStatus,
+                    (
+                        select max(cmc.terminatedAt)
+                        from ContractMonthlyClosing cmc
+                        where cmc.contract = ct
+                          and (cmc.terminatedYn = true or cmc.contractStatus = 'TERMINATED')
+                    )
                 )
                 from Contract ct
                 join ct.insuranceProduct ip

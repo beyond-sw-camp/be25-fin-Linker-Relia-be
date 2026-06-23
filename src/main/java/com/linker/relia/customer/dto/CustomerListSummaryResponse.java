@@ -9,8 +9,5 @@ import lombok.Getter;
 @Builder
 public class CustomerListSummaryResponse {
     private final long totalCustomerCount;
-    private final long contractedCustomerCount;
     private final long prospectCustomerCount;
-    private final long completedCustomerCount;
-    private final long terminatedCustomerCount;
 }

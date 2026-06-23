@@ -111,11 +111,7 @@ public class CustomerServiceImpl implements CustomerService {
         CustomerDetailQueryResult customerDetail = customerRepository.findCustomerDetail(accessScope, customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
 
-        CustomerContractSummaryResponse contractSummary = contractRepository.summarizeCustomerContracts(
-                customerId,
-                LocalDate.now(),
-                LocalDate.now().plusDays(30)
-        );
+        CustomerContractSummaryResponse contractSummary = contractRepository.summarizeCustomerContracts(customerId);
 
         return CustomerDetailResponse.builder()
                 .customerId(customerDetail.customerId())

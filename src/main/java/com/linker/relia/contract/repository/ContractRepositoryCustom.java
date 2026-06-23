@@ -19,9 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ContractRepositoryCustom {
-    CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId,
-                                                              LocalDate referenceDate,
-                                                              LocalDate dueDateLimit);
+    CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId);
 
 
     ContractSummaryResponse summarizeHoldingContracts(AccessScope accessScope,

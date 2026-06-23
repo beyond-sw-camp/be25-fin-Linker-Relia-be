@@ -24,8 +24,9 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,31 +36,35 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     private EntityManager entityManager;
 
     @Override
-    public CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId,
-                                                                     LocalDate referenceDate,
-                                                                     LocalDate dueDateLimit) {
-        String jpql = """
-                select new com.linker.relia.customer.dto.CustomerContractSummaryResponse(
-                    count(ct),
-                    coalesce(sum(ct.monthlyPremium), 0),
-                    coalesce(sum(case when ct.contractStatus = 'MAINTENANCE' then 1L else 0L end), 0L),
-                    coalesce(sum(case
-                        when ct.contractStatus = 'MAINTENANCE'
-                         and ct.contractEndDate between :referenceDate and :dueDateLimit then 1L
-                        else 0L
-                    end), 0L)
-                )
-                from Contract ct
-                where ct.customer.id = :customerId
-                  and ct.deletedAt is null
+    public CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId) {
+        String sql = """
+                select
+                    count(*) as total_contract_count,
+                    coalesce(sum(ct.monthly_premium), 0) as total_monthly_premium,
+                    coalesce(sum(case when ct.contract_status = 'MAINTENANCE' then 1 else 0 end), 0) as maintenance_count,
+                    coalesce(sum(case when ct.contract_status = 'COMPLETED' then 1 else 0 end), 0) as completed_count,
+                    coalesce(sum(case when ct.contract_status = 'TERMINATED' then 1 else 0 end), 0) as terminated_count,
+                    coalesce(sum(case when ct.contract_status = 'LAPSED' then 1 else 0 end), 0) as lapsed_count
+                from contracts ct
+                where ct.customer_id = :customerId
+                  and ct.deleted_at is null
                 """;
 
-        TypedQuery<CustomerContractSummaryResponse> query =
-                entityManager.createQuery(jpql, CustomerContractSummaryResponse.class);
-        query.setParameter("customerId", customerId);
-        query.setParameter("referenceDate", referenceDate);
-        query.setParameter("dueDateLimit", dueDateLimit);
-        return query.getSingleResult();
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("customerId", customerId.toString());
+
+        Object[] row = (Object[]) query.getSingleResult();
+        Map<String, Long> contractStatusCounts = CustomerContractSummaryResponse.defaultContractStatusCounts();
+        contractStatusCounts.put("MAINTENANCE", toLong(row[2]));
+        contractStatusCounts.put("COMPLETED", toLong(row[3]));
+        contractStatusCounts.put("TERMINATED", toLong(row[4]));
+        contractStatusCounts.put("LAPSED", toLong(row[5]));
+
+        return CustomerContractSummaryResponse.builder()
+                .totalContractCount(toLong(row[0]))
+                .totalMonthlyPremium(toBigDecimal(row[1]))
+                .contractStatusCounts(contractStatusCounts)
+                .build();
     }
 
     @Override

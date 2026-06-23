@@ -1,6 +1,7 @@
 package com.linker.relia.contract.repository;
 
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.contract.dto.CustomerContractSummaryRow;
 import com.linker.relia.contract.dto.ContractDetailQueryResult;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListSort;
@@ -37,32 +38,34 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
 
     @Override
     public CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId) {
-        String sql = """
-                select
-                    count(*) as total_contract_count,
-                    coalesce(sum(ct.monthly_premium), 0) as total_monthly_premium,
-                    coalesce(sum(case when ct.contract_status = 'MAINTENANCE' then 1 else 0 end), 0) as maintenance_count,
-                    coalesce(sum(case when ct.contract_status = 'COMPLETED' then 1 else 0 end), 0) as completed_count,
-                    coalesce(sum(case when ct.contract_status = 'TERMINATED' then 1 else 0 end), 0) as terminated_count,
-                    coalesce(sum(case when ct.contract_status = 'LAPSED' then 1 else 0 end), 0) as lapsed_count
-                from contracts ct
-                where ct.customer_id = :customerId
-                  and ct.deleted_at is null
+        String jpql = """
+                select new com.linker.relia.contract.dto.CustomerContractSummaryRow(
+                    count(ct),
+                    coalesce(sum(ct.monthlyPremium), 0),
+                    coalesce(sum(case when ct.contractStatus = 'MAINTENANCE' then 1L else 0L end), 0L),
+                    coalesce(sum(case when ct.contractStatus = 'COMPLETED' then 1L else 0L end), 0L),
+                    coalesce(sum(case when ct.contractStatus = 'TERMINATED' then 1L else 0L end), 0L),
+                    coalesce(sum(case when ct.contractStatus = 'LAPSED' then 1L else 0L end), 0L)
+                )
+                from Contract ct
+                where ct.customer.id = :customerId
+                  and ct.deletedAt is null
                 """;
 
-        Query query = entityManager.createNativeQuery(sql);
-        query.setParameter("customerId", customerId.toString());
+        TypedQuery<CustomerContractSummaryRow> query =
+                entityManager.createQuery(jpql, CustomerContractSummaryRow.class);
+        query.setParameter("customerId", customerId);
 
-        Object[] row = (Object[]) query.getSingleResult();
+        CustomerContractSummaryRow summaryRow = query.getSingleResult();
         Map<String, Long> contractStatusCounts = CustomerContractSummaryResponse.defaultContractStatusCounts();
-        contractStatusCounts.put("MAINTENANCE", toLong(row[2]));
-        contractStatusCounts.put("COMPLETED", toLong(row[3]));
-        contractStatusCounts.put("TERMINATED", toLong(row[4]));
-        contractStatusCounts.put("LAPSED", toLong(row[5]));
+        contractStatusCounts.put("MAINTENANCE", summaryRow.maintenanceCount());
+        contractStatusCounts.put("COMPLETED", summaryRow.completedCount());
+        contractStatusCounts.put("TERMINATED", summaryRow.terminatedCount());
+        contractStatusCounts.put("LAPSED", summaryRow.lapsedCount());
 
         return CustomerContractSummaryResponse.builder()
-                .totalContractCount(toLong(row[0]))
-                .totalMonthlyPremium(toBigDecimal(row[1]))
+                .totalContractCount(summaryRow.totalContractCount())
+                .totalMonthlyPremium(summaryRow.totalMonthlyPremium())
                 .contractStatusCounts(contractStatusCounts)
                 .build();
     }

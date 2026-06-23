@@ -10,6 +10,7 @@ import com.linker.relia.contract.dto.ContractMonthlyTrendResponse;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
+import com.linker.relia.customer.dto.CustomerOwnedContractStatus;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -604,6 +605,7 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                     ip.insuranceProductName,
                     ct.monthlyPremium,
                     ct.contractStartDate,
+                    ct.contractEndDate,
                     ct.contractStatus
                 )
                 from Contract ct
@@ -620,5 +622,56 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 entityManager.createQuery(jpql, CustomerOwnedContractResponse.class);
         query.setParameter("customerId", customerId);
         return query.getResultList();
+    }
+
+    @Override
+    public Page<CustomerOwnedContractResponse> findOwnCustomerContracts(UUID customerId,
+                                                                        CustomerOwnedContractStatus contractStatus,
+                                                                        Pageable pageable) {
+        String jpql = """
+                select new com.linker.relia.customer.dto.CustomerOwnedContractResponse(
+                    ct.id,
+                    ic.insuranceCompanyName,
+                    ip.insuranceProductName,
+                    ct.monthlyPremium,
+                    ct.contractStartDate,
+                    ct.contractEndDate,
+                    ct.contractStatus
+                )
+                from Contract ct
+                join ct.insuranceProduct ip
+                join ip.insuranceCompany ic
+                where ct.customer.id = :customerId
+                  and (:contractStatus is null or ct.contractStatus = :contractStatus)
+                  and ct.deletedAt is null
+                  and ip.deletedAt is null
+                  and ic.deletedAt is null
+                order by ct.contractStartDate desc, ct.createdAt desc
+                """;
+
+        TypedQuery<CustomerOwnedContractResponse> query =
+                entityManager.createQuery(jpql, CustomerOwnedContractResponse.class);
+        query.setParameter("customerId", customerId);
+        query.setParameter("contractStatus", contractStatus == null ? null : contractStatus.name());
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+
+        String countJpql = """
+                select count(ct)
+                from Contract ct
+                join ct.insuranceProduct ip
+                join ip.insuranceCompany ic
+                where ct.customer.id = :customerId
+                  and (:contractStatus is null or ct.contractStatus = :contractStatus)
+                  and ct.deletedAt is null
+                  and ip.deletedAt is null
+                  and ic.deletedAt is null
+                """;
+
+        TypedQuery<Long> countQuery = entityManager.createQuery(countJpql, Long.class);
+        countQuery.setParameter("customerId", customerId);
+        countQuery.setParameter("contractStatus", contractStatus == null ? null : contractStatus.name());
+
+        return new PageImpl<>(query.getResultList(), pageable, countQuery.getSingleResult());
     }
 }

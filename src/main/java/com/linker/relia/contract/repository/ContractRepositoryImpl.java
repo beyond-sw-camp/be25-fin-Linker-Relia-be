@@ -82,8 +82,14 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                     end), 0) as lapse_expected_count,
                     coalesce(sum(case
                         when ct.contract_status = 'MAINTENANCE'
+                         and ip.is_renewable = false
                          and ct.contract_end_date between :referenceDate and :dueDateLimit then 1 else 0
-                    end), 0) as expiring_soon_count
+                    end), 0) as expiring_soon_count,
+                    coalesce(sum(case
+                        when ct.contract_status = 'MAINTENANCE'
+                         and ip.is_renewable = true
+                         and ct.contract_end_date between :referenceDate and :dueDateLimit then 1 else 0
+                    end), 0) as renewal_soon_count
                 from contracts ct
                 join users fp on fp.id = ct.fp_id
                 join organizations org on org.id = fp.organization_id
@@ -114,6 +120,7 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 .unpaidCount(toLong(row[2]))
                 .lapseExpectedCount(toLong(row[3]))
                 .expiringSoonCount(toLong(row[4]))
+                .renewalSoonCount(toLong(row[5]))
                 .build();
     }
 

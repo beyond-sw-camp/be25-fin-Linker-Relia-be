@@ -1,5 +1,6 @@
 package com.linker.relia.insurance.domain;
 
+import com.linker.relia.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -15,6 +16,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -24,7 +26,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "insurance_products")
-public class InsuranceProduct {
+public class InsuranceProduct extends BaseEntity {
     @Id
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "id")
@@ -47,6 +49,45 @@ public class InsuranceProduct {
     @Column(name = "insurance_product_status")
     private String insuranceProductStatus;
 
+    @Column(name = "insurance_start_date")
+    private LocalDate insuranceStartDate;
+
+    @Column(name = "insurance_end_date")
+    private LocalDate insuranceEndDate;
+
+    @Column(name = "coverage_period_type")
+    private String coveragePeriodType;
+
+    @Column(name = "coverage_period_years")
+    private Integer coveragePeriodYears;
+
+    @Column(name = "coverage_age_limit")
+    private Integer coverageAgeLimit;
+
+    @Column(name = "is_lifetime_coverage")
+    private Boolean isLifetimeCoverage;
+
+    @Column(name = "is_renewable")
+    private Boolean isRenewable;
+
+    @Column(name = "renewal_cycle")
+    private Integer renewalCycle;
+
+    @Column(name = "product_description")
+    private String productDescription;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    public void updateManagementInfo(String insuranceProductStatus, String productDescription) {
+        this.insuranceProductStatus = insuranceProductStatus;
+        this.productDescription = productDescription;
+
+        if ("INACTIVE".equals(insuranceProductStatus)) {
+            this.deletedAt = LocalDateTime.now();
+            return;
+        }
+
+        this.deletedAt = null;
+    }
 }

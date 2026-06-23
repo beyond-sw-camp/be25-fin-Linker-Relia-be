@@ -380,20 +380,54 @@ INSERT INTO insurance_products (
 SELECT
     CONCAT('52000000-0000-0000-0000-', LPAD(n, 12, '0')) AS id,
     CONCAT('LP', LPAD(n, 3, '0')) AS insurance_product_code,
-    CONCAT('50000000-0000-0000-0000-', LPAD(((n - 1) MOD 5) + 1, 12, '0')) AS insurance_company_id,
-    CONCAT('51000000-0000-0000-0000-', LPAD(((n - 1) MOD 6) + 1, 12, '0')) AS insurance_category_id,
-    CASE ((n - 1) MOD 6) + 1
-        WHEN 1 THEN CONCAT('스마트정기보험 ', LPAD(n, 2, '0'))
-        WHEN 2 THEN CONCAT('든든종신보험 ', LPAD(n, 2, '0'))
-        WHEN 3 THEN CONCAT('건강특약플랜 ', LPAD(n, 2, '0'))
-        WHEN 4 THEN CONCAT('암보장플랜 ', LPAD(n, 2, '0'))
-        WHEN 5 THEN CONCAT('CI GI 케어보험 ', LPAD(n, 2, '0'))
-        ELSE CONCAT('평생연금보험 ', LPAD(n, 2, '0'))
+    CONCAT('50000000-0000-0000-0000-', LPAD(company_seq, 12, '0')) AS insurance_company_id,
+    CONCAT('51000000-0000-0000-0000-', LPAD(category_seq, 12, '0')) AS insurance_category_id,
+    CASE company_seq
+        WHEN 1 THEN CASE category_seq
+            WHEN 1 THEN CONCAT('The정기보험 플러스 ', LPAD(n, 2, '0'))
+            WHEN 2 THEN CONCAT('The종신보험 프라임 ', LPAD(n, 2, '0'))
+            WHEN 3 THEN CONCAT('건강생활특약 ', LPAD(n, 2, '0'))
+            WHEN 4 THEN CONCAT('암진단플러스보험 ', LPAD(n, 2, '0'))
+            WHEN 5 THEN CONCAT('CI평생케어보험 ', LPAD(n, 2, '0'))
+            ELSE CONCAT('내일연금플랜 ', LPAD(n, 2, '0'))
+        END
+        WHEN 2 THEN CASE category_seq
+            WHEN 1 THEN CONCAT('시그니처정기보험 ', LPAD(n, 2, '0'))
+            WHEN 2 THEN CONCAT('라이프플러스종신보험 ', LPAD(n, 2, '0'))
+            WHEN 3 THEN CONCAT('건강안심특약 ', LPAD(n, 2, '0'))
+            WHEN 4 THEN CONCAT('스마트암케어보험 ', LPAD(n, 2, '0'))
+            WHEN 5 THEN CONCAT('GI집중보장보험 ', LPAD(n, 2, '0'))
+            ELSE CONCAT('연금든든플랜 ', LPAD(n, 2, '0'))
+        END
+        WHEN 3 THEN CASE category_seq
+            WHEN 1 THEN CONCAT('교보다솜정기보험 ', LPAD(n, 2, '0'))
+            WHEN 2 THEN CONCAT('평생든든종신보험 ', LPAD(n, 2, '0'))
+            WHEN 3 THEN CONCAT('헬스케어특약 ', LPAD(n, 2, '0'))
+            WHEN 4 THEN CONCAT('암케어서포트보험 ', LPAD(n, 2, '0'))
+            WHEN 5 THEN CONCAT('CI케어종합보험 ', LPAD(n, 2, '0'))
+            ELSE CONCAT('연금골든플랜 ', LPAD(n, 2, '0'))
+        END
+        WHEN 4 THEN CASE category_seq
+            WHEN 1 THEN CONCAT('신한밸런스정기보험 ', LPAD(n, 2, '0'))
+            WHEN 2 THEN CONCAT('참좋은종신보험 ', LPAD(n, 2, '0'))
+            WHEN 3 THEN CONCAT('라이프밸런스특약 ', LPAD(n, 2, '0'))
+            WHEN 4 THEN CONCAT('참좋은암보험 ', LPAD(n, 2, '0'))
+            WHEN 5 THEN CONCAT('CI올케어보험 ', LPAD(n, 2, '0'))
+            ELSE CONCAT('미래연금보험 ', LPAD(n, 2, '0'))
+        END
+        ELSE CASE category_seq
+            WHEN 1 THEN CONCAT('NH안심정기보험 ', LPAD(n, 2, '0'))
+            WHEN 2 THEN CONCAT('행복종신보험 ', LPAD(n, 2, '0'))
+            WHEN 3 THEN CONCAT('건강채움특약 ', LPAD(n, 2, '0'))
+            WHEN 4 THEN CONCAT('든든한암보험 ', LPAD(n, 2, '0'))
+            WHEN 5 THEN CONCAT('GI안심케어보험 ', LPAD(n, 2, '0'))
+            ELSE CONCAT('평생안심연금보험 ', LPAD(n, 2, '0'))
+        END
     END AS insurance_product_name,
     'ACTIVE',
     '2024-01-01',
     NULL,
-    CASE ((n - 1) MOD 6) + 1
+    CASE category_seq
         WHEN 1 THEN 'YEARS'
         WHEN 2 THEN 'LIFETIME'
         WHEN 3 THEN 'YEARS'
@@ -401,7 +435,7 @@ SELECT
         WHEN 5 THEN 'AGE'
         ELSE 'YEARS'
     END AS coverage_period_type,
-    CASE ((n - 1) MOD 6) + 1
+    CASE category_seq
         WHEN 1 THEN 20
         WHEN 2 THEN NULL
         WHEN 3 THEN 20
@@ -409,20 +443,20 @@ SELECT
         WHEN 5 THEN NULL
         ELSE 15
     END AS coverage_period_years,
-    CASE ((n - 1) MOD 6) + 1
+    CASE category_seq
         WHEN 5 THEN 90
         ELSE NULL
     END AS coverage_age_limit,
-    CASE ((n - 1) MOD 6) + 1
+    CASE category_seq
         WHEN 2 THEN TRUE
         ELSE FALSE
     END AS is_lifetime_coverage,
-    CASE ((n - 1) MOD 6) + 1
+    CASE category_seq
         WHEN 2 THEN FALSE
         WHEN 5 THEN FALSE
         ELSE TRUE
     END AS is_renewable,
-    CASE ((n - 1) MOD 6) + 1
+    CASE category_seq
         WHEN 1 THEN 10
         WHEN 2 THEN NULL
         WHEN 3 THEN 5
@@ -430,15 +464,40 @@ SELECT
         WHEN 5 THEN NULL
         ELSE 10
     END AS renewal_cycle,
-    CONCAT('생명보험 시연용 상품 더미 데이터 ', LPAD(n, 3, '0')) AS product_description,
+    CONCAT(
+        CASE company_seq
+            WHEN 1 THEN '삼성생명'
+            WHEN 2 THEN '한화생명'
+            WHEN 3 THEN '교보생명'
+            WHEN 4 THEN '신한라이프'
+            ELSE 'NH농협생명'
+        END,
+        ' ',
+        CASE category_seq
+            WHEN 1 THEN '정기보험'
+            WHEN 2 THEN '종신보험'
+            WHEN 3 THEN '건강특약형'
+            WHEN 4 THEN '암보험'
+            WHEN 5 THEN 'CI_GI보험'
+            ELSE '연금보험'
+        END,
+        ' 시연용 상품 더미 데이터 ',
+        LPAD(n, 3, '0')
+    ) AS product_description,
     @SYSTEM_USER_ID,
     @SYSTEM_USER_ID
 FROM (
-    SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
-    UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
-    UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15 UNION ALL SELECT 16 UNION ALL SELECT 17 UNION ALL SELECT 18
-    UNION ALL SELECT 19 UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23 UNION ALL SELECT 24
-) numbers;
+    SELECT
+        n,
+        ((n - 1) MOD 5) + 1 AS company_seq,
+        ((n - 1) MOD 6) + 1 AS category_seq
+    FROM (
+        SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+        UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
+        UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15 UNION ALL SELECT 16 UNION ALL SELECT 17 UNION ALL SELECT 18
+        UNION ALL SELECT 19 UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23 UNION ALL SELECT 24
+    ) numbers
+) product_numbers;
 
 INSERT INTO disease_codes (
     id,

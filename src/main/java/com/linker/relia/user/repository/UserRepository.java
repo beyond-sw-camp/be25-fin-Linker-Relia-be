@@ -2,6 +2,7 @@ package com.linker.relia.user.repository;
 
 import com.linker.relia.user.domain.User;
 import com.linker.relia.user.domain.UserRole;
+import com.linker.relia.user.domain.UserStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,6 +29,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @EntityGraph(attributePaths = "organization")
     Optional<User> findByOrganizationIdAndUserRoleAndDeletedAtIsNull(UUID organizationId, UserRole userRole);
+
+    @EntityGraph(attributePaths = "organization")
+    List<User> findByOrganizationOrganizationCodeAndUserRoleAndUserStatusAndDeletedAtIsNullOrderByUserNameAsc(
+            String organizationCode,
+            UserRole userRole,
+            UserStatus userStatus
+    );
 
     @EntityGraph(attributePaths = "organization")
     Optional<User> findByIdAndDeletedAtIsNull(UUID id);

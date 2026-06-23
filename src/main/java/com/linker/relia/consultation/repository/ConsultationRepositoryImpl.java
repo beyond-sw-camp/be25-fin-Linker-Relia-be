@@ -1,6 +1,7 @@
 package com.linker.relia.consultation.repository;
 
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.consultation.dto.response.ConsultationAiBriefingSourceResponse;
 import com.linker.relia.consultation.dto.response.ConsultationHistoryItemResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -71,6 +72,43 @@ public class ConsultationRepositoryImpl implements ConsultationRepositoryCustom 
         } else if (accessScope.isBranchScope()) {
             query.setParameter("organizationId", accessScope.organizationId());
         }
+    }
+
+    @Override
+    public List<ConsultationAiBriefingSourceResponse> findConsultationsForAiBriefing(
+            AccessScope accessScope,
+            UUID customerId
+    ) {
+        String jpql = """
+            select new com.linker.relia.consultation.dto.response.ConsultationAiBriefingSourceResponse(
+                cs.id,
+                cs.consultationSequence,
+                cs.consultedAt,
+                cs.consultationType,
+                cs.consultationChannel,
+                fp.userName,
+                cs.specialNote,
+                cs.nextScheduledAt
+            )
+            from Consultation cs
+            join cs.customer c
+            join c.customerFp customerFp
+            join customerFp.organization org
+            join cs.fp fp
+            """ + buildWhereClause(accessScope) + """
+            order by cs.consultedAt desc, cs.createdAt desc
+            """;
+
+        TypedQuery<ConsultationAiBriefingSourceResponse> query =
+                entityManager.createQuery(
+                        jpql,
+                        ConsultationAiBriefingSourceResponse.class
+                );
+
+        bindAccessScope(query, accessScope);
+        query.setParameter("customerId", customerId);
+
+        return query.getResultList();
     }
 
     private String buildWhereClause(AccessScope accessScope) {

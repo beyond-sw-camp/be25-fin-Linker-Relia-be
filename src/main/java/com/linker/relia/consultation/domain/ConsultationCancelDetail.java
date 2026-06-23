@@ -1,5 +1,6 @@
 package com.linker.relia.consultation.domain;
 
+import com.linker.relia.consultation.domain.converter.StringListJsonConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -7,6 +8,7 @@ import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -59,6 +61,27 @@ public class ConsultationCancelDetail {
 
     @Column(name = "retention_possibility", nullable = false, length = 30)
     private String retentionPossibility;
+
+    @Convert(converter = StringListJsonConverter.class)
+    @Column(name = "review_reasons", columnDefinition = "LONGTEXT")
+    private List<String> reviewReasons;
+
+    @Column(name = "reason_detail", length = 500)
+    private String reasonDetail;
+
+    @Convert(converter = StringListJsonConverter.class)
+    @Column(name = "retention_plans", columnDefinition = "LONGTEXT")
+    private List<String> retentionPlans;
+
+    @Column(name = "customer_intent", length = 100)
+    private String customerIntent;
+
+    @Column(name = "result", length = 100)
+    private String result;
+
+    @Convert(converter = StringListJsonConverter.class)
+    @Column(name = "next_actions", columnDefinition = "LONGTEXT")
+    private List<String> nextActions;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

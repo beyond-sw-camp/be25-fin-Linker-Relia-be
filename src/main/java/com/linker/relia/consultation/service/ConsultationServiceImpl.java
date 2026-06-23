@@ -125,9 +125,18 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ConsultationListResponse> getConsultations(Pageable pageable) {
-        return consultationRepository.findAllByDeletedAtIsNull(pageable)
-                .map(ConsultationListResponse::from);
+    public Page<ConsultationListResponse> getConsultations(Pageable pageable, User user) {
+        Page<Consultation> consultations = switch (user.getUserRole()) {
+            case HQ_MANAGER -> consultationRepository.findAllByDeletedAtIsNull(pageable);
+            case BRANCH_MANAGER -> consultationRepository.findAllByAuthorOrganizationId(
+                    user.getOrganization().getId(),
+                    pageable
+            );
+            case FP -> consultationRepository.findAllAccessibleByFpId(user.getId(), pageable);
+            default -> throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
+        };
+
+        return consultations.map(ConsultationListResponse::from);
     }
 
     @Override
@@ -330,19 +339,22 @@ public class ConsultationServiceImpl implements ConsultationService {
         return NewDetailResponse.from(detail, coverageNeeds, proposedProducts);
     }
 
-    private void validateConsultationAccess(Consultation consultation, User fp) {
-        switch (fp.getUserRole()) {
+    private void validateConsultationAccess(Consultation consultation, User user) {
+        switch (user.getUserRole()) {
             case HQ_MANAGER -> {
                 return;
             }
             case BRANCH_MANAGER -> {
-                if (!consultation.getCustomer().getCustomerFp().getOrganization().getId()
-                        .equals(fp.getOrganization().getId())) {
+                if (!consultation.getFp().getOrganization().getId()
+                        .equals(user.getOrganization().getId())) {
                     throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
                 }
             }
             case FP -> {
-                if (!consultation.getCustomer().getCustomerFp().getId().equals(fp.getId())) {
+                boolean isAuthor = consultation.getFp().getId().equals(user.getId());
+                boolean isAssignedCustomer = consultation.getCustomer().getCustomerFp().getId()
+                        .equals(user.getId());
+                if (!isAuthor && !isAssignedCustomer) {
                     throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
                 }
             }
@@ -480,10 +492,12 @@ public class ConsultationServiceImpl implements ConsultationService {
             throw new IllegalArgumentException("보험금 청구 상담 상세 정보는 필수입니다.");
         }
 
+        String claimType = request.getClaimDetail().getClaimType();
         ConsultationClaimDetail detail = ConsultationClaimDetail.builder()
                 .consultation(consultation)
                 .claimStage("COMPLETED")
                 .incidentDate(request.getClaimDetail().getIncidentDate())
+                .claimType(claimType == null || claimType.isBlank() ? null : claimType.trim())
                 .claimResult(request.getClaimDetail().getResult())
                 .claimReasonDetail(request.getClaimDetail().getClaimReason())
                 .hospitalName(request.getClaimDetail().getHospitalName())
@@ -625,6 +639,12 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .plannerContactDissatisfaction(request.getCancelDetail().getPlannerContactDissatisfaction())
                 .managementDissatisfaction(request.getCancelDetail().getManagementDissatisfaction())
                 .retentionPossibility(request.getCancelDetail().getRetentionPossibility())
+                .reviewReasons(request.getCancelDetail().getReviewReasons())
+                .reasonDetail(request.getCancelDetail().getReasonDetail())
+                .retentionPlans(request.getCancelDetail().getRetentionPlans())
+                .customerIntent(request.getCancelDetail().getCustomerIntent())
+                .result(request.getCancelDetail().getResult())
+                .nextActions(request.getCancelDetail().getNextActions())
                 .createdAt(now)
                 .createdBy(fp.getId())
                 .updatedAt(now)

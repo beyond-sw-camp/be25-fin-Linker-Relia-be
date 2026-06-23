@@ -4,6 +4,8 @@ import com.linker.relia.consultation.domain.ConsultationCancelDetail;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
+
 @Getter
 @Builder
 public class CancelDetailResponse {
@@ -19,6 +21,12 @@ public class CancelDetailResponse {
     private Boolean plannerContactDissatisfaction;
     private Boolean managementDissatisfaction;
     private String retentionPossibility;
+    private List<String> reviewReasons;
+    private String reasonDetail;
+    private List<String> retentionPlans;
+    private String customerIntent;
+    private String result;
+    private List<String> nextActions;
 
     public static CancelDetailResponse from(ConsultationCancelDetail detail) {
         return CancelDetailResponse.builder()
@@ -33,6 +41,12 @@ public class CancelDetailResponse {
                 .plannerContactDissatisfaction(detail.getPlannerContactDissatisfaction())
                 .managementDissatisfaction(detail.getManagementDissatisfaction())
                 .retentionPossibility(detail.getRetentionPossibility())
+                .reviewReasons(detail.getReviewReasons())
+                .reasonDetail(detail.getReasonDetail())
+                .retentionPlans(detail.getRetentionPlans())
+                .customerIntent(detail.getCustomerIntent())
+                .result(detail.getResult())
+                .nextActions(detail.getNextActions())
                 .build();
     }
 }

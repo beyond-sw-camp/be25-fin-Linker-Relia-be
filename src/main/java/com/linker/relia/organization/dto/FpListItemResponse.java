@@ -17,7 +17,11 @@ public class FpListItemResponse {
     private final UUID organizationId;
     private final String organizationName;
     private final String closingMonth;
+    private final Integer rank;
     private final long customerCount;
     private final long contractCount;
     private final BigDecimal retentionRate;
+    private final Integer totalRank;
+    private final Integer branchRank;
+    private final BigDecimal performanceScore;
 }

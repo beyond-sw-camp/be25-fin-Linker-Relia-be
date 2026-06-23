@@ -1,11 +1,13 @@
 package com.linker.relia.common.exception;
 
+import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.dto.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -64,6 +66,12 @@ public class GlobalExceptionHandler {
     ) {
         log.warn("데이터 제약조건 위반이 발생했습니다.", exception);
         return ApiResponse.failure(CommonErrorCode.INVALID_REQUEST, "요청 값이 데이터 제약조건을 위반했습니다.");
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException exception) {
+        log.warn("접근 권한이 없습니다.", exception);
+        return ApiResponse.failure(AuthErrorCode.USER_FORBIDDEN, null);
     }
 
     @ExceptionHandler(Exception.class)

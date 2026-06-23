@@ -26,6 +26,7 @@ import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.handover.exception.HandoverErrorCode;
+import com.linker.relia.handover.event.HandoverSmsEvent;
 import com.linker.relia.handover.repository.HandoverDetailQueryRepository;
 import com.linker.relia.handover.repository.HandoverReceivedQueryRepository;
 import com.linker.relia.handover.repository.HandoverRecommendationRepository;
@@ -39,6 +40,7 @@ import com.linker.relia.user.domain.User;
 import com.linker.relia.user.domain.UserRole;
 import com.linker.relia.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -67,6 +69,7 @@ public class HandoverService {
     private final HandoverReceivedQueryRepository handoverReceivedQueryRepository;
     private final UserRepository userRepository;
     private final NotificationPublisher notificationPublisher;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 인수인계 요청 생성
     public HandoverCreateResponse createHandover(PrincipalDetails principal, HandoverCreateRequest request) {
@@ -255,8 +258,10 @@ public class HandoverService {
             // 4-1. 추천 승인
             recommendation.approve(user.getId());
 
+            User newFp = recommendation.getRecommendedFp();
+
             // 4-2. 담당 설계사 변경
-            customer.changeCustomerFp(recommendation.getRecommendedFp());
+            customer.changeCustomerFp(newFp);
 
             // 4-3. 이력 저장
             int nextSequence = customerFpHistoryRepository.findMaxCustomerFpSequence(customer.getId()) + 1;
@@ -275,11 +280,17 @@ public class HandoverService {
 
             // SSE 알림
             notificationPublisher.publish(NotificationEvent.builder()
-                    .receiverUserId(recommendation.getRecommendedFp().getId())
+                    .receiverUserId(newFp.getId())
                     .type(NotificationType.HANDOVER_RECEIVED)
                     .message(customer.getCustomerName() + " 고객이 담당 고객으로 배정되었습니다.")
                     .referenceId(handoverRequest.getId())
                     .build());
+
+            // SMS 발송
+            eventPublisher.publishEvent(new HandoverSmsEvent(
+                    customer.getCustomerPhone(),
+                    newFp.getUserName()
+            ));
 
         } else {
             // ── 반려 처리 ──
@@ -432,6 +443,12 @@ public class HandoverService {
                 .message(customer.getCustomerName() + " 고객이 담당 고객으로 배정되었습니다.")
                 .referenceId(handoverRequest.getId())
                 .build());
+
+        // SMS 발송
+        eventPublisher.publishEvent(new HandoverSmsEvent(
+                customer.getCustomerPhone(),
+                assignedFp.getUserName()
+        ));
     }
 
     // 인수인계 상세 조회 접근

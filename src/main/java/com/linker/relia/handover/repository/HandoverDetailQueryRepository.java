@@ -122,15 +122,13 @@ public class HandoverDetailQueryRepository {
         return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
     }
 
-    public Optional<FpMonthlyInfo> findLatestFpMonthlyInfo(String empCode, String fpName) {
+    public Optional<FpMonthlyInfo> findLatestFpMonthlyInfo(String empCode) {
         List<FpMonthlyInfo> result = entityManager.createQuery("""
         SELECT f FROM FpMonthlyInfo f
-        WHERE (:empCode IS NOT NULL AND f.empCode = :empCode)
-           OR (:fpName IS NOT NULL AND f.fpName = :fpName)
+        WHERE f.empCode = :empCode
         ORDER BY f.closingMonth DESC
         """, FpMonthlyInfo.class)
                 .setParameter("empCode", empCode)
-                .setParameter("fpName", fpName)
                 .setMaxResults(1)
                 .getResultList();
         return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));

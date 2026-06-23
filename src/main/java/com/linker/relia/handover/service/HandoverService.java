@@ -172,8 +172,7 @@ public class HandoverService {
 
         Optional<FpMonthlyInfo> fpInfo = handoverDetailQueryRepository
                 .findLatestFpMonthlyInfo(
-                        recommendation.getRecommendedFp().getEmpCode(),
-                        recommendation.getRecommendedFpName()
+                        recommendation.getRecommendedFp().getEmpCode()
                 );
 
         HandoverDetailResponse.RecommendationInfo recommendationInfo = new HandoverDetailResponse.RecommendationInfo(

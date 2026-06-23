@@ -33,6 +33,3 @@ jobs:
 
       - name: Build bootJar
         run: ./gradlew clean bootJar --no-daemon
-
-      - name: Build Docker image
-        run: docker build -t relia-backend .

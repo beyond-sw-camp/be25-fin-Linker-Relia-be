@@ -9,6 +9,7 @@ import com.linker.relia.contract.dto.ContractMonthlyTrendResponse;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
+import com.linker.relia.customer.dto.CustomerOwnedContractStatus;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,9 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ContractRepositoryCustom {
-    CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId,
-                                                              LocalDate referenceDate,
-                                                              LocalDate dueDateLimit);
+    CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId);
 
 
     ContractSummaryResponse summarizeHoldingContracts(AccessScope accessScope,
@@ -53,4 +52,8 @@ public interface ContractRepositoryCustom {
                                                            UUID contractId);
 
     List<CustomerOwnedContractResponse> findOwnCustomerContracts(UUID customerId);
+
+    Page<CustomerOwnedContractResponse> findOwnCustomerContracts(UUID customerId,
+                                                                 CustomerOwnedContractStatus contractStatus,
+                                                                 Pageable pageable);
 }

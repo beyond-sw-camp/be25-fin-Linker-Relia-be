@@ -20,6 +20,7 @@ import com.linker.relia.customer.dto.CustomerListItemResponse;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
 import com.linker.relia.customer.dto.CustomerListSummaryResponse;
+import com.linker.relia.customer.dto.CustomerOwnedContractRequest;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import com.linker.relia.customer.exception.CustomerErrorCode;
 import com.linker.relia.customer.repository.CustomerFpHistoryRepository;
@@ -33,7 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -111,11 +111,7 @@ public class CustomerServiceImpl implements CustomerService {
         CustomerDetailQueryResult customerDetail = customerRepository.findCustomerDetail(accessScope, customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
 
-        CustomerContractSummaryResponse contractSummary = contractRepository.summarizeCustomerContracts(
-                customerId,
-                LocalDate.now(),
-                LocalDate.now().plusDays(30)
-        );
+        CustomerContractSummaryResponse contractSummary = contractRepository.summarizeCustomerContracts(customerId);
 
         return CustomerDetailResponse.builder()
                 .customerId(customerDetail.customerId())
@@ -147,11 +143,19 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CustomerOwnedContractResponse> getOwnCustomerContracts(PrincipalDetails principalDetails, UUID customerId) {
+    public PageResponse<CustomerOwnedContractResponse> getOwnCustomerContracts(PrincipalDetails principalDetails,
+                                                                               UUID customerId,
+                                                                               CustomerOwnedContractRequest request) {
         AccessScope accessScope = customerAccessService.resolveAccessScope(principalDetails);
         customerAccessService.validateCustomerAccess(accessScope, customerId);
 
-        return contractRepository.findOwnCustomerContracts(customerId);
+        Page<CustomerOwnedContractResponse> contractPage = contractRepository.findOwnCustomerContracts(
+                customerId,
+                request.getContractStatus(),
+                request.toPageable()
+        );
+
+        return PageResponse.from(contractPage);
     }
 
     @Override

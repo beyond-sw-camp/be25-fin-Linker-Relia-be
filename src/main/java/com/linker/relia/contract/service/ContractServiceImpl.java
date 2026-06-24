@@ -389,6 +389,10 @@ public class ContractServiceImpl implements ContractService {
             return "잠재 고객";
         }
 
+        if ("CLOSED".equals(customerStatus)) {
+            return "종료 고객";
+        }
+
         return customerStatus;
     }
 

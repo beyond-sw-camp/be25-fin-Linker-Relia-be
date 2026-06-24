@@ -10,10 +10,10 @@ import com.linker.relia.customer.dto.CustomerInterestListRequest;
 import com.linker.relia.customer.dto.CustomerInterestListResponse;
 import com.linker.relia.customer.dto.CustomerListRequest;
 import com.linker.relia.customer.dto.CustomerListResponse;
+import com.linker.relia.customer.dto.CustomerOwnedContractRequest;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import com.linker.relia.security.principal.PrincipalDetails;
 
-import java.util.List;
 import java.util.UUID;
 
 public interface CustomerService {
@@ -23,7 +23,9 @@ public interface CustomerService {
 
     CustomerDetailResponse getCustomerDetail(PrincipalDetails principalDetails, UUID customerId);
 
-    List<CustomerOwnedContractResponse> getOwnCustomerContracts(PrincipalDetails principalDetails, UUID customerId);
+    PageResponse<CustomerOwnedContractResponse> getOwnCustomerContracts(PrincipalDetails principalDetails,
+                                                                       UUID customerId,
+                                                                       CustomerOwnedContractRequest request);
 
     PageResponse<ConsultationHistoryItemResponse> getOwnCustomerConsultations(PrincipalDetails principalDetails,
                                                                               UUID customerId,

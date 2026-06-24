@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   IMAGE_NAME: ghcr.io/beyond-sw-camp/be25-fin-linker-relia-be
@@ -21,6 +20,9 @@ jobs:
   build:
     name: Build and Push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout source code

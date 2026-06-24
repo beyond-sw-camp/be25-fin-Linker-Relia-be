@@ -20,6 +20,7 @@ public class ConsultationAiStructuredDraft {
     private ConsultationType consultationType;
     private String consultationChannel;
     private LocalDateTime consultedAt;
+    private String consultationContent;
     private String specialNote;
     private LocalDateTime nextScheduledAt;
     private CustomerInfo customerInfo;
@@ -40,13 +41,19 @@ public class ConsultationAiStructuredDraft {
         private List<String> claimReviewItemHints;
         private String claimResultHint;
         private List<String> claimNextActionHints;
+        private String claimHospitalizationStatusHint;
+        private String claimSurgeryStatusHint;
         private String renewalConsultationResultHint;
         private String renewalCoverageChangeTypeHint;
         private String renewalCustomerReactionHint;
         private List<String> renewalInterestTypeHints;
-        private List<String> renewalPremiumChangeReasonHints;
-        private String renewalNextActionHint;
-        private List<String> terminationReasonHints;
+        private List<String> renewalPremiumChangeReasonTypeHints;
+        private List<String> renewalNextActionHints;
+        private List<String> cancellationReviewReasonHints;
+        private List<String> cancellationRetentionPlanHints;
+        private String cancellationCustomerIntentHint;
+        private String cancellationResultHint;
+        private List<String> cancellationNextActionHints;
         private String terminationRetentionPossibilityHint;
     }
 
@@ -94,6 +101,11 @@ public class ConsultationAiStructuredDraft {
         private String claimType;
         private String claimReason;
         private LocalDate incidentDate;
+        private String hospitalName;
+        private String diagnosisOrTreatment;
+        private String hospitalizationStatus;
+        private String surgeryStatus;
+        private Long claimAmount;
         private List<String> reviewItems;
         private String result;
         private List<String> nextActions;
@@ -103,17 +115,17 @@ public class ConsultationAiStructuredDraft {
     @Setter
     @NoArgsConstructor
     public static class RenewalDetail {
+        private String renewalReason;
         private LocalDate renewalScheduledDate;
         private Long currentPremium;
         private Long renewalPremium;
         private BigDecimal premiumChangeRate;
-        private String renewalReason;
         private String coverageChangeType;
         private String coverageChangeDetail;
         private String customerReaction;
         private List<String> interestTypes;
         private String consultationResult;
-        private List<String> premiumChangeReasons;
+        private List<String> premiumChangeReasonTypes;
         private List<String> nextActions;
         private LocalDate decisionExpectedDate;
         private String otherReason;
@@ -123,16 +135,22 @@ public class ConsultationAiStructuredDraft {
     @Setter
     @NoArgsConstructor
     public static class CancelDetail {
+        private List<String> reviewReasons;
+        private String reasonDetail;
+        private List<String> retentionPlans;
+        private String customerIntent;
+        private String retentionPossibility;
+        private String result;
+        private List<String> nextActions;
         private Boolean premiumBurden;
         private Boolean renewalPremiumBurden;
         private Boolean paymentDifficulty;
         private Boolean coverageDissatisfaction;
-        private Boolean duplicateInsurance;
+        private Boolean duplicateCoverage;
         private Boolean productRemodelingReview;
         private Boolean comparingOtherCompany;
         private Boolean movingToOtherCompany;
         private Boolean plannerContactDissatisfaction;
         private Boolean managementDissatisfaction;
-        private String retentionPossibility;
     }
 }

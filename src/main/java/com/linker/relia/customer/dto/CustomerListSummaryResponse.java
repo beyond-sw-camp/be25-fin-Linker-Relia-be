@@ -10,4 +10,6 @@ import lombok.Getter;
 public class CustomerListSummaryResponse {
     private final long totalCustomerCount;
     private final long prospectCustomerCount;
+    private final long contractedCustomerCount;
+    private final long closedCustomerCount;
 }

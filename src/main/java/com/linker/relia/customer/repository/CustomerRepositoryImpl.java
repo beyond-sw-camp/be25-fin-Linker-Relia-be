@@ -38,7 +38,9 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
         String summaryJpql = """
                 select new com.linker.relia.customer.dto.CustomerListSummaryResponse(
                     count(c),
-                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.PROSPECT then 1L else 0L end), 0L)
+                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.PROSPECT then 1L else 0L end), 0L),
+                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.CONTRACTED then 1L else 0L end), 0L),
+                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.CLOSED then 1L else 0L end), 0L)
                 )
                 from Customer c
                 join c.customerFp fp

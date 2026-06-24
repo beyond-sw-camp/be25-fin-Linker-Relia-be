@@ -66,27 +66,69 @@ SET contract_end_date = LEAST(
     updated_by = @SYSTEM_USER_ID
 WHERE contract_code LIKE 'CTR%';
 
-UPDATE contracts ct
+DROP TEMPORARY TABLE IF EXISTS tmp_v16_recent_contract_targets;
+CREATE TEMPORARY TABLE tmp_v16_recent_contract_targets (
+    seq_no INT NOT NULL,
+    contract_id CHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    scenario_contract_date DATE NOT NULL,
+    scenario_customer_id CHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+    PRIMARY KEY (seq_no),
+    UNIQUE KEY uk_tmp_v16_recent_contract_targets_contract (contract_id)
+);
+
+INSERT INTO tmp_v16_recent_contract_targets (
+    seq_no,
+    contract_id,
+    scenario_contract_date
+)
+SELECT
+    target.seq_no,
+    target.contract_id,
+    DATE_ADD(
+        DATE_ADD('2025-12-05', INTERVAL ((target.seq_no - 1) DIV 7) MONTH),
+        INTERVAL MOD(target.seq_no - 1, 7) * 3 DAY
+    ) AS scenario_contract_date
+FROM (
+    SELECT
+        ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
+        ct.id AS contract_id
+    FROM contracts ct
+    WHERE ct.contract_code LIKE 'CTR%'
+    ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 61, 257),
+             MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 19, 127),
+             ct.contract_code
+    LIMIT 42
+) target;
+
+UPDATE tmp_v16_recent_contract_targets recent_targets
 JOIN (
     SELECT
-        target.contract_id,
-        DATE_ADD(
-            DATE_ADD('2025-12-05', INTERVAL ((target.seq_no - 1) DIV 5) MONTH),
-            INTERVAL MOD(target.seq_no - 1, 5) * 4 DAY
-        ) AS scenario_contract_date
+        ranked.seq_no,
+        ranked.customer_id
     FROM (
         SELECT
-            ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
-            ct.id AS contract_id
-        FROM contracts ct
-        WHERE ct.contract_code LIKE 'CTR%'
-        ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 61, 257),
-                 MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 19, 127),
-                 ct.contract_code
-        LIMIT 30
-    ) target
-) recent_targets ON recent_targets.contract_id = ct.id
-SET ct.contract_date = recent_targets.scenario_contract_date,
+            ROW_NUMBER() OVER (
+                ORDER BY MOD(CAST(SUBSTRING_INDEX(c.customer_code, '-', -1) AS UNSIGNED) * 43, 257),
+                         MOD(CAST(SUBSTRING_INDEX(c.customer_code, '-', -1) AS UNSIGNED) * 17, 131),
+                         c.customer_code
+            ) AS seq_no,
+            c.id AS customer_id
+        FROM customers c
+        WHERE c.customer_code LIKE 'CUS-%'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM contracts ct
+              WHERE ct.customer_id = c.id
+          )
+    ) ranked
+    WHERE ranked.seq_no <= 42
+) prospect_targets ON prospect_targets.seq_no = recent_targets.seq_no
+SET recent_targets.scenario_customer_id = prospect_targets.customer_id;
+
+UPDATE contracts ct
+JOIN tmp_v16_recent_contract_targets recent_targets ON recent_targets.contract_id = ct.id
+SET ct.customer_id = COALESCE(recent_targets.scenario_customer_id, ct.customer_id),
+    ct.contract_date = recent_targets.scenario_contract_date,
     ct.contract_start_date = recent_targets.scenario_contract_date,
     ct.coverage_start_date = recent_targets.scenario_contract_date,
     ct.payment_period_years = 10,
@@ -96,6 +138,18 @@ SET ct.contract_date = recent_targets.scenario_contract_date,
     ct.contract_status = 'MAINTENANCE',
     ct.updated_at = CURRENT_TIMESTAMP,
     ct.updated_by = @SYSTEM_USER_ID;
+
+UPDATE customers c
+JOIN tmp_v16_recent_contract_targets recent_targets ON recent_targets.scenario_customer_id = c.id
+SET c.created_at = LEAST(
+        c.created_at,
+        TIMESTAMP(
+            DATE_SUB(recent_targets.scenario_contract_date, INTERVAL 14 + MOD(recent_targets.seq_no, 12) DAY),
+            '09:00:00'
+        )
+    ),
+    c.updated_at = CURRENT_TIMESTAMP,
+    c.updated_by = @SYSTEM_USER_ID;
 
 UPDATE contracts ct
 JOIN (
@@ -1012,4 +1066,5 @@ LEFT JOIN (
 WHERE u.user_role = 'FP'
   AND u.deleted_at IS NULL;
 
+DROP TEMPORARY TABLE IF EXISTS tmp_v16_recent_contract_targets;
 DROP TEMPORARY TABLE IF EXISTS tmp_demo_months_v16;

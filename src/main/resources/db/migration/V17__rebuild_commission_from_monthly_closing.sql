@@ -43,24 +43,8 @@ SELECT
     END AS commission_type,
     ROUND(
         paid_rows.monthly_premium * CASE
-            WHEN paid_rows.current_payment_round = 1 THEN
-                CASE paid_rows.insurance_category_code
-                    WHEN 'CAT001' THEN 9.60
-                    WHEN 'CAT002' THEN 11.20
-                    WHEN 'CAT003' THEN 7.40
-                    WHEN 'CAT004' THEN 4.80
-                    WHEN 'CAT005' THEN 10.40
-                    ELSE 8.80
-                END
-            ELSE
-                CASE paid_rows.insurance_category_code
-                    WHEN 'CAT001' THEN 1.80
-                    WHEN 'CAT002' THEN 2.10
-                    WHEN 'CAT003' THEN 1.40
-                    WHEN 'CAT004' THEN 1.10
-                    WHEN 'CAT005' THEN 1.90
-                    ELSE 1.60
-                END
+            WHEN paid_rows.current_payment_round = 1 THEN 10
+            ELSE 2
         END,
         2
     ) AS gross_commission_amount
@@ -72,14 +56,12 @@ FROM (
         fp.organization_id,
         ip.insurance_company_id,
         ip.id AS insurance_product_id,
-        ic.insurance_category_code,
         cmc.monthly_premium,
         cmc.current_payment_round
     FROM contract_monthly_closing cmc
     JOIN contracts ct ON ct.id = cmc.contract_id
     JOIN users fp ON fp.id = ct.fp_id
     JOIN insurance_products ip ON ip.id = ct.insurance_product_id
-    JOIN insurance_categories ic ON ic.id = ip.insurance_category_id
     WHERE cmc.payment_status = 'PAID'
       AND cmc.contract_status = 'MAINTENANCE'
 ) paid_rows;
@@ -112,16 +94,7 @@ SELECT
     recovery_targets.organization_id,
     recovery_targets.insurance_company_id,
     recovery_targets.insurance_product_id,
-    ROUND(
-        recovery_targets.paid_gross_amount * CASE
-            WHEN recovery_targets.paid_month_count <= 2 THEN 1.00
-            WHEN recovery_targets.paid_month_count <= 4 THEN 0.75
-            WHEN recovery_targets.paid_month_count <= 7 THEN 0.50
-            WHEN recovery_targets.paid_month_count <= 12 THEN 0.30
-            ELSE 0.15
-        END,
-        2
-    ) AS gross_commission_amount
+    ROUND(recovery_targets.paid_gross_amount, 2) AS gross_commission_amount
 FROM (
     SELECT
         cmc.closing_month,
@@ -130,8 +103,7 @@ FROM (
         fp.organization_id,
         ip.insurance_company_id,
         ip.id AS insurance_product_id,
-        COALESCE(SUM(prev_paid.gross_commission_amount), 0) AS paid_gross_amount,
-        COUNT(prev_paid.commission_month) AS paid_month_count
+        COALESCE(SUM(prev_paid.gross_commission_amount), 0) AS paid_gross_amount
     FROM contract_monthly_closing cmc
     JOIN contracts ct ON ct.id = cmc.contract_id
     JOIN users fp ON fp.id = ct.fp_id
@@ -234,51 +206,8 @@ SELECT
         ELSE 'RECOVERY_COLLECTION'
     END AS commission_type,
     gcr.gross_commission_amount,
-    CASE gcr.commission_type
-        WHEN 'INITIAL' THEN
-            CASE MOD(CAST(RIGHT(fp.emp_code, 3) AS UNSIGNED), 3)
-                WHEN 0 THEN 66.00
-                WHEN 1 THEN 70.00
-                ELSE 74.00
-            END
-        WHEN 'MAINTENANCE' THEN
-            CASE MOD(CAST(RIGHT(fp.emp_code, 3) AS UNSIGNED), 3)
-                WHEN 0 THEN 48.00
-                WHEN 1 THEN 52.00
-                ELSE 56.00
-            END
-        ELSE
-            CASE MOD(CAST(RIGHT(fp.emp_code, 3) AS UNSIGNED), 3)
-                WHEN 0 THEN 66.00
-                WHEN 1 THEN 70.00
-                ELSE 74.00
-            END
-    END AS fp_payment_rate,
-    ROUND(
-        gcr.gross_commission_amount * (
-            CASE gcr.commission_type
-                WHEN 'INITIAL' THEN
-                    CASE MOD(CAST(RIGHT(fp.emp_code, 3) AS UNSIGNED), 3)
-                        WHEN 0 THEN 0.66
-                        WHEN 1 THEN 0.70
-                        ELSE 0.74
-                    END
-                WHEN 'MAINTENANCE' THEN
-                    CASE MOD(CAST(RIGHT(fp.emp_code, 3) AS UNSIGNED), 3)
-                        WHEN 0 THEN 0.48
-                        WHEN 1 THEN 0.52
-                        ELSE 0.56
-                    END
-                ELSE
-                    CASE MOD(CAST(RIGHT(fp.emp_code, 3) AS UNSIGNED), 3)
-                        WHEN 0 THEN 0.66
-                        WHEN 1 THEN 0.70
-                        ELSE 0.74
-                    END
-            END
-        ),
-        2
-    ) AS commission_amount,
+    70.00 AS fp_payment_rate,
+    ROUND(gcr.gross_commission_amount * 0.7, 2) AS commission_amount,
     @SYSTEM_USER_ID
 FROM gross_commission_records gcr
 JOIN contracts ct ON ct.id = gcr.contract_id

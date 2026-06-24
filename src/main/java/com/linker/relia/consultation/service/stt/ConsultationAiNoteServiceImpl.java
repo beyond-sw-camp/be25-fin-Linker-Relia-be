@@ -38,6 +38,12 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
         try {
             ConsultationSttSession session = consultationSttSessionService.getOwnedSession(sessionId, fpId);
             ConsultationAiNote aiNote = findOrCreateAiNote(session);
+            if (aiNote.getDraftStatus() == ConsultationAiNoteStatus.GPT_COMPLETED
+                    || aiNote.getDraftStatus() == ConsultationAiNoteStatus.APPLIED) {
+                log.info("Skip duplicate AI draft generation because note is already completed. sessionId={}, status={}",
+                        sessionId, aiNote.getDraftStatus());
+                return;
+            }
             aiNote.completeStt(sttRawText);
 
             try {
@@ -114,6 +120,9 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
                     aiNote.getSttRawText()
             );
             ConsultationAiDraftResolutionResult resolved = resolutionService.resolveMappings(session, normalized.draft());
+            if (resolved.resolution().isHasPendingResolution()) {
+                throw new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_NOT_APPLICABLE);
+            }
 
             if (resolved.draft() != null) {
                 aiNote.completeGpt(

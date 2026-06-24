@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -29,8 +31,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ConsultationAiDraftNormalizer {
     private static final Pattern PRODUCT_CODE_PATTERN =
-            Pattern.compile("\\bLP\\s*0*(\\d{1,3})\\b", Pattern.CASE_INSENSITIVE);
-    private static final Pattern TRAILING_NUMBER_PATTERN = Pattern.compile("(\\d{1,3})\\s*$");
+            Pattern.compile("\\b([A-Z]{2,4}\\d{3})\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern PRODUCT_HINT_PATTERN = Pattern.compile(
             "([가-힣A-Za-z0-9]+(?:\\s+[가-힣A-Za-z0-9]+){0,5}\\s*(?:보험|보장|특약)(?:\\s*본)?(?:\\s*\\d{1,3})?)"
     );
@@ -61,9 +62,6 @@ public class ConsultationAiDraftNormalizer {
         if (draft.getCustomerId() == null && session.getCustomer() != null) {
             draft.setCustomerId(session.getCustomer().getId());
         }
-        if (session.getConsultationType() != ConsultationType.NEW_CONTRACT) {
-            draft.setCustomerInfo(null);
-        }
 
         return draft;
     }
@@ -90,6 +88,38 @@ public class ConsultationAiDraftNormalizer {
         }
 
         List<String> warnings = new ArrayList<>();
+        boolean handled = true;
+        if (handled) {
+            normalizeCommonFields(draft, warnings);
+            if (draft.getConsultationType() == ConsultationType.NEW_CONTRACT && draft.getNewDetail() != null) {
+                normalizeNewDetail(draft.getNewDetail(), warnings, referenceText, draft);
+                draft.setClaimDetail(null);
+                draft.setRenewalDetail(null);
+                draft.setCancelDetail(null);
+            } else if (draft.getConsultationType() == ConsultationType.CLAIM && draft.getClaimDetail() != null) {
+                normalizeClaimDetail(draft.getClaimDetail(), warnings);
+                draft.setCustomerInfo(null);
+                draft.setNewDetail(null);
+                draft.setRenewalDetail(null);
+                draft.setCancelDetail(null);
+            } else if (draft.getConsultationType() == ConsultationType.RENEWAL && draft.getRenewalDetail() != null) {
+                normalizeRenewalDetail(draft.getRenewalDetail(), warnings);
+                draft.setCustomerInfo(null);
+                draft.setNewDetail(null);
+                draft.setClaimDetail(null);
+                draft.setCancelDetail(null);
+            } else if (draft.getConsultationType() == ConsultationType.TERMINATION && draft.getCancelDetail() != null) {
+                normalizeCancelDetail(draft.getCancelDetail(), warnings);
+                draft.setCustomerInfo(null);
+                draft.setNewDetail(null);
+                draft.setClaimDetail(null);
+                draft.setRenewalDetail(null);
+            }
+
+            backfillAiHintsFromReferenceText(draft, referenceText);
+            normalizeAiHints(draft);
+            return new ConsultationAiDraftNormalizationResult(draft, List.copyOf(warnings));
+        }
 
         if (draft.getConsultationType() == ConsultationType.NEW_CONTRACT && draft.getCustomerId() != null) {
             if (draft.getCustomerInfo() != null) {
@@ -165,6 +195,31 @@ public class ConsultationAiDraftNormalizer {
         normalizeInsurancePriority(newDetail, referenceText, warnings);
     }
 
+    private void normalizeNewDetail(
+            ConsultationAiStructuredDraft.NewDetail newDetail,
+            List<String> warnings,
+            String referenceText,
+            ConsultationAiStructuredDraft draft
+    ) {
+        normalizeNewDetail(newDetail, warnings, referenceText);
+        newDetail.setExistingInsuranceNote(blankToNull(newDetail.getExistingInsuranceNote()));
+        newDetail.setInsurancePriority(blankToNull(newDetail.getInsurancePriority()));
+
+        if (newDetail.getProposedProductCodes() != null) {
+            Set<String> normalizedProductCodes = new LinkedHashSet<>();
+            for (String rawValue : newDetail.getProposedProductCodes()) {
+                String candidateProductCode = resolveProductCode(rawValue);
+                if (candidateProductCode != null) {
+                    normalizedProductCodes.add(candidateProductCode);
+                } else if (rawValue != null && !rawValue.isBlank()) {
+                    addMentionedProductHint(draft, rawValue);
+                    warnings.add("상품 코드가 확정되지 않은 값 '" + rawValue + "' 는 aiHints 로 이동했습니다.");
+                }
+            }
+            newDetail.setProposedProductCodes(toNullableList(normalizedProductCodes));
+        }
+    }
+
     private void normalizeInsurancePriority(
             ConsultationAiStructuredDraft.NewDetail newDetail,
             String referenceText,
@@ -227,26 +282,19 @@ public class ConsultationAiDraftNormalizer {
     }
 
     String resolveProductCode(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+
         String trimmed = rawValue.trim();
         Matcher codeMatcher = PRODUCT_CODE_PATTERN.matcher(trimmed);
         if (codeMatcher.find()) {
-            return formatProductCode(codeMatcher.group(1));
+            return codeMatcher.group(1).toUpperCase(Locale.ROOT);
         }
 
         Optional<InsuranceProduct> exactMatch = insuranceProductRepository
                 .findByInsuranceProductNameAndDeletedAtIsNull(trimmed);
-        if (exactMatch.isPresent()) {
-            return exactMatch.get().getInsuranceProductCode();
-        }
-
-        if (looksLikeProductLabel(trimmed)) {
-            Matcher trailingNumberMatcher = TRAILING_NUMBER_PATTERN.matcher(trimmed);
-            if (trailingNumberMatcher.find()) {
-                return formatProductCode(trailingNumberMatcher.group(1));
-            }
-        }
-
-        return null;
+        return exactMatch.map(InsuranceProduct::getInsuranceProductCode).orElse(null);
     }
 
     private String normalizeCoverageType(String rawValue) {
@@ -285,7 +333,8 @@ public class ConsultationAiDraftNormalizer {
 
     private boolean containsAny(String source, String... keywords) {
         for (String keyword : keywords) {
-            if (source.contains(keyword.toUpperCase(Locale.ROOT))) {
+            String normalizedKeyword = normalizeText(keyword);
+            if (normalizedKeyword != null && source.contains(normalizedKeyword)) {
                 return true;
             }
         }
@@ -382,6 +431,166 @@ public class ConsultationAiDraftNormalizer {
         return normalized;
     }
 
+    private void normalizeCommonFields(ConsultationAiStructuredDraft draft, List<String> warnings) {
+        draft.setConsultationContent(blankToNull(draft.getConsultationContent()));
+        draft.setSpecialNote(blankToNull(draft.getSpecialNote()));
+        if (draft.getConsultationContent() == null && draft.getSpecialNote() != null) {
+            draft.setConsultationContent(draft.getSpecialNote());
+        }
+        if (draft.getSpecialNote() == null && draft.getConsultationContent() != null) {
+            draft.setSpecialNote(draft.getConsultationContent());
+        }
+
+        if (draft.getConsultationType() == ConsultationType.NEW_CONTRACT
+                && draft.getCustomerId() != null
+                && draft.getCustomerInfo() != null) {
+            warnings.add("customerId가 존재하여 customerInfo는 null로 정리했습니다.");
+            draft.setCustomerInfo(null);
+        }
+    }
+
+    private void normalizeClaimDetail(
+            ConsultationAiStructuredDraft.ClaimDetail claimDetail,
+            List<String> warnings
+    ) {
+        claimDetail.setClaimType(blankToNull(claimDetail.getClaimType()));
+        claimDetail.setClaimReason(blankToNull(claimDetail.getClaimReason()));
+        claimDetail.setHospitalName(blankToNull(claimDetail.getHospitalName()));
+        claimDetail.setDiagnosisOrTreatment(blankToNull(claimDetail.getDiagnosisOrTreatment()));
+        claimDetail.setHospitalizationStatus(normalizeYnValue(
+                claimDetail.getHospitalizationStatus(),
+                warnings,
+                "claimDetail.hospitalizationStatus"
+        ));
+        claimDetail.setSurgeryStatus(normalizeYnValue(
+                claimDetail.getSurgeryStatus(),
+                warnings,
+                "claimDetail.surgeryStatus"
+        ));
+        claimDetail.setReviewItems(normalizeStringList(claimDetail.getReviewItems()));
+        claimDetail.setResult(blankToNull(claimDetail.getResult()));
+        claimDetail.setNextActions(normalizeStringList(claimDetail.getNextActions()));
+    }
+
+    private void normalizeRenewalDetail(
+            ConsultationAiStructuredDraft.RenewalDetail renewalDetail,
+            List<String> warnings
+    ) {
+        renewalDetail.setRenewalReason(blankToNull(renewalDetail.getRenewalReason()));
+        renewalDetail.setCoverageChangeType(blankToNull(renewalDetail.getCoverageChangeType()));
+        renewalDetail.setCoverageChangeDetail(blankToNull(renewalDetail.getCoverageChangeDetail()));
+        renewalDetail.setCustomerReaction(blankToNull(renewalDetail.getCustomerReaction()));
+        renewalDetail.setConsultationResult(blankToNull(renewalDetail.getConsultationResult()));
+        renewalDetail.setOtherReason(blankToNull(renewalDetail.getOtherReason()));
+        renewalDetail.setInterestTypes(normalizeStringList(renewalDetail.getInterestTypes()));
+        renewalDetail.setPremiumChangeReasonTypes(normalizeStringList(renewalDetail.getPremiumChangeReasonTypes()));
+        renewalDetail.setNextActions(normalizeStringList(renewalDetail.getNextActions()));
+
+        if (renewalDetail.getCurrentPremium() != null
+                && renewalDetail.getRenewalPremium() != null
+                && renewalDetail.getCurrentPremium() > 0) {
+            BigDecimal current = BigDecimal.valueOf(renewalDetail.getCurrentPremium());
+            BigDecimal renewed = BigDecimal.valueOf(renewalDetail.getRenewalPremium());
+            BigDecimal changeRate = renewed.subtract(current)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(current, 1, RoundingMode.HALF_UP);
+            renewalDetail.setPremiumChangeRate(changeRate);
+        } else if (renewalDetail.getPremiumChangeRate() != null) {
+            renewalDetail.setPremiumChangeRate(renewalDetail.getPremiumChangeRate().setScale(1, RoundingMode.HALF_UP));
+        } else if (renewalDetail.getCurrentPremium() == null || renewalDetail.getRenewalPremium() == null) {
+            warnings.add("currentPremium 또는 renewalPremium이 없어 premiumChangeRate를 재계산하지 못했습니다.");
+        }
+    }
+
+    private void normalizeCancelDetail(
+            ConsultationAiStructuredDraft.CancelDetail cancelDetail,
+            List<String> warnings
+    ) {
+        cancelDetail.setReviewReasons(normalizeStringList(cancelDetail.getReviewReasons()));
+        cancelDetail.setReasonDetail(blankToNull(cancelDetail.getReasonDetail()));
+        cancelDetail.setRetentionPlans(normalizeStringList(cancelDetail.getRetentionPlans()));
+        cancelDetail.setCustomerIntent(blankToNull(cancelDetail.getCustomerIntent()));
+        cancelDetail.setResult(blankToNull(cancelDetail.getResult()));
+        cancelDetail.setNextActions(normalizeStringList(cancelDetail.getNextActions()));
+        cancelDetail.setRetentionPossibility(normalizeRetentionPossibility(cancelDetail.getRetentionPossibility(), warnings));
+
+        Set<String> normalizedReasons = new LinkedHashSet<>();
+        if (cancelDetail.getReviewReasons() != null) {
+            normalizedReasons.addAll(cancelDetail.getReviewReasons());
+        }
+        String normalizedReasonDetail = normalizeText(cancelDetail.getReasonDetail());
+        if (normalizedReasonDetail != null) {
+            if (normalizedReasonDetail.contains("보험료")) {
+                normalizedReasons.add("보험료 부담");
+            }
+            if (normalizedReasonDetail.contains("중복")) {
+                normalizedReasons.add("중복 보장");
+            }
+            if (normalizedReasonDetail.contains("보장") && normalizedReasonDetail.contains("불만")) {
+                normalizedReasons.add("보장 불만족");
+            }
+        }
+        cancelDetail.setReviewReasons(normalizedReasons.isEmpty() ? null : new ArrayList<>(normalizedReasons));
+
+        cancelDetail.setPremiumBurden(fillFlag(cancelDetail.getPremiumBurden(), normalizedReasons, "보험료"));
+        cancelDetail.setRenewalPremiumBurden(fillFlag(cancelDetail.getRenewalPremiumBurden(), normalizedReasons, "갱신"));
+        cancelDetail.setPaymentDifficulty(fillFlag(cancelDetail.getPaymentDifficulty(), normalizedReasons, "납입"));
+        cancelDetail.setCoverageDissatisfaction(fillFlag(cancelDetail.getCoverageDissatisfaction(), normalizedReasons, "보장"));
+        cancelDetail.setDuplicateCoverage(fillFlag(cancelDetail.getDuplicateCoverage(), normalizedReasons, "중복"));
+    }
+
+    private Boolean fillFlag(Boolean current, Set<String> reasons, String keyword) {
+        if (current != null) {
+            return current;
+        }
+        for (String reason : reasons) {
+            String normalized = normalizeText(reason);
+            if (normalized != null && normalized.contains(normalizeText(keyword))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeYnValue(String rawValue, List<String> warnings, String fieldPath) {
+        String normalized = blankToNull(rawValue);
+        if (normalized == null) {
+            return null;
+        }
+
+        String compact = normalizeText(normalized);
+        if (compact.equals("y") || compact.equals("yes") || compact.equals("있음") || compact.equals("입원") || compact.equals("수술")) {
+            return "Y";
+        }
+        if (compact.equals("n") || compact.equals("no") || compact.equals("없음") || compact.equals("없다")) {
+            return "N";
+        }
+
+        warnings.add(fieldPath + " 값을 Y/N으로 확정하지 못해 null로 정리했습니다.");
+        return null;
+    }
+
+    private String normalizeRetentionPossibility(String rawValue, List<String> warnings) {
+        String normalized = blankToNull(rawValue);
+        if (normalized == null) {
+            return null;
+        }
+
+        String compact = normalizeText(normalized);
+        if (compact.contains("high") || compact.contains("높")) {
+            return "HIGH";
+        }
+        if (compact.contains("medium") || compact.contains("보통") || compact.equals("중")) {
+            return "MEDIUM";
+        }
+        if (compact.contains("low") || compact.contains("낮")) {
+            return "LOW";
+        }
+
+        warnings.add("retentionPossibility 값을 HIGH/MEDIUM/LOW로 확정하지 못해 null로 정리했습니다.");
+        return null;
+    }
+
     void normalizeAiHints(ConsultationAiStructuredDraft draft) {
         if (draft == null || draft.getAiHints() == null) {
             return;
@@ -395,13 +604,19 @@ public class ConsultationAiDraftNormalizer {
         aiHints.setClaimReviewItemHints(normalizeHintValues(aiHints.getClaimReviewItemHints()));
         aiHints.setClaimResultHint(blankToNull(aiHints.getClaimResultHint()));
         aiHints.setClaimNextActionHints(normalizeHintValues(aiHints.getClaimNextActionHints()));
+        aiHints.setClaimHospitalizationStatusHint(blankToNull(aiHints.getClaimHospitalizationStatusHint()));
+        aiHints.setClaimSurgeryStatusHint(blankToNull(aiHints.getClaimSurgeryStatusHint()));
         aiHints.setRenewalConsultationResultHint(blankToNull(aiHints.getRenewalConsultationResultHint()));
         aiHints.setRenewalCoverageChangeTypeHint(blankToNull(aiHints.getRenewalCoverageChangeTypeHint()));
         aiHints.setRenewalCustomerReactionHint(blankToNull(aiHints.getRenewalCustomerReactionHint()));
         aiHints.setRenewalInterestTypeHints(normalizeHintValues(aiHints.getRenewalInterestTypeHints()));
-        aiHints.setRenewalPremiumChangeReasonHints(normalizeHintValues(aiHints.getRenewalPremiumChangeReasonHints()));
-        aiHints.setRenewalNextActionHint(blankToNull(aiHints.getRenewalNextActionHint()));
-        aiHints.setTerminationReasonHints(normalizeHintValues(aiHints.getTerminationReasonHints()));
+        aiHints.setRenewalPremiumChangeReasonTypeHints(normalizeHintValues(aiHints.getRenewalPremiumChangeReasonTypeHints()));
+        aiHints.setRenewalNextActionHints(normalizeHintValues(aiHints.getRenewalNextActionHints()));
+        aiHints.setCancellationReviewReasonHints(normalizeHintValues(aiHints.getCancellationReviewReasonHints()));
+        aiHints.setCancellationRetentionPlanHints(normalizeHintValues(aiHints.getCancellationRetentionPlanHints()));
+        aiHints.setCancellationCustomerIntentHint(blankToNull(aiHints.getCancellationCustomerIntentHint()));
+        aiHints.setCancellationResultHint(blankToNull(aiHints.getCancellationResultHint()));
+        aiHints.setCancellationNextActionHints(normalizeHintValues(aiHints.getCancellationNextActionHints()));
         aiHints.setTerminationRetentionPossibilityHint(blankToNull(aiHints.getTerminationRetentionPossibilityHint()));
 
         if (aiHints.getTargetContractHint() == null
@@ -411,19 +626,40 @@ public class ConsultationAiDraftNormalizer {
                 && aiHints.getClaimReviewItemHints() == null
                 && aiHints.getClaimResultHint() == null
                 && aiHints.getClaimNextActionHints() == null
+                && aiHints.getClaimHospitalizationStatusHint() == null
+                && aiHints.getClaimSurgeryStatusHint() == null
                 && aiHints.getRenewalConsultationResultHint() == null
                 && aiHints.getRenewalCoverageChangeTypeHint() == null
                 && aiHints.getRenewalCustomerReactionHint() == null
                 && aiHints.getRenewalInterestTypeHints() == null
-                && aiHints.getRenewalPremiumChangeReasonHints() == null
-                && aiHints.getRenewalNextActionHint() == null
-                && aiHints.getTerminationReasonHints() == null
+                && aiHints.getRenewalPremiumChangeReasonTypeHints() == null
+                && aiHints.getRenewalNextActionHints() == null
+                && aiHints.getCancellationReviewReasonHints() == null
+                && aiHints.getCancellationRetentionPlanHints() == null
+                && aiHints.getCancellationCustomerIntentHint() == null
+                && aiHints.getCancellationResultHint() == null
+                && aiHints.getCancellationNextActionHints() == null
                 && aiHints.getTerminationRetentionPossibilityHint() == null) {
             draft.setAiHints(null);
         }
     }
 
-    private List<String> normalizeHintValues(List<String> values) {
+    private void addMentionedProductHint(ConsultationAiStructuredDraft draft, String rawValue) {
+        ConsultationAiStructuredDraft.AiHints aiHints = draft.getAiHints();
+        if (aiHints == null) {
+            aiHints = new ConsultationAiStructuredDraft.AiHints();
+            draft.setAiHints(aiHints);
+        }
+
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        if (aiHints.getMentionedProductNames() != null) {
+            values.addAll(aiHints.getMentionedProductNames());
+        }
+        values.add(rawValue.trim());
+        aiHints.setMentionedProductNames(new ArrayList<>(values));
+    }
+
+    private List<String> normalizeStringList(List<String> values) {
         if (values == null) {
             return null;
         }
@@ -436,6 +672,10 @@ public class ConsultationAiDraftNormalizer {
                 .toList();
 
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private List<String> normalizeHintValues(List<String> values) {
+        return normalizeStringList(values);
     }
 
     private String blankToNull(String value) {

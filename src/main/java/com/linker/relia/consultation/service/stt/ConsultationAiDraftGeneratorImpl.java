@@ -12,11 +12,14 @@ import org.springframework.util.StreamUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGenerator {
-    private static final String SYSTEM_PROMPT_PATH = "prompts/consultation-ai-system.prompt";
-    private static final String USER_PROMPT_PATH = "prompts/consultation-ai-user.prompt";
+    private static final String SYSTEM_PROMPT_PATH = "prompts/consultation-ai-system-v2.prompt";
+    private static final String USER_PROMPT_PATH = "prompts/consultation-ai-user-v2.prompt";
+    private static final Pattern JSON_BLOCK_PATTERN = Pattern.compile("```(?:json)?\\s*(\\{.*})\\s*```", Pattern.DOTALL);
 
     private final ChatClient chatClient;
 
@@ -35,7 +38,41 @@ public class ConsultationAiDraftGeneratorImpl implements ConsultationAiDraftGene
                 .call()
                 .content();
 
-        return outputConverter.convert(response);
+        return convertWithRepair(outputConverter, response);
+    }
+
+    private ConsultationAiGenerationResult convertWithRepair(
+            BeanOutputConverter<ConsultationAiGenerationResult> outputConverter,
+            String response
+    ) {
+        try {
+            return outputConverter.convert(response);
+        } catch (Exception ignored) {
+        }
+
+        String repaired = repairJson(response);
+        return outputConverter.convert(repaired);
+    }
+
+    private String repairJson(String response) {
+        String normalized = response == null ? "" : response.trim();
+        Matcher matcher = JSON_BLOCK_PATTERN.matcher(normalized);
+        if (matcher.find()) {
+            normalized = matcher.group(1).trim();
+        }
+
+        int start = normalized.indexOf('{');
+        int end = normalized.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            normalized = normalized.substring(start, end + 1);
+        }
+
+        return normalized
+                .replace('\u201c', '"')
+                .replace('\u201d', '"')
+                .replace('\u2018', '\'')
+                .replace('\u2019', '\'')
+                .replaceAll(",\\s*([}\\]])", "$1");
     }
 
     private String buildSystemPrompt(String outputFormat, ConsultationType consultationType) {

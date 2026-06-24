@@ -81,23 +81,36 @@ INSERT INTO tmp_v16_recent_contract_targets (
     contract_id,
     scenario_contract_date
 )
-SELECT
-    target.seq_no,
-    target.contract_id,
-    DATE_ADD(
-        DATE_ADD('2025-12-05', INTERVAL ((target.seq_no - 1) DIV 7) MONTH),
-        INTERVAL MOD(target.seq_no - 1, 7) * 3 DAY
-    ) AS scenario_contract_date
+    SELECT
+        target.seq_no,
+        target.contract_id,
+        DATE_ADD(
+            CASE
+                WHEN target.seq_no <= 6 THEN DATE('2025-12-05')
+                WHEN target.seq_no <= 18 THEN DATE('2026-01-05')
+                WHEN target.seq_no <= 42 THEN DATE('2026-02-05')
+                WHEN target.seq_no <= 70 THEN DATE('2026-03-05')
+                WHEN target.seq_no <= 84 THEN DATE('2026-04-05')
+                ELSE DATE('2026-05-05')
+            END,
+            INTERVAL MOD(target.seq_no - 1, 10) * 2 DAY
+        ) AS scenario_contract_date
 FROM (
     SELECT
-        ROW_NUMBER() OVER (ORDER BY ct.contract_code) AS seq_no,
-        ct.id AS contract_id
-    FROM contracts ct
-    WHERE ct.contract_code LIKE 'CTR%'
-    ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 61, 257),
-             MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 19, 127),
-             ct.contract_code
-    LIMIT 42
+        ROW_NUMBER() OVER (
+            ORDER BY ranked.sort_key_1, ranked.sort_key_2, ranked.contract_code
+        ) AS seq_no,
+        ranked.contract_id
+    FROM (
+        SELECT
+            ct.id AS contract_id,
+            ct.contract_code,
+            MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 61, 257) AS sort_key_1,
+            MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 19, 127) AS sort_key_2
+        FROM contracts ct
+        WHERE ct.contract_code LIKE 'CTR%'
+    ) ranked
+    LIMIT 96
 ) target;
 
 UPDATE tmp_v16_recent_contract_targets recent_targets
@@ -121,7 +134,7 @@ JOIN (
               WHERE ct.customer_id = c.id
           )
     ) ranked
-    WHERE ranked.seq_no <= 42
+    WHERE ranked.seq_no <= 96
 ) prospect_targets ON prospect_targets.seq_no = recent_targets.seq_no
 SET recent_targets.scenario_customer_id = prospect_targets.customer_id;
 
@@ -132,7 +145,7 @@ SET ct.customer_id = COALESCE(recent_targets.scenario_customer_id, ct.customer_i
     ct.contract_start_date = recent_targets.scenario_contract_date,
     ct.coverage_start_date = recent_targets.scenario_contract_date,
     ct.payment_period_years = 10,
-    ct.monthly_premium = 80000 + (MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED), 7) * 13000),
+    ct.monthly_premium = 120000 + (MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED), 8) * 20000),
     ct.contract_end_date = DATE_ADD(recent_targets.scenario_contract_date, INTERVAL 10 YEAR),
     ct.coverage_end_date = DATE_ADD(recent_targets.scenario_contract_date, INTERVAL 10 YEAR),
     ct.contract_status = 'MAINTENANCE',
@@ -165,6 +178,11 @@ JOIN (
         WHERE ip.is_renewable = TRUE
           AND ct.contract_status = 'MAINTENANCE'
           AND ct.contract_code LIKE 'CTR%'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM tmp_v16_recent_contract_targets recent_targets
+              WHERE recent_targets.contract_id = ct.id
+          )
         ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 211),
                  MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 29, 97),
                  ct.contract_code
@@ -190,6 +208,11 @@ JOIN (
         WHERE ip.is_renewable = FALSE
           AND ct.contract_status = 'MAINTENANCE'
           AND ct.contract_code LIKE 'CTR%'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM tmp_v16_recent_contract_targets recent_targets
+              WHERE recent_targets.contract_id = ct.id
+          )
         ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 23, 223),
                  MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 31, 89),
                  ct.contract_code
@@ -213,6 +236,11 @@ JOIN (
         FROM contracts ct
         WHERE ct.contract_status = 'MAINTENANCE'
           AND ct.contract_code LIKE 'CTR%'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM tmp_v16_recent_contract_targets recent_targets
+              WHERE recent_targets.contract_id = ct.id
+          )
         ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 43, 239),
                  MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 11, 107),
                  ct.contract_code
@@ -237,6 +265,11 @@ JOIN (
         FROM contracts ct
         WHERE ct.contract_status = 'MAINTENANCE'
           AND ct.contract_code LIKE 'CTR%'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM tmp_v16_recent_contract_targets recent_targets
+              WHERE recent_targets.contract_id = ct.id
+          )
         ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 47, 241) DESC,
                  MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 13, 109) DESC,
                  ct.contract_code DESC
@@ -260,6 +293,11 @@ JOIN (
         FROM contracts ct
         WHERE ct.contract_status = 'MAINTENANCE'
           AND ct.contract_code LIKE 'CTR%'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM tmp_v16_recent_contract_targets recent_targets
+              WHERE recent_targets.contract_id = ct.id
+          )
         ORDER BY MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 59, 251) DESC,
                  MOD(CAST(RIGHT(ct.contract_code, 6) AS UNSIGNED) * 17, 113) DESC,
                  ct.contract_code DESC
@@ -448,6 +486,11 @@ FROM (
                         FROM contracts ct
                         WHERE ct.contract_status = 'MAINTENANCE'
                           AND ct.contract_code LIKE 'CTR%'
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM tmp_v16_recent_contract_targets recent_targets
+                              WHERE recent_targets.contract_id = ct.id
+                          )
                     ) ranked
                     WHERE ranked.seq_no <= 24
                 ) maintenance_targets ON maintenance_targets.contract_id = ct.id

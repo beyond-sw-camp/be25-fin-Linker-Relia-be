@@ -1,0 +1,15 @@
+아래는 보험 상담 STT 전사본이다.
+
+메타데이터
+- consultationType: %s
+- knownCustomerId: %s
+- startedAt: %s
+
+작업 목표:
+- 전사본을 상담일지 작성용 structured draft 로 변환한다.
+- 최종 출력은 JSON 하나만 반환한다.
+- 코드나 ID를 확정할 수 없으면 해당 필드는 null 로 두고 aiHints 에 남긴다.
+- consultationContent 와 specialNote 는 현재 같은 값을 넣어도 된다.
+
+STT transcript:
+%s

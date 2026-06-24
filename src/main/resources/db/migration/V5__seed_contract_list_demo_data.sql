@@ -1,0 +1,3 @@
+-- Deprecated.
+-- Contract list demo-only test contracts were removed to keep bulk monthly closing
+-- and commission seed counts aligned with the base CTR* contract dataset.

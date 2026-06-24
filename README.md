@@ -1,4 +1,4 @@
-# Norphan
+# Relia
 
 # 팀원 소개
 
@@ -53,6 +53,7 @@
 5. [테이블 명세서](#5--테이블-명세서)
 6. [시스템 아키텍처](#6--시스템-아키텍처)
 7. [API 명세서](#7--api-명세서)
+8. [화면설계서](#8--화면설계서)
 
 <br>
 
@@ -87,6 +88,7 @@
 ---
 
 # 5.  테이블 명세서
+🔗[ 테이블 명세서 ](https://docs.google.com/spreadsheets/d/1_25LySE-rzxbZtjh1W5OwWTwqWKSgGlhcC5KLCODOp4/edit?gid=1990121092#gid=1990121092)
 <br/><br/><br/>
 
 ---
@@ -98,6 +100,12 @@
 
 ---
 # 7.  API 명세서
+🔗[ API 명세서 ](https://playdatacademy.notion.site/36fd943bcac28023a4a7d5e34e94fd8c?v=370d943bcac28007a5fb000cf2e7015e)
 <br/><br/><br/>
 
 ---
+
+# 8.  화면설계서
+🔗[ 화면설계서 ](https://www.figma.com/design/6aXsWd1dgv2FIWskBVlJQL/Norphan%EC%B4%88%EC%95%88?node-id=0-1&t=SD1UjxoCclMrT08R-1)
+
+<br/><br/><br/>

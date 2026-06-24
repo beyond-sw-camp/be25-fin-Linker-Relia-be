@@ -146,6 +146,7 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
         String contentSql = """
                 select
                     ct.id,
+                    c.id,
                     c.customer_name,
                     ct.contract_code,
                     ct.contract_date,
@@ -490,20 +491,21 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                                                                 ContractListStatus requestedStatus) {
         return ContractListItemResponse.builder()
                 .contractId(UUID.fromString((String) row[0]))
-                .customerName((String) row[1])
-                .contractCode((String) row[2])
-                .contractDate(toLocalDate(row[3]))
-                .contractEndDate(toLocalDate(row[4]))
+                .customerId(UUID.fromString((String) row[1]))
+                .customerName((String) row[2])
+                .contractCode((String) row[3])
+                .contractDate(toLocalDate(row[4]))
+                .contractEndDate(toLocalDate(row[5]))
                 .contractStatus(resolveDisplayContractStatus(
-                        (String) row[5],
                         (String) row[6],
-                        toBoolean(row[7]),
-                        toLocalDate(row[4]),
+                        (String) row[7],
+                        toBoolean(row[8]),
+                        toLocalDate(row[5]),
                         requestedStatus
                 ))
-                .monthlyPremium((BigDecimal) row[8])
-                .insuranceProductName((String) row[9])
-                .insuranceCompanyName((String) row[10])
+                .monthlyPremium((BigDecimal) row[9])
+                .insuranceProductName((String) row[10])
+                .insuranceCompanyName((String) row[11])
                 .build();
     }
 

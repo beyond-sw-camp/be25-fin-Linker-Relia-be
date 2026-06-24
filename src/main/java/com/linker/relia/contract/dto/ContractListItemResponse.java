@@ -11,6 +11,7 @@ import java.util.UUID;
 @Builder
 public class ContractListItemResponse {
     private final UUID contractId;
+    private final UUID customerId;
     private final String customerName;
     private final String contractCode;
     private final LocalDate contractDate;

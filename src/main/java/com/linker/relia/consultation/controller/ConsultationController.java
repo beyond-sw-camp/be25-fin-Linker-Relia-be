@@ -174,10 +174,11 @@ public class ConsultationController {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ConsultationListResponse>>> getConsultations(
             @ParameterObject
-            @PageableDefault(size = 10) Pageable pageable
+            @PageableDefault(size = 10) Pageable pageable,
+            @AuthenticationPrincipal PrincipalDetails principalDetails
     ) {
         Page<ConsultationListResponse> response =
-                consultationService.getConsultations(pageable);
+                consultationService.getConsultations(pageable, principalDetails.getUser());
 
         return ApiResponse.success(
                 HttpStatus.OK,

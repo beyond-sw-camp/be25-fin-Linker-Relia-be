@@ -14,6 +14,8 @@ public class CustomerOwnedContractResponse {
     private final String insuranceCompanyName;
     private final String insuranceProductName;
     private final BigDecimal monthlyPremium;
-    private final LocalDate contractStartedAt;
+    private final LocalDate contractStartDate;
+    private final LocalDate contractEndDate;
     private final String contractStatus;
+    private final LocalDate terminatedAt;
 }

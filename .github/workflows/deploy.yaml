@@ -132,11 +132,8 @@ jobs:
           set -euo pipefail
 
           cd "$DEPLOY_PATH"
-
-          cat > .env <<ENVFILE
-          ${PROD_ENV_FILE}
-          ENVFILE
-
+          
+          printf '%s\n' "$PROD_ENV_FILE" > .env
           printf "\nIMAGE_NAME=%s\nIMAGE_TAG=%s\n" "$IMAGE_NAME" "$IMAGE_TAG" >> .env
 
           docker compose -f docker-compose.prod.yaml pull

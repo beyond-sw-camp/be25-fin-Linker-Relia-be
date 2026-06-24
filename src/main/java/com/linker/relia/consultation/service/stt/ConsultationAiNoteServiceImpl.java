@@ -17,7 +17,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -30,39 +32,48 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
     private final ConsultationAiDraftNormalizer draftNormalizer;
     private final ConsultationAiResolutionService resolutionService;
     private final ObjectMapper objectMapper;
+    private final TransactionOperations transactionOperations;
 
     @Override
-    @Transactional
     public void processSttCompleted(UUID sessionId, UUID fpId, String sttRawText) {
         AuditContextHolder.setCurrentAuditor(fpId);
         try {
-            ConsultationSttSession session = consultationSttSessionService.getOwnedSession(sessionId, fpId);
-            ConsultationAiNote aiNote = findOrCreateAiNote(session);
-            if (aiNote.getDraftStatus() == ConsultationAiNoteStatus.GPT_COMPLETED
-                    || aiNote.getDraftStatus() == ConsultationAiNoteStatus.APPLIED) {
+            SttCompletionContext context = Objects.requireNonNull(transactionOperations.execute(status -> {
+                ConsultationSttSession session = consultationSttSessionService.getOwnedSession(sessionId, fpId);
+                ConsultationAiNote aiNote = findOrCreateAiNote(session);
+                if (aiNote.getDraftStatus() == ConsultationAiNoteStatus.GPT_COMPLETED
+                        || aiNote.getDraftStatus() == ConsultationAiNoteStatus.APPLIED) {
+                    return new SttCompletionContext(session, aiNote.getId(), false);
+                }
+
+                aiNote.completeStt(sttRawText);
+                consultationAiNoteRepository.flush();
+                return new SttCompletionContext(session, aiNote.getId(), true);
+            }));
+
+            if (!context.shouldGenerate()) {
                 log.info("Skip duplicate AI draft generation because note is already completed. sessionId={}, status={}",
-                        sessionId, aiNote.getDraftStatus());
+                        sessionId, consultationAiNoteRepository.findByIdAndDeletedAtIsNull(context.aiNoteId())
+                                .map(ConsultationAiNote::getDraftStatus)
+                                .orElse(null));
                 return;
             }
-            aiNote.completeStt(sttRawText);
 
             try {
-                ConsultationAiGenerationResult result = consultationAiDraftGenerator.generate(session, sttRawText);
+                ConsultationAiGenerationResult result = consultationAiDraftGenerator.generate(context.session(), sttRawText);
                 ConsultationAiStructuredDraft enrichedDraft =
-                        draftNormalizer.enrichStructuredDraft(session, result.getStructuredData());
+                        draftNormalizer.enrichStructuredDraft(context.session(), result.getStructuredData());
                 ConsultationAiDraftNormalizationResult normalized =
                         draftNormalizer.normalizeWithWarnings(enrichedDraft, sttRawText);
                 if (!normalized.warnings().isEmpty()) {
                     log.info("Normalized AI structured draft during STT completion. sessionId={} warnings={}",
                             sessionId, normalized.warnings());
                 }
-                aiNote.completeGpt(
-                        result.getSummaryText(),
-                        writeStructuredData(normalized.draft())
-                );
+                String structuredData = writeStructuredData(normalized.draft());
+                transactionOperations.executeWithoutResult(status -> completeGpt(context.aiNoteId(), result.getSummaryText(), structuredData));
             } catch (Exception e) {
                 log.warn("AI consultation draft generation failed. sessionId={}", sessionId, e);
-                aiNote.markFailed(e.getMessage());
+                transactionOperations.executeWithoutResult(status -> markFailed(context.aiNoteId(), e.getMessage()));
             }
         } finally {
             AuditContextHolder.clear();
@@ -70,14 +81,21 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ConsultationAiDraftResponse getAiDraft(UUID sessionId, UUID fpId) {
-        consultationSttSessionService.getOwnedSession(sessionId, fpId);
+        ConsultationSttSession session = consultationSttSessionService.getOwnedSession(sessionId, fpId);
         ConsultationAiNote aiNote = consultationAiNoteRepository
                 .findTopBySttSession_IdAndDeletedAtIsNullOrderByCreatedAtDesc(sessionId)
-                .orElseThrow(() -> new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_NOT_FOUND));
+                .orElse(null);
 
-        ConsultationSttSession session = aiNote.getSttSession();
+        if (aiNote == null) {
+            return ConsultationAiDraftResponse.builder()
+                    .sessionId(sessionId)
+                    .consultationType(session.getConsultationType())
+                    .draftStatus(ConsultationAiNoteStatus.PENDING)
+                    .build();
+        }
+
+        session = aiNote.getSttSession();
         ConsultationAiDraftNormalizationResult normalized = draftNormalizer.normalizeStoredStructuredData(
                 aiNote.getGptStructuredData(),
                 aiNote.getSttRawText()
@@ -163,6 +181,20 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
                 ));
     }
 
+    private void completeGpt(UUID aiNoteId, String summaryText, String structuredData) {
+        ConsultationAiNote aiNote = consultationAiNoteRepository
+                .findByIdAndDeletedAtIsNull(aiNoteId)
+                .orElseThrow(() -> new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_NOT_FOUND));
+        aiNote.completeGpt(summaryText, structuredData);
+    }
+
+    private void markFailed(UUID aiNoteId, String errorMessage) {
+        ConsultationAiNote aiNote = consultationAiNoteRepository
+                .findByIdAndDeletedAtIsNull(aiNoteId)
+                .orElseThrow(() -> new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_NOT_FOUND));
+        aiNote.markFailed(errorMessage);
+    }
+
     private void validateApplicableStatus(ConsultationAiNoteStatus status) {
         if (status == ConsultationAiNoteStatus.APPLIED) {
             throw new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_ALREADY_APPLIED);
@@ -178,5 +210,12 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
         } catch (JsonProcessingException e) {
             throw new BusinessException(ConsultationErrorCode.CONSULTATION_AI_NOTE_INVALID_DATA);
         }
+    }
+
+    private record SttCompletionContext(
+            ConsultationSttSession session,
+            UUID aiNoteId,
+            boolean shouldGenerate
+    ) {
     }
 }

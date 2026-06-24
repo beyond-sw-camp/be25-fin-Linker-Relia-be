@@ -5,6 +5,7 @@ import com.linker.relia.organization.dto.FpContractListItemResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListItemResponse;
 import com.linker.relia.organization.dto.FpMonthlyPerformanceItemResponse;
+import com.linker.relia.user.domain.UserStatus;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -106,7 +107,9 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                     ) as retention_rate,
                     fmpc.total_rank,
                     fmpc.branch_rank,
-                    fmpc.performance_score
+                    fmpc.performance_score,
+                    fp.user_status,
+                    fp.resigned_at
                 """.formatted(rankColumn);
         String contentSql = selectSql + fromWhereSql
                 + "order by " + rankColumn + " is null asc, "
@@ -143,6 +146,20 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                     fp.phone,
                     fp.email,
                     fp.joined_at,
+                    (
+                        select count(*)
+                        from customers c
+                        where c.customer_fp_id = fp.id
+                          and c.deleted_at is null
+                    ) as customer_count,
+                    (
+                        select count(*)
+                        from contracts ct
+                        where ct.fp_id = fp.id
+                          and ct.deleted_at is null
+                    ) as contract_count,
+                    fp.user_status,
+                    fp.resigned_at,
                     fmpc.closing_month,
                     fmpc.completed_contract_count,
                     fmpc.new_contract_count,
@@ -408,6 +425,8 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 .totalRank(toNullableInt(row[10]))
                 .branchRank(toNullableInt(row[11]))
                 .performanceScore(toNullableBigDecimal(row[12]))
+                .userStatus(toUserStatus(row[13]))
+                .resignedAt(toLocalDate(row[14]))
                 .build();
     }
 
@@ -452,22 +471,26 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 .phone((String) row[5])
                 .email((String) row[6])
                 .hireDate(toLocalDate(row[7]))
+                .customerCount(toLong(row[8]))
+                .contractCount(toLong(row[9]))
+                .userStatus(toUserStatus(row[10]))
+                .resignedAt(toLocalDate(row[11]))
                 .performanceSummary(toPerformanceSummary(row))
                 .build();
     }
 
     private FpDetailResponse.PerformanceSummary toPerformanceSummary(Object[] row) {
-        if (row[8] == null) {
+        if (row[12] == null) {
             return null;
         }
 
         return FpDetailResponse.PerformanceSummary.builder()
-                .closingMonth((String) row[8])
-                .completedContractCount(toInt(row[9]))
-                .newContractCount(toInt(row[10]))
-                .retentionRate(toBigDecimal(row[11]))
-                .totalRank(toInt(row[12]))
-                .branchRank(toInt(row[13]))
+                .closingMonth((String) row[12])
+                .completedContractCount(toInt(row[13]))
+                .newContractCount(toInt(row[14]))
+                .retentionRate(toBigDecimal(row[15]))
+                .totalRank(toInt(row[16]))
+                .branchRank(toInt(row[17]))
                 .build();
     }
 
@@ -528,5 +551,9 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
         }
 
         return toBigDecimal(value);
+    }
+
+    private UserStatus toUserStatus(Object value) {
+        return value == null ? null : UserStatus.valueOf(value.toString());
     }
 }

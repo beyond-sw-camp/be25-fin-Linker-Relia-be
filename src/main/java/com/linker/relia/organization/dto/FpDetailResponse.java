@@ -1,5 +1,6 @@
 package com.linker.relia.organization.dto;
 
+import com.linker.relia.user.domain.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,6 +21,10 @@ public class FpDetailResponse {
     private final String phone;
     private final String email;
     private final LocalDate hireDate;
+    private final long customerCount;
+    private final long contractCount;
+    private final UserStatus userStatus;
+    private final LocalDate resignedAt;
     private final PerformanceSummary performanceSummary;
 
     @Getter

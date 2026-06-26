@@ -13,7 +13,8 @@ public enum HandoverErrorCode implements ErrorCode {
     RECOMMENDATION_NOT_FOUND("HANDOVER_006", "추천 결과를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     INVALID_APPROVAL_REQUEST("HANDOVER_007", "결재 요청 값이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
     HANDOVER_ALREADY_COMPLETED("HANDOVER_008", "이미 완료된 인수인계 요청입니다.", HttpStatus.CONFLICT),
-    INVALID_HANDOVER_APPROVAL_TARGET("HANDOVER_009", "결재할 수 없는 인수인계 요청 상태입니다.", HttpStatus.CONFLICT);
+    INVALID_HANDOVER_APPROVAL_TARGET("HANDOVER_009", "결재할 수 없는 인수인계 요청 상태입니다.", HttpStatus.CONFLICT),
+    COMMENT_GENERATION_FAILED("HANDOVER_010", "추천 이유 멘트 생성에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String code;
     private final String message;

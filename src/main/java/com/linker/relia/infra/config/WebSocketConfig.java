@@ -19,6 +19,12 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(consultationSttAudioWebSocketHandler, "/ws/consultation-stt/audio/*")
                 .addInterceptors(consultationSttHandshakeInterceptor)
-                .setAllowedOrigins("http://localhost:5173", "http://127.0.0.1:5173");
+                .setAllowedOrigins(
+                        "http://localhost:5173",
+                        "http://127.0.0.1:5173",
+                        "https://d1mht2pok8se28.cloudfront.net",
+                        "https://relireli.org",
+                        "https://www.relireli.org"
+                );
     }
 }

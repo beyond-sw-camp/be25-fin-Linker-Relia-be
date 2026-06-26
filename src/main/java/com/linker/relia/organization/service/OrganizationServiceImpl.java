@@ -6,10 +6,13 @@ import com.linker.relia.common.access.AccessScopeResolver;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.customer.repository.CustomerRepository;
+import com.linker.relia.handover.domain.HandoverRecommendation;
 import com.linker.relia.handover.domain.HandoverRequest;
 import com.linker.relia.handover.domain.RequestStatus;
 import com.linker.relia.handover.domain.RequestType;
+import com.linker.relia.handover.repository.HandoverRecommendationRepository;
 import com.linker.relia.handover.repository.HandoverRequestRepository;
+import com.linker.relia.handover.service.RecommendationService;
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
 import com.linker.relia.organization.dto.FpContractListRequest;
@@ -57,6 +60,8 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final HandoverRequestRepository handoverRequestRepository;
+    private final HandoverRecommendationRepository handoverRecommendationRepository;
+    private final RecommendationService recommendationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -184,13 +189,17 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .toList();
 
         fp.resign(request.getResignedAt());
-        handoverRequestRepository.saveAll(handoverRequests);
+        List<HandoverRequest> savedHandoverRequests = handoverRequestRepository.saveAll(handoverRequests);
+        List<HandoverRecommendation> recommendations = savedHandoverRequests.stream()
+                .map(recommendationService::recommend)
+                .toList();
+        handoverRecommendationRepository.saveAll(recommendations);
 
         return FpResignResponse.builder()
                 .id(fp.getId())
                 .userStatus(fp.getUserStatus())
                 .resignedAt(fp.getResignedAt())
-                .handoverRequestCount(handoverRequests.size())
+                .handoverRequestCount(savedHandoverRequests.size())
                 .build();
     }
 

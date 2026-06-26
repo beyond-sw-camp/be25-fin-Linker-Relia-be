@@ -7,6 +7,7 @@ import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -59,6 +60,42 @@ public class ConsultationCancelDetail {
 
     @Column(name = "retention_possibility", nullable = false, length = 30)
     private String retentionPossibility;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "consultation_cancel_review_reasons",
+            joinColumns = @JoinColumn(name = "consultation_cancel_detail_id")
+    )
+    @OrderColumn(name = "reason_order")
+    @Column(name = "review_reason", nullable = false, length = 100)
+    private List<String> reviewReasons;
+
+    @Column(name = "reason_detail", length = 500)
+    private String reasonDetail;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "consultation_cancel_retention_plans",
+            joinColumns = @JoinColumn(name = "consultation_cancel_detail_id")
+    )
+    @OrderColumn(name = "plan_order")
+    @Column(name = "retention_plan", nullable = false, length = 100)
+    private List<String> retentionPlans;
+
+    @Column(name = "customer_intent", length = 100)
+    private String customerIntent;
+
+    @Column(name = "result", length = 100)
+    private String result;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "consultation_cancel_next_actions",
+            joinColumns = @JoinColumn(name = "consultation_cancel_detail_id")
+    )
+    @OrderColumn(name = "action_order")
+    @Column(name = "next_action", nullable = false, length = 500)
+    private List<String> nextActions;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

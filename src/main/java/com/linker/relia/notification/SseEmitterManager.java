@@ -3,6 +3,7 @@ package com.linker.relia.notification;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -41,6 +42,11 @@ public class SseEmitterManager {
         });
         emitter.onError(error -> {
             remove(userId, emitter);
+            // 브라우저 새로고침/탭 종료는 정상적인 SSE 연결 종료이므로 log.WARN 남기지 않음
+            if (isDisconnectedClientException(error)) {
+                log.debug("SSE client disconnected userId={}, reason={}", userId, error.getClass().getSimpleName());
+                return;
+            }
             log.warn("SSE connection error userId={}", userId, error);
         });
 
@@ -111,6 +117,11 @@ public class SseEmitterManager {
             }
             return true;
         } catch (IOException | IllegalStateException e) {
+            // 연결 종료 후 heartbeat/data 전송 실패는 예상 가능한 상황이며, 호출부에서 emitter를 제거한다.
+            if (isDisconnectedClientException(e)) {
+                log.debug("SSE send skipped for disconnected client eventName={}, reason={}", eventName, e.getClass().getSimpleName());
+                return false;
+            }
             log.warn("SSE send failed eventName={}", eventName, e);
             return false;
         }
@@ -135,5 +146,16 @@ public class SseEmitterManager {
         return emitters.values().stream()
                 .mapToInt(Set::size)
                 .sum();
+    }
+
+    private boolean isDisconnectedClientException(Throwable error) {
+        if (error instanceof IOException
+                || error instanceof AsyncRequestNotUsableException
+                || error instanceof IllegalStateException) {
+            return true;
+        }
+
+        Throwable cause = error.getCause();
+        return cause != null && cause != error && isDisconnectedClientException(cause);
     }
 }

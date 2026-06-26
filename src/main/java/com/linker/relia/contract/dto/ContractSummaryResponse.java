@@ -11,6 +11,7 @@ public class ContractSummaryResponse {
     private final long unpaidCount;
     private final long lapseExpectedCount;
     private final long expiringSoonCount;
+    private final long renewalSoonCount;
 
     public static ContractSummaryResponse empty() {
         return ContractSummaryResponse.builder()
@@ -19,6 +20,7 @@ public class ContractSummaryResponse {
                 .unpaidCount(0L)
                 .lapseExpectedCount(0L)
                 .expiringSoonCount(0L)
+                .renewalSoonCount(0L)
                 .build();
     }
 }

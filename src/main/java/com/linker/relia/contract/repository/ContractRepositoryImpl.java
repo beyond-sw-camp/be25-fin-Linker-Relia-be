@@ -1,6 +1,7 @@
 package com.linker.relia.contract.repository;
 
 import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.contract.dto.CustomerContractSummaryRow;
 import com.linker.relia.contract.dto.ContractDetailQueryResult;
 import com.linker.relia.contract.dto.ContractListItemResponse;
 import com.linker.relia.contract.dto.ContractListSort;
@@ -9,6 +10,7 @@ import com.linker.relia.contract.dto.ContractMonthlyTrendResponse;
 import com.linker.relia.contract.dto.ContractSummaryResponse;
 import com.linker.relia.contract.dto.InsuranceCompanyContractStatusResponse;
 import com.linker.relia.customer.dto.CustomerContractSummaryResponse;
+import com.linker.relia.customer.dto.CustomerOwnedContractStatus;
 import com.linker.relia.customer.dto.CustomerOwnedContractResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -24,8 +26,9 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,31 +38,37 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     private EntityManager entityManager;
 
     @Override
-    public CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId,
-                                                                     LocalDate referenceDate,
-                                                                     LocalDate dueDateLimit) {
+    public CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId) {
         String jpql = """
-                select new com.linker.relia.customer.dto.CustomerContractSummaryResponse(
+                select new com.linker.relia.contract.dto.CustomerContractSummaryRow(
                     count(ct),
                     coalesce(sum(ct.monthlyPremium), 0),
                     coalesce(sum(case when ct.contractStatus = 'MAINTENANCE' then 1L else 0L end), 0L),
-                    coalesce(sum(case
-                        when ct.contractStatus = 'MAINTENANCE'
-                         and ct.contractEndDate between :referenceDate and :dueDateLimit then 1L
-                        else 0L
-                    end), 0L)
+                    coalesce(sum(case when ct.contractStatus = 'COMPLETED' then 1L else 0L end), 0L),
+                    coalesce(sum(case when ct.contractStatus = 'TERMINATED' then 1L else 0L end), 0L),
+                    coalesce(sum(case when ct.contractStatus = 'LAPSED' then 1L else 0L end), 0L)
                 )
                 from Contract ct
                 where ct.customer.id = :customerId
                   and ct.deletedAt is null
                 """;
 
-        TypedQuery<CustomerContractSummaryResponse> query =
-                entityManager.createQuery(jpql, CustomerContractSummaryResponse.class);
+        TypedQuery<CustomerContractSummaryRow> query =
+                entityManager.createQuery(jpql, CustomerContractSummaryRow.class);
         query.setParameter("customerId", customerId);
-        query.setParameter("referenceDate", referenceDate);
-        query.setParameter("dueDateLimit", dueDateLimit);
-        return query.getSingleResult();
+
+        CustomerContractSummaryRow summaryRow = query.getSingleResult();
+        Map<String, Long> contractStatusCounts = CustomerContractSummaryResponse.defaultContractStatusCounts();
+        contractStatusCounts.put("MAINTENANCE", summaryRow.maintenanceCount());
+        contractStatusCounts.put("COMPLETED", summaryRow.completedCount());
+        contractStatusCounts.put("TERMINATED", summaryRow.terminatedCount());
+        contractStatusCounts.put("LAPSED", summaryRow.lapsedCount());
+
+        return CustomerContractSummaryResponse.builder()
+                .totalContractCount(summaryRow.totalContractCount())
+                .totalMonthlyPremium(summaryRow.totalMonthlyPremium())
+                .contractStatusCounts(contractStatusCounts)
+                .build();
     }
 
     @Override
@@ -82,8 +91,14 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                     end), 0) as lapse_expected_count,
                     coalesce(sum(case
                         when ct.contract_status = 'MAINTENANCE'
+                         and ip.is_renewable = false
                          and ct.contract_end_date between :referenceDate and :dueDateLimit then 1 else 0
-                    end), 0) as expiring_soon_count
+                    end), 0) as expiring_soon_count,
+                    coalesce(sum(case
+                        when ct.contract_status = 'MAINTENANCE'
+                         and ip.is_renewable = true
+                         and ct.contract_end_date between :referenceDate and :dueDateLimit then 1 else 0
+                    end), 0) as renewal_soon_count
                 from contracts ct
                 join users fp on fp.id = ct.fp_id
                 join organizations org on org.id = fp.organization_id
@@ -114,6 +129,7 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 .unpaidCount(toLong(row[2]))
                 .lapseExpectedCount(toLong(row[3]))
                 .expiringSoonCount(toLong(row[4]))
+                .renewalSoonCount(toLong(row[5]))
                 .build();
     }
 
@@ -130,6 +146,7 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
         String contentSql = """
                 select
                     ct.id,
+                    c.id,
                     c.customer_name,
                     ct.contract_code,
                     ct.contract_date,
@@ -474,20 +491,21 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                                                                 ContractListStatus requestedStatus) {
         return ContractListItemResponse.builder()
                 .contractId(UUID.fromString((String) row[0]))
-                .customerName((String) row[1])
-                .contractCode((String) row[2])
-                .contractDate(toLocalDate(row[3]))
-                .contractEndDate(toLocalDate(row[4]))
+                .customerId(UUID.fromString((String) row[1]))
+                .customerName((String) row[2])
+                .contractCode((String) row[3])
+                .contractDate(toLocalDate(row[4]))
+                .contractEndDate(toLocalDate(row[5]))
                 .contractStatus(resolveDisplayContractStatus(
-                        (String) row[5],
                         (String) row[6],
-                        toBoolean(row[7]),
-                        toLocalDate(row[4]),
+                        (String) row[7],
+                        toBoolean(row[8]),
+                        toLocalDate(row[5]),
                         requestedStatus
                 ))
-                .monthlyPremium((BigDecimal) row[8])
-                .insuranceProductName((String) row[9])
-                .insuranceCompanyName((String) row[10])
+                .monthlyPremium((BigDecimal) row[9])
+                .insuranceProductName((String) row[10])
+                .insuranceCompanyName((String) row[11])
                 .build();
     }
 
@@ -589,7 +607,14 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                     ip.insuranceProductName,
                     ct.monthlyPremium,
                     ct.contractStartDate,
-                    ct.contractStatus
+                    ct.contractEndDate,
+                    ct.contractStatus,
+                    (
+                        select max(cmc.terminatedAt)
+                        from ContractMonthlyClosing cmc
+                        where cmc.contract = ct
+                          and (cmc.terminatedYn = true or cmc.contractStatus = 'TERMINATED')
+                    )
                 )
                 from Contract ct
                 join ct.insuranceProduct ip
@@ -605,5 +630,62 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 entityManager.createQuery(jpql, CustomerOwnedContractResponse.class);
         query.setParameter("customerId", customerId);
         return query.getResultList();
+    }
+
+    @Override
+    public Page<CustomerOwnedContractResponse> findOwnCustomerContracts(UUID customerId,
+                                                                        CustomerOwnedContractStatus contractStatus,
+                                                                        Pageable pageable) {
+        String jpql = """
+                select new com.linker.relia.customer.dto.CustomerOwnedContractResponse(
+                    ct.id,
+                    ic.insuranceCompanyName,
+                    ip.insuranceProductName,
+                    ct.monthlyPremium,
+                    ct.contractStartDate,
+                    ct.contractEndDate,
+                    ct.contractStatus,
+                    (
+                        select max(cmc.terminatedAt)
+                        from ContractMonthlyClosing cmc
+                        where cmc.contract = ct
+                          and (cmc.terminatedYn = true or cmc.contractStatus = 'TERMINATED')
+                    )
+                )
+                from Contract ct
+                join ct.insuranceProduct ip
+                join ip.insuranceCompany ic
+                where ct.customer.id = :customerId
+                  and (:contractStatus is null or ct.contractStatus = :contractStatus)
+                  and ct.deletedAt is null
+                  and ip.deletedAt is null
+                  and ic.deletedAt is null
+                order by ct.contractStartDate desc, ct.createdAt desc
+                """;
+
+        TypedQuery<CustomerOwnedContractResponse> query =
+                entityManager.createQuery(jpql, CustomerOwnedContractResponse.class);
+        query.setParameter("customerId", customerId);
+        query.setParameter("contractStatus", contractStatus == null ? null : contractStatus.name());
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+
+        String countJpql = """
+                select count(ct)
+                from Contract ct
+                join ct.insuranceProduct ip
+                join ip.insuranceCompany ic
+                where ct.customer.id = :customerId
+                  and (:contractStatus is null or ct.contractStatus = :contractStatus)
+                  and ct.deletedAt is null
+                  and ip.deletedAt is null
+                  and ic.deletedAt is null
+                """;
+
+        TypedQuery<Long> countQuery = entityManager.createQuery(countJpql, Long.class);
+        countQuery.setParameter("customerId", customerId);
+        countQuery.setParameter("contractStatus", contractStatus == null ? null : contractStatus.name());
+
+        return new PageImpl<>(query.getResultList(), pageable, countQuery.getSingleResult());
     }
 }

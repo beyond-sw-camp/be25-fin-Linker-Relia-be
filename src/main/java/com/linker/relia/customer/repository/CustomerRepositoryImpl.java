@@ -38,10 +38,9 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
         String summaryJpql = """
                 select new com.linker.relia.customer.dto.CustomerListSummaryResponse(
                     count(c),
-                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.CONTRACTED then 1L else 0L end), 0L),
                     coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.PROSPECT then 1L else 0L end), 0L),
-                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.COMPLETED then 1L else 0L end), 0L),
-                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.TERMINATED then 1L else 0L end), 0L)
+                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.CONTRACTED then 1L else 0L end), 0L),
+                    coalesce(sum(case when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.CLOSED then 1L else 0L end), 0L)
                 )
                 from Customer c
                 join c.customerFp fp
@@ -104,39 +103,26 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     (select count(ct.id) from Contract ct where ct.customer = c and ct.deletedAt is null),
                     (select coalesce(sum(ct.monthlyPremium), 0) from Contract ct where ct.customer = c and ct.deletedAt is null),
                     case
-                        when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.COMPLETED then (
-                            select max(cmc.contractEndDate)
-                            from ContractMonthlyClosing cmc
-                            where cmc.customer = c
-                              and cmc.closingMonth = (
-                                  select max(cmc2.closingMonth)
-                                  from ContractMonthlyClosing cmc2
-                                  where cmc2.customer = c
-                              )
-                              and cmc.contractStatus = 'COMPLETED'
+                        when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.CLOSED then (
+                            select max(ct.contractEndDate)
+                            from Contract ct
+                            where ct.customer = c
+                              and ct.deletedAt is null
                         )
                         else null
                     end,
                     case
-                        when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.TERMINATED then (
+                        when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.CLOSED then (
                             select max(cmc.terminatedAt)
                             from ContractMonthlyClosing cmc
                             where cmc.customer = c
-                              and cmc.closingMonth = (
-                                  select max(cmc2.closingMonth)
-                                  from ContractMonthlyClosing cmc2
-                                  where cmc2.customer = c
-                              )
                               and (cmc.terminatedYn = true or cmc.contractStatus = 'TERMINATED')
                         )
                         else null
                     end,
                     (select max(cs.consultedAt) from Consultation cs where cs.customer = c and cs.deletedAt is null),
                     case
-                        when c.customerStatus in (
-                            com.linker.relia.customer.domain.CustomerStatus.COMPLETED,
-                            com.linker.relia.customer.domain.CustomerStatus.TERMINATED
-                        ) then null
+                        when c.customerStatus = com.linker.relia.customer.domain.CustomerStatus.CLOSED then null
                         else (
                             select min(cs.nextScheduledAt) from Consultation cs
                             where cs.customer = c
@@ -212,12 +198,17 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     c.interest_reason,
                     case
                         when c.interest_reason = 'UNPAID' then (
-                            select min(ct.contract_end_date)
+                            select min(
+                                case
+                                    when cmc.contract_status = 'LAPSED' and cmc.lapse_at is not null then cmc.lapse_at
+                                    else ct.contract_end_date
+                                end
+                            )
                             from contracts ct
                             join contract_monthly_closing cmc on cmc.contract_id = ct.id
                             where ct.customer_id = c.id
                               and ct.deleted_at is null
-                              and cmc.contract_status = 'MAINTENANCE'
+                              and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
                               and cmc.payment_status = 'UNPAID'
                               and cmc.closing_month = (
                                   select max(cmc2.closing_month)
@@ -259,12 +250,17 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     ) as last_consulted_at,
                     case
                         when c.interest_reason = 'UNPAID' then (
-                            select max(cmc.current_payment_round)
+                            select max(
+                                greatest(
+                                    1,
+                                    cmc.current_payment_round - coalesce(cmc.maintenance_round, cmc.current_payment_round)
+                                )
+                            )
                             from contract_monthly_closing cmc
                             join contracts ct on ct.id = cmc.contract_id
                             where cmc.customer_id = c.id
                               and ct.deleted_at is null
-                              and cmc.contract_status = 'MAINTENANCE'
+                              and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
                               and cmc.payment_status = 'UNPAID'
                               and cmc.closing_month = (
                                   select max(cmc2.closing_month)
@@ -377,7 +373,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                           and cs.deleted_at is null
                     ) as last_consulted_at,
                     case
-                        when c.customer_status in ('COMPLETED', 'TERMINATED') then null
+                        when c.customer_status = 'CLOSED' then null
                         else (
                             select min(cs.next_scheduled_at)
                             from consultations cs
@@ -389,12 +385,17 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     end as next_consulted_at,
                     case
                         when c.interest_reason = 'UNPAID' then (
-                            select min(ct.contract_end_date)
+                            select min(
+                                case
+                                    when cmc.contract_status = 'LAPSED' and cmc.lapse_at is not null then cmc.lapse_at
+                                    else ct.contract_end_date
+                                end
+                            )
                             from contracts ct
                             join contract_monthly_closing cmc on cmc.contract_id = ct.id
                             where ct.customer_id = c.id
                               and ct.deleted_at is null
-                              and cmc.contract_status = 'MAINTENANCE'
+                              and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
                               and cmc.payment_status = 'UNPAID'
                               and cmc.closing_month = (
                                   select max(cmc2.closing_month)
@@ -430,12 +431,17 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     end as contract_end_date,
                     case
                         when c.interest_reason = 'UNPAID' then (
-                            select max(cmc.current_payment_round)
+                            select max(
+                                greatest(
+                                    1,
+                                    cmc.current_payment_round - coalesce(cmc.maintenance_round, cmc.current_payment_round)
+                                )
+                            )
                             from contract_monthly_closing cmc
                             join contracts ct on ct.id = cmc.contract_id
                             where cmc.customer_id = c.id
                               and ct.deleted_at is null
-                              and cmc.contract_status = 'MAINTENANCE'
+                              and cmc.contract_status in ('MAINTENANCE', 'LAPSED')
                               and cmc.payment_status = 'UNPAID'
                               and cmc.closing_month = (
                                   select max(cmc2.closing_month)

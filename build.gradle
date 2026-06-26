@@ -68,6 +68,9 @@ dependencies {
 
     // Spring AI
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+
+    // SOLAPI(SMS)
+    implementation 'com.solapi:sdk:1.1.0'
 }
 
 tasks.named('test') {

@@ -5,6 +5,7 @@ import com.linker.relia.organization.dto.FpContractListItemResponse;
 import com.linker.relia.organization.dto.FpDetailResponse;
 import com.linker.relia.organization.dto.FpListItemResponse;
 import com.linker.relia.organization.dto.FpMonthlyPerformanceItemResponse;
+import com.linker.relia.user.domain.UserStatus;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -33,15 +34,18 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                                               String closingMonth,
                                               Pageable pageable) {
         String fromWhereSql = buildFromWhereSql(accessScope);
-        String contentSql = """
+        String rankColumn = resolveRankColumn(accessScope, organizationId);
+        String selectSql = """
                 select
                     fp.id,
                     fp.emp_code,
                     fp.user_name,
                     org.id as organization_id,
                     org.organization_name,
-                    coalesce(:closingMonth, fmi.closing_month) as closing_month,
+                    coalesce(fmpc.closing_month, fmi.closing_month) as closing_month,
+                    %s as ranking,
                     case
+                        when fmpc.fp_id is not null then fmpc.customer_count
                         when coalesce(:closingMonth, fmi.closing_month) is null then (
                             select count(*)
                             from customers c
@@ -60,6 +64,7 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                         )
                     end as customer_count,
                     case
+                        when fmpc.fp_id is not null then fmpc.completed_contract_count
                         when coalesce(:closingMonth, fmi.closing_month) is null then (
                             select count(*)
                             from contracts ct
@@ -78,6 +83,7 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                         )
                     end as contract_count,
                     coalesce(
+                        fmpc.retention_rate,
                         fmi.retention_rate,
                         case
                             when coalesce(:closingMonth, fmi.closing_month) is null then (
@@ -98,10 +104,16 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                             )
                         end,
                         0
-                    ) as retention_rate
-                """ + fromWhereSql + """
-                order by org.organization_name asc, fp.user_name asc, fp.emp_code asc
-                """;
+                    ) as retention_rate,
+                    fmpc.total_rank,
+                    fmpc.branch_rank,
+                    fmpc.performance_score,
+                    fp.user_status,
+                    fp.resigned_at
+                """.formatted(rankColumn);
+        String contentSql = selectSql + fromWhereSql
+                + "order by " + rankColumn + " is null asc, "
+                + rankColumn + " asc, fp.user_name asc, fp.id asc\n";
 
         Query contentQuery = entityManager.createNativeQuery(contentSql);
         bindParameters(contentQuery, accessScope, keyword, organizationId, closingMonth);
@@ -134,6 +146,20 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                     fp.phone,
                     fp.email,
                     fp.joined_at,
+                    (
+                        select count(*)
+                        from customers c
+                        where c.customer_fp_id = fp.id
+                          and c.deleted_at is null
+                    ) as customer_count,
+                    (
+                        select count(*)
+                        from contracts ct
+                        where ct.fp_id = fp.id
+                          and ct.deleted_at is null
+                    ) as contract_count,
+                    fp.user_status,
+                    fp.resigned_at,
                     fmpc.closing_month,
                     fmpc.completed_contract_count,
                     fmpc.new_contract_count,
@@ -295,10 +321,20 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
         return """
                 from users fp
                 join organizations org on org.id = fp.organization_id
+                left join fp_monthly_performance_closing fmpc
+                  on fmpc.fp_id = fp.id
+                 and fmpc.closing_month = coalesce(
+                     :closingMonth,
+                     (
+                         select max(fmpc2.closing_month)
+                         from fp_monthly_performance_closing fmpc2
+                     )
+                 )
                 left join fp_monthly_info fmi
                   on fmi.emp_code = fp.emp_code
                  and fmi.closing_month = coalesce(
                      :closingMonth,
+                     fmpc.closing_month,
                      (
                          select max(fmi2.closing_month)
                          from fp_monthly_info fmi2
@@ -311,6 +347,14 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                   and (:keyword is null or fp.user_name like concat('%', :keyword, '%'))
                   and (:organizationId is null or org.id = :organizationId)
                 """ + buildAccessScopeWhereClause(accessScope);
+    }
+
+    private String resolveRankColumn(AccessScope accessScope, UUID organizationId) {
+        if (accessScope.isBranchScope() || accessScope.isOwnScope() || organizationId != null) {
+            return "fmpc.branch_rank";
+        }
+
+        return "fmpc.total_rank";
     }
 
     private String buildAccessScopeWhereClause(AccessScope accessScope) {
@@ -374,9 +418,15 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 .organizationId(toUuid(row[3]))
                 .organizationName((String) row[4])
                 .closingMonth((String) row[5])
-                .customerCount(toLong(row[6]))
-                .contractCount(toLong(row[7]))
-                .retentionRate(toBigDecimal(row[8]))
+                .rank(toNullableInt(row[6]))
+                .customerCount(toLong(row[7]))
+                .contractCount(toLong(row[8]))
+                .retentionRate(toBigDecimal(row[9]))
+                .totalRank(toNullableInt(row[10]))
+                .branchRank(toNullableInt(row[11]))
+                .performanceScore(toNullableBigDecimal(row[12]))
+                .userStatus(toUserStatus(row[13]))
+                .resignedAt(toLocalDate(row[14]))
                 .build();
     }
 
@@ -421,22 +471,26 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 .phone((String) row[5])
                 .email((String) row[6])
                 .hireDate(toLocalDate(row[7]))
+                .customerCount(toLong(row[8]))
+                .contractCount(toLong(row[9]))
+                .userStatus(toUserStatus(row[10]))
+                .resignedAt(toLocalDate(row[11]))
                 .performanceSummary(toPerformanceSummary(row))
                 .build();
     }
 
     private FpDetailResponse.PerformanceSummary toPerformanceSummary(Object[] row) {
-        if (row[8] == null) {
+        if (row[12] == null) {
             return null;
         }
 
         return FpDetailResponse.PerformanceSummary.builder()
-                .closingMonth((String) row[8])
-                .completedContractCount(toInt(row[9]))
-                .newContractCount(toInt(row[10]))
-                .retentionRate(toBigDecimal(row[11]))
-                .totalRank(toInt(row[12]))
-                .branchRank(toInt(row[13]))
+                .closingMonth((String) row[12])
+                .completedContractCount(toInt(row[13]))
+                .newContractCount(toInt(row[14]))
+                .retentionRate(toBigDecimal(row[15]))
+                .totalRank(toInt(row[16]))
+                .branchRank(toInt(row[17]))
                 .build();
     }
 
@@ -479,11 +533,27 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
         return ((Number) Objects.requireNonNull(value)).intValue();
     }
 
+    private Integer toNullableInt(Object value) {
+        return value == null ? null : ((Number) value).intValue();
+    }
+
     private BigDecimal toBigDecimal(Object value) {
         if (value instanceof BigDecimal bigDecimal) {
             return bigDecimal;
         }
 
         return new BigDecimal(Objects.requireNonNull(value).toString());
+    }
+
+    private BigDecimal toNullableBigDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        return toBigDecimal(value);
+    }
+
+    private UserStatus toUserStatus(Object value) {
+        return value == null ? null : UserStatus.valueOf(value.toString());
     }
 }

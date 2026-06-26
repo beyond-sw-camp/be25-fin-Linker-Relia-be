@@ -30,7 +30,7 @@ public class ClaimDetailResponse {
             List<ConsultationClaimNextAction> nextActions
     ) {
         return ClaimDetailResponse.builder()
-                .claimType(null)
+                .claimType(detail.getClaimType())
                 .claimReason(detail.getClaimReasonDetail())
                 .hospitalName(detail.getHospitalName())
                 .diagnosisOrTreatment(detail.getDiagnosisOrTreatment())

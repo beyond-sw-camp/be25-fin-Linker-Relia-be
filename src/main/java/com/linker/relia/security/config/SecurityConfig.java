@@ -8,6 +8,7 @@ import com.linker.relia.security.handler.CustomAuthenticationEntryPoint;
 import com.linker.relia.security.handler.LoginFailureHandler;
 import com.linker.relia.security.handler.LoginSuccessHandler;
 import com.linker.relia.security.jwt.JwtProperties;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpMethod;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -51,12 +52,17 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        // SSE 연결 종료 후 발생하는 ASYNC/ERROR dispatch만 통과시키고, 최초 요청은 아래 인증 규칙을 적용한다.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/organizations/branches").permitAll()
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/reissue",
                                 "/api/auth/logout",
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/info",
                                 "/ws/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
@@ -96,7 +102,10 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "http://127.0.0.1:5173"
+                "http://127.0.0.1:5173",
+                "https://d1mht2pok8se28.cloudfront.net",
+                "https://relireli.org",
+                "https://www.relireli.org"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));

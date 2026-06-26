@@ -1,0 +1,15 @@
+.git
+.github
+.gradle
+
+build
+!build/libs/
+!build/libs/*.jar
+out
+
+.idea
+*.iml
+
+.env
+
+README.md

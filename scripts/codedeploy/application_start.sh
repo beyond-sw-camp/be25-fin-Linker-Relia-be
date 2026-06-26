@@ -14,5 +14,5 @@ GHCR_TOKEN="$(aws ssm get-parameter --region "${AWS_REGION}" --with-decryption -
 
 printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
 
-docker compose -f docker-compose.prod.yaml pull app redis
-docker compose -f docker-compose.prod.yaml up -d redis app
+docker compose -f docker-compose.prod.yaml pull app
+docker compose -f docker-compose.prod.yaml up -d app

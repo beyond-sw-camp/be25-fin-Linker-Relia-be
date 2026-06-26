@@ -16,5 +16,5 @@ for attempt in $(seq 1 30); do
   sleep 10
 done
 
-docker compose -f docker-compose.prod.yaml logs --tail=200 app redis
+docker compose -f docker-compose.prod.yaml logs --tail=200 app
 exit 1

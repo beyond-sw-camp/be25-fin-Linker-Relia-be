@@ -135,7 +135,7 @@ public class HandoverDetailQueryRepository {
     }
 
     // 요청 요약 카드
-    public HandoverSummaryResponse findSummary(AccessScope accessScope) {
+    public HandoverSummaryResponse findSummary(AccessScope accessScope, String organizationCode) {
         String jpql = """
             SELECT new com.linker.relia.handover.dto.response.HandoverSummaryResponse(
                 COALESCE(SUM(CASE WHEN h.requestStatus = 'MANAGER_PENDING' THEN 1 ELSE 0 END), 0),
@@ -150,6 +150,7 @@ public class HandoverDetailQueryRepository {
             JOIN c.customerFp cfp
             JOIN cfp.organization org
             WHERE h.deletedAt IS NULL
+            AND (:organizationCode IS NULL OR org.organizationCode = :organizationCode)
             """;
 
         if (accessScope.isBranchScope()) {
@@ -158,6 +159,8 @@ public class HandoverDetailQueryRepository {
 
         TypedQuery<HandoverSummaryResponse> query =
                 entityManager.createQuery(jpql, HandoverSummaryResponse.class);
+
+        query.setParameter("organizationCode", organizationCode);
 
         if (accessScope.isBranchScope()) {
             query.setParameter("organizationId", accessScope.organizationId());

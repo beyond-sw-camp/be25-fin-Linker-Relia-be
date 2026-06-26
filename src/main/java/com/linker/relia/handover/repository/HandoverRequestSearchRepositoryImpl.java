@@ -24,6 +24,7 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
             RequestStatus status,
             RequestType requestType,
             String customerName,
+            String organizationCode,
             Pageable pageable
     ) {
         // 목록 조회 쿼리
@@ -32,6 +33,17 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
                 SELECT new com.linker.relia.handover.dto.response.HandoverListItemResponse(
                     h.id,
                     c.customerName,
+                    (
+                        SELECT MAX(r.recommendedFpName)
+                        FROM HandoverRecommendation r
+                        WHERE r.handoverRequest = h
+                          AND r.createdAt = (
+                              SELECT MAX(r2.createdAt)
+                              FROM HandoverRecommendation r2
+                              WHERE r2.handoverRequest = h
+                          )
+                    ),
+                    org.organizationCode,
                     c.customerGrade,
                     fp.userName,
                     h.requestType,
@@ -56,7 +68,7 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
         TypedQuery<HandoverListItemResponse> contentQuery =
                 entityManager.createQuery(contentJpql, HandoverListItemResponse.class);
 
-        bindParams(contentQuery, accessScope, status, requestType, customerName);
+        bindParams(contentQuery, accessScope, status, requestType, customerName, organizationCode);
         contentQuery.setFirstResult((int) pageable.getOffset());
         contentQuery.setMaxResults(pageable.getPageSize());
 
@@ -73,7 +85,7 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
         TypedQuery<Long> countQuery =
                 entityManager.createQuery(countJpql, Long.class);
 
-        bindParams(countQuery, accessScope, status, requestType, customerName);
+        bindParams(countQuery, accessScope, status, requestType, customerName, organizationCode);
 
         return new PageImpl<>(
                 contentQuery.getResultList(),
@@ -89,6 +101,7 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
                 WHERE h.deletedAt IS NULL
                   AND c.deletedAt IS NULL
                   AND (:customerName IS NULL OR c.customerName LIKE CONCAT('%', :customerName, '%'))
+                  AND (:organizationCode IS NULL OR org.organizationCode = :organizationCode)
                   AND (:status IS NULL OR h.requestStatus = :status)
                   AND (:requestType IS NULL OR h.requestType = :requestType)
                 """);
@@ -102,8 +115,10 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
 
     // 쿼리 파라미터 바인딩
     private void bindParams(TypedQuery<?> query, AccessScope accessScope,
-                            RequestStatus status, RequestType requestType, String customerName) {
+                            RequestStatus status, RequestType requestType, String customerName,
+                            String organizationCode) {
         query.setParameter("customerName", customerName);
+        query.setParameter("organizationCode", organizationCode);
         query.setParameter("status", status);
         query.setParameter("requestType", requestType);
 

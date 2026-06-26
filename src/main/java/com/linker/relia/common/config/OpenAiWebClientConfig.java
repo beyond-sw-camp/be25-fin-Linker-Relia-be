@@ -9,7 +9,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class OpenAiWebClientConfig {
     private static final String API_URL = "https://api.openai.com/v1/chat/completions";
     @Bean
-    public WebClient openAiWebClient(@Value("${openai.api-key}") String apiKey) {
+    public WebClient openAiWebClient(@Value("${spring.ai.openai.api-key}") String apiKey) {
         return WebClient.builder()
                 .baseUrl(API_URL)
                 .defaultHeader("Authorization", "Bearer " + apiKey)

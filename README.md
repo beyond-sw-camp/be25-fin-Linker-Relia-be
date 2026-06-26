@@ -54,6 +54,7 @@
 6. [시스템 아키텍처](#6--시스템-아키텍처)
 7. [API 명세서](#7--api-명세서)
 8. [화면설계서](#8--화면설계서)
+9. [테스트 보고서](#9--테스트-보고서)
 
 <br>
 
@@ -109,3 +110,11 @@
 🔗[ 화면설계서 ](https://www.figma.com/design/6aXsWd1dgv2FIWskBVlJQL/Norphan%EC%B4%88%EC%95%88?node-id=0-1&t=SD1UjxoCclMrT08R-1)
 
 <br/><br/>
+
+---
+
+# 9.  테스트 보고서
+🔗[ 프론트 테스트 보고서 ](https://docs.google.com/spreadsheets/d/1_25LySE-rzxbZtjh1W5OwWTwqWKSgGlhcC5KLCODOp4/edit?gid=372616974#gid=372616974)
+<br/>
+
+🔗[ 백엔드 테스트 보고서 ](https://docs.google.com/spreadsheets/d/1_25LySE-rzxbZtjh1W5OwWTwqWKSgGlhcC5KLCODOp4/edit?gid=362152457#gid=362152457)

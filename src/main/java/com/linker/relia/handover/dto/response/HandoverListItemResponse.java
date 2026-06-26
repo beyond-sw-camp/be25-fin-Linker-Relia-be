@@ -10,6 +10,7 @@ import java.util.UUID;
 public record HandoverListItemResponse (
     UUID handoverRequestId,
     String customerName,
+    String recommendFpName,
     CustomerGrade customerGrade,
     String currentFpName,
     RequestType requestType,
@@ -20,6 +21,7 @@ public record HandoverListItemResponse (
     public static HandoverListItemResponse of(
             UUID handoverRequestId,
             String customerName,
+            String recommendFpName,
             CustomerGrade customerGrade,
             String currentFpName,
             RequestType requestType,
@@ -27,7 +29,7 @@ public record HandoverListItemResponse (
             LocalDateTime createdAt,
             LocalDateTime approvedAt) {
         return new HandoverListItemResponse(
-                handoverRequestId, customerName, customerGrade,
+                handoverRequestId, customerName, recommendFpName, customerGrade,
                 currentFpName, requestType, requestStatus, createdAt, approvedAt
         );
     }

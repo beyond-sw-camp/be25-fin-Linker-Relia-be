@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   IMAGE_NAME: ghcr.io/beyond-sw-camp/be25-fin-linker-relia-be
@@ -27,6 +28,28 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Load GHCR credentials from SSM
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          GHCR_USERNAME_SSM_PARAMETER: ${{ vars.GHCR_USERNAME_SSM_PARAMETER }}
+          GHCR_TOKEN_SSM_PARAMETER: ${{ vars.GHCR_TOKEN_SSM_PARAMETER }}
+        run: |
+          set -euo pipefail
+
+          GHCR_USERNAME="$(aws ssm get-parameter --region "${AWS_REGION}" --with-decryption --name "${GHCR_USERNAME_SSM_PARAMETER}" --query 'Parameter.Value' --output text)"
+          GHCR_TOKEN="$(aws ssm get-parameter --region "${AWS_REGION}" --with-decryption --name "${GHCR_TOKEN_SSM_PARAMETER}" --query 'Parameter.Value' --output text)"
+
+          {
+            printf 'GHCR_USERNAME=%s\n' "${GHCR_USERNAME}"
+            printf 'GHCR_TOKEN=%s\n' "${GHCR_TOKEN}"
+          } >> "${GITHUB_ENV}"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -48,8 +71,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ env.GHCR_USERNAME }}
+          password: ${{ env.GHCR_TOKEN }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -66,89 +89,85 @@ jobs:
     name: Deploy
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Configure SSH
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/relia_deploy_key
-          chmod 600 ~/.ssh/relia_deploy_key
-          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
-      - name: Copy deployment compose file
+      - name: Create CodeDeploy bundle
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-        run: |
-          ssh \
-            -i ~/.ssh/relia_deploy_key \
-            -p "$DEPLOY_PORT" \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "mkdir -p '$DEPLOY_PATH'"
-
-          scp \
-            -i ~/.ssh/relia_deploy_key \
-            -P "$DEPLOY_PORT" \
-            docker-compose.prod.yaml \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/docker-compose.prod.yaml"
-
-      - name: Log in to GHCR on server
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-        run: |
-          printf '%s' "$GHCR_TOKEN" | ssh \
-            -i ~/.ssh/relia_deploy_key \
-            -p "$DEPLOY_PORT" \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin"
-
-      - name: Deploy backend
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ github.sha }}
-          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+          APP_ENV_SSM_PARAMETER: ${{ vars.APP_ENV_SSM_PARAMETER }}
+          GHCR_USERNAME_SSM_PARAMETER: ${{ vars.GHCR_USERNAME_SSM_PARAMETER }}
+          GHCR_TOKEN_SSM_PARAMETER: ${{ vars.GHCR_TOKEN_SSM_PARAMETER }}
         run: |
-          ssh \
-            -i ~/.ssh/relia_deploy_key \
-            -p "$DEPLOY_PORT" \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "DEPLOY_PATH='$DEPLOY_PATH' IMAGE_NAME='$IMAGE_NAME' IMAGE_TAG='$IMAGE_TAG' PROD_ENV_FILE='$PROD_ENV_FILE' bash -s" <<'EOF'
           set -euo pipefail
 
-          cd "$DEPLOY_PATH"
-          
-          printf '%s\n' "$PROD_ENV_FILE" > .env
-          printf "\nIMAGE_NAME=%s\nIMAGE_TAG=%s\n" "$IMAGE_NAME" "$IMAGE_TAG" >> .env
+          BUNDLE_DIR="${RUNNER_TEMP}/codedeploy-bundle"
+          ARCHIVE_PATH="${RUNNER_TEMP}/codedeploy-${GITHUB_SHA}.zip"
 
-          docker compose -f docker-compose.prod.yaml pull
-          docker compose -f docker-compose.prod.yaml up -d
+          rm -rf "${BUNDLE_DIR}" "${ARCHIVE_PATH}"
+          mkdir -p "${BUNDLE_DIR}/deployment"
 
-          for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
-              docker image prune -f
-              exit 0
-            fi
-            sleep 10
-          done
+          rsync -a ./ "${BUNDLE_DIR}/" \
+            --exclude ".git" \
+            --exclude ".github" \
+            --exclude ".gradle" \
+            --exclude ".idea" \
+            --exclude ".agents" \
+            --exclude "build" \
+            --exclude "deployment/nginx"
 
-          docker compose -f docker-compose.prod.yaml logs --tail=200 app
-          exit 1
-          EOF
+          {
+            printf 'AWS_REGION=%s\n' "${AWS_REGION}"
+            printf 'IMAGE_NAME=%s\n' "${IMAGE_NAME}"
+            printf 'IMAGE_TAG=%s\n' "${IMAGE_TAG}"
+            printf 'APP_ENV_SSM_PARAMETER=%s\n' "${APP_ENV_SSM_PARAMETER}"
+            printf 'GHCR_USERNAME_SSM_PARAMETER=%s\n' "${GHCR_USERNAME_SSM_PARAMETER}"
+            printf 'GHCR_TOKEN_SSM_PARAMETER=%s\n' "${GHCR_TOKEN_SSM_PARAMETER}"
+          } > "${BUNDLE_DIR}/deployment/release.env"
+
+          cd "${BUNDLE_DIR}"
+          zip -qr "${ARCHIVE_PATH}" .
+
+      - name: Upload bundle to S3
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CODEDEPLOY_S3_BUCKET: ${{ vars.CODEDEPLOY_S3_BUCKET }}
+          CODEDEPLOY_S3_KEY_PREFIX: ${{ vars.CODEDEPLOY_S3_KEY_PREFIX }}
+        run: |
+          set -euo pipefail
+
+          S3_KEY="${CODEDEPLOY_S3_KEY_PREFIX:-codedeploy}/releases/${GITHUB_SHA}.zip"
+          aws s3 cp "${RUNNER_TEMP}/codedeploy-${GITHUB_SHA}.zip" "s3://${CODEDEPLOY_S3_BUCKET}/${S3_KEY}" --region "${AWS_REGION}"
+          echo "S3_KEY=${S3_KEY}" >> "${GITHUB_ENV}"
+
+      - name: Create CodeDeploy deployment
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CODEDEPLOY_APPLICATION_NAME: ${{ vars.CODEDEPLOY_APPLICATION_NAME }}
+          CODEDEPLOY_DEPLOYMENT_GROUP: ${{ vars.CODEDEPLOY_DEPLOYMENT_GROUP }}
+          CODEDEPLOY_S3_BUCKET: ${{ vars.CODEDEPLOY_S3_BUCKET }}
+        run: |
+          set -euo pipefail
+
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
+            --region "${AWS_REGION}" \
+            --application-name "${CODEDEPLOY_APPLICATION_NAME}" \
+            --deployment-group-name "${CODEDEPLOY_DEPLOYMENT_GROUP}" \
+            --description "GitHub Actions deployment ${GITHUB_SHA}" \
+            --revision "revisionType=S3,s3Location={bucket=${CODEDEPLOY_S3_BUCKET},key=${S3_KEY},bundleType=zip}" \
+            --query "deploymentId" \
+            --output text)
+
+          echo "Created deployment ${DEPLOYMENT_ID}"
+          aws deploy wait deployment-successful --region "${AWS_REGION}" --deployment-id "${DEPLOYMENT_ID}"

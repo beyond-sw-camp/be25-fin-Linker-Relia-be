@@ -32,6 +32,16 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
                 SELECT new com.linker.relia.handover.dto.response.HandoverListItemResponse(
                     h.id,
                     c.customerName,
+                    (
+                        SELECT MAX(r.recommendedFpName)
+                        FROM HandoverRecommendation r
+                        WHERE r.handoverRequest = h
+                          AND r.createdAt = (
+                              SELECT MAX(r2.createdAt)
+                              FROM HandoverRecommendation r2
+                              WHERE r2.handoverRequest = h
+                          )
+                    ),
                     c.customerGrade,
                     fp.userName,
                     h.requestType,

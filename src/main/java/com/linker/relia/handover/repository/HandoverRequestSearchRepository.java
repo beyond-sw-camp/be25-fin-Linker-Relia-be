@@ -14,6 +14,7 @@ public interface HandoverRequestSearchRepository { // 요청 목록 검색 인�
             RequestStatus status,
             RequestType requestType,
             String customerName,
+            String organizationCode,
             Pageable pageable
     );
 }

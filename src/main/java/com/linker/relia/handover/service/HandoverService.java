@@ -107,7 +107,7 @@ public class HandoverService {
     public PageResponse<HandoverListItemResponse> getHandoverList(PrincipalDetails principal,
                                                                    RequestStatus status,
                                                                    RequestType requestType,
-                                                                   String customerName,
+                                                                   String customerName, String organizationCode,
                                                                    Pageable pageable) {
 
         User user = principal.getUser();
@@ -121,8 +121,9 @@ public class HandoverService {
             default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
         };
 
+        String normalizedOrganizationCode = normalizeNullable(organizationCode);
         Page<HandoverListItemResponse> page = handoverRequestRepository
-                .searchHandovers(accessScope, status, requestType, customerName, pageable);
+                .searchHandovers(accessScope, status, requestType, customerName, normalizedOrganizationCode, pageable);
 
         return PageResponse.from(page);
     }
@@ -328,13 +329,13 @@ public class HandoverService {
 
     // 인수인계 요청 뮥륙 요약
     @Transactional(readOnly = true)
-    public HandoverSummaryResponse getSummary(PrincipalDetails principal) {
+    public HandoverSummaryResponse getSummary(PrincipalDetails principal, String organizationCode) {
         User user = principal.getUser();
         AccessScope accessScope = switch (user.getUserRole()) {
             case BRANCH_MANAGER -> new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
             default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
         };
-        return handoverDetailQueryRepository.findSummary(accessScope);
+        return handoverDetailQueryRepository.findSummary(accessScope, normalizeNullable(organizationCode));
     }
 
     // 받은 인수인계 목록 요약
@@ -553,6 +554,13 @@ public class HandoverService {
 
         int age = Period.between(birthDate, LocalDate.now()).getYears();
         return age >= 0 ? age : null;
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
 }

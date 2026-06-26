@@ -61,10 +61,11 @@ public class HandoverController {
             @RequestParam(required = false) RequestStatus status,
             @RequestParam(required = false) RequestType requestType,
             @RequestParam(required = false) String customerName,
+            @RequestParam(required = false) String organizationCode,
             @Valid @ModelAttribute PageQueryRequest pageRequest) {
 
         PageResponse<HandoverListItemResponse> response = handoverService
-                .getHandoverList(principal, status, requestType, customerName, pageRequest.toPageable());
+                .getHandoverList(principal, status, requestType, customerName, organizationCode, pageRequest.toPageable());
 
         return ApiResponse.success(HttpStatus.OK, "인수인계 요청 목록 조회 성공", response);
     }
@@ -111,9 +112,10 @@ public class HandoverController {
     @GetMapping("/summary")
     @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<HandoverSummaryResponse>> getSummary(
-            @AuthenticationPrincipal PrincipalDetails principal) {
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(required = false) String organizationCode) {
 
-        HandoverSummaryResponse response = handoverService.getSummary(principal);
+        HandoverSummaryResponse response = handoverService.getSummary(principal, organizationCode);
         return ApiResponse.success(HttpStatus.OK, "인수인계 요약 조회 성공", response);
     }
 

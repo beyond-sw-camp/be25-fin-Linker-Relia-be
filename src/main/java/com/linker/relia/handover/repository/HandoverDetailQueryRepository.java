@@ -3,20 +3,24 @@ package com.linker.relia.handover.repository;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.consultation.domain.ConsultationChannel;
 import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
+import com.linker.relia.handover.dto.response.HandoverMonthlyTrendResponse;
 import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.user.domain.FpMonthlyInfo;
 import com.linker.relia.user.domain.UserRole;
 import com.linker.relia.user.domain.UserStatus;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import lombok.RequiredArgsConstructor;
+import org.flywaydb.core.Flyway;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -220,5 +224,49 @@ public class HandoverDetailQueryRepository {
                 .getSingleResult();
 
         return new PageImpl<>(content, pageable, total);
+    }
+
+    // 월별 인수인계 요청 건수 추이.
+    // GROUP BY + DATE_FORMAT을 JPQL FUNCTION()으로 쓰면 Hibernate 버전에 따라 동작이 갈릴 수 있어서 네이티브 쿼리로 작성함.
+
+    @SuppressWarnings("unchecked")
+    public List<HandoverMonthlyTrendResponse> findMonthlyTrend(
+            AccessScope accessScope,
+            String organizationCode,
+            LocalDate fromDate,
+            LocalDate toDate) {
+        StringBuilder sql = new StringBuilder("""
+            SELECT DATE_FORMAT(h.created_at, '%Y-%m') AS ym, COUNT(*) AS request_count
+            FROM handover_requests h
+            JOIN users cfp ON cfp.id = h.current_fp_id
+            JOIN organizations org ON org.id = cfp.organization_id
+            WHERE h.deleted_at IS NULL
+              AND h.created_at >= :fromDate
+              AND h.created_at < :toDate
+            """);
+
+        if (organizationCode != null) {
+            sql.append(" AND org.organization_code = :organizationCode");
+        }
+
+        if (accessScope.isBranchScope()) {
+            sql.append(" AND org.id = :organizationId");
+        }
+        sql.append(" GROUP BY DATE_FORMAT(h.created_at, '%Y-%m') ORDER BY ym");
+
+        Query query = entityManager.createNativeQuery(sql.toString());
+        if (organizationCode != null) {
+            query.setParameter("organizationCode", organizationCode);
+        }
+        query.setParameter("fromDate", fromDate);
+        query.setParameter("toDate", toDate);
+        if (accessScope.isBranchScope()) {
+            query.setParameter("organizationId", accessScope.organizationId().toString());
+        }
+
+        List<Object[]> rows = query.getResultList();
+        return rows.stream()
+                .map(row -> new HandoverMonthlyTrendResponse((String) row[0], ((Number) row[1]).longValue()))
+                .toList();
     }
 }

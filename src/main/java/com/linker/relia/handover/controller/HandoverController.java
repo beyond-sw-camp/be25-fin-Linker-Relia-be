@@ -12,6 +12,7 @@ import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
+import com.linker.relia.handover.dto.response.HandoverMonthlyTrendResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -129,7 +131,7 @@ public class HandoverController {
         return ApiResponse.success(HttpStatus.OK, "인수받은 목록 요약 조회 성공", response);
     }
 
-    // 지정 가능한 설계사 목록 API
+    // 지정 가능한 설계사 목록
     @GetMapping("/{handoverRequestId}/assignable-fps")
     @PreAuthorize("hasRole('BRANCH_MANAGER')")
     public ResponseEntity<ApiResponse<PageResponse<HandoverAssignableFpResponse>>> getAssignableFps(
@@ -153,6 +155,20 @@ public class HandoverController {
 
         handoverService.processAssign(principal, handoverRequestId, request);
         return ApiResponse.success(HttpStatus.OK, "설계사 직접 지정 완료", null);
+    }
+
+    // 월별 인수인계 추이
+    @GetMapping("/trend")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<List<HandoverMonthlyTrendResponse>>> getMonthlyTrend(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(defaultValue = "6") int trendMonths,
+            @RequestParam(required = false) String organizationCode) {
+
+        List<HandoverMonthlyTrendResponse> response = handoverService
+                .getMonthlyTrend(principal, trendMonths, organizationCode);
+
+        return ApiResponse.success(HttpStatus.OK, "월별 인수인계 요청 추이 조회 성공", response);
     }
 
 

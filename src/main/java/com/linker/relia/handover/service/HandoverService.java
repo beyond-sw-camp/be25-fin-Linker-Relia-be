@@ -5,6 +5,7 @@ import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeType;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.consultation.domain.ConsultationChannel;
 import com.linker.relia.customer.domain.Customer;
 import com.linker.relia.customer.domain.CustomerFpHistory;
@@ -22,6 +23,7 @@ import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
+import com.linker.relia.handover.dto.response.HandoverMonthlyTrendResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
@@ -51,9 +53,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -451,6 +456,47 @@ public class HandoverService {
                 assignedFp.getUserName()
         ));
     }
+
+    // 월별 인수인계 추이
+    @Transactional(readOnly = true)
+    public List<HandoverMonthlyTrendResponse> getMonthlyTrend(PrincipalDetails principal, int trendMonths, String organizationCode) {
+        if (trendMonths < 1 || trendMonths > 24) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "trendMonths는 1부터 24 사이여야 합니다.");
+        }
+
+        User user = principal.getUser();
+        AccessScope accessScope = switch (user.getUserRole()) {
+            case BRANCH_MANAGER -> {
+                if (user.getOrganization() == null) {
+                    throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "지점장 사용자에 조직 정보가 없습니다.");
+                }
+                yield new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            }
+            default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
+        };
+
+        LocalDate fromDate = LocalDate.now().minusMonths(trendMonths - 1L).withDayOfMonth(1);
+        LocalDate toDate = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+        String normalizedOrganizationCode = normalizeNullable(organizationCode);
+
+        Map<String, Long> countByYearMonth = handoverDetailQueryRepository.findMonthlyTrend(
+                        accessScope, normalizedOrganizationCode, fromDate, toDate)
+                .stream()
+                .collect(Collectors.toMap(
+                        HandoverMonthlyTrendResponse::yearMonth,
+                        HandoverMonthlyTrendResponse::requestCount
+                ));
+
+        YearMonth startMonth = YearMonth.from(fromDate);
+        return java.util.stream.IntStream.range(0, trendMonths)
+                .mapToObj(startMonth::plusMonths)
+                .map(yearMonth -> {
+                    String key = yearMonth.toString();
+                    return new HandoverMonthlyTrendResponse(key, countByYearMonth.getOrDefault(key, 0L));
+                })
+                .toList();
+    }
+
 
     // 인수인계 상세 조회 접근
     private void validateApprovalProcessTarget(HandoverRequest handoverRequest) {

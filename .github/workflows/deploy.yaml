@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 env:
-  IMAGE_NAME: ghcr.io/beyond-sw-camp/be25-fin-linker-relia-be
+  IMAGE_NAME: ghcr.io/beyond-sw-camp/relia-be
 
 concurrency:
   group: relia-production-deploy
@@ -44,12 +44,15 @@ jobs:
         run: |
           set -euo pipefail
 
+          SHORT_SHA="${GITHUB_SHA::7}"
+
           GHCR_USERNAME="$(aws ssm get-parameter --region "${AWS_REGION}" --with-decryption --name "${GHCR_USERNAME_SSM_PARAMETER}" --query 'Parameter.Value' --output text)"
           GHCR_TOKEN="$(aws ssm get-parameter --region "${AWS_REGION}" --with-decryption --name "${GHCR_TOKEN_SSM_PARAMETER}" --query 'Parameter.Value' --output text)"
 
           {
             printf 'GHCR_USERNAME=%s\n' "${GHCR_USERNAME}"
             printf 'GHCR_TOKEN=%s\n' "${GHCR_TOKEN}"
+            printf 'IMAGE_TAG=%s\n' "${SHORT_SHA}"
           } >> "${GITHUB_ENV}"
 
       - name: Set up JDK 21
@@ -81,7 +84,7 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
             ${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -109,12 +112,14 @@ jobs:
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          IMAGE_TAG: ${{ github.sha }}
           APP_ENV_SSM_PARAMETER: ${{ vars.APP_ENV_SSM_PARAMETER }}
           GHCR_USERNAME_SSM_PARAMETER: ${{ vars.GHCR_USERNAME_SSM_PARAMETER }}
           GHCR_TOKEN_SSM_PARAMETER: ${{ vars.GHCR_TOKEN_SSM_PARAMETER }}
         run: |
           set -euo pipefail
+
+          SHORT_SHA="${GITHUB_SHA::7}"
+          IMAGE_TAG="${SHORT_SHA}"
 
           BUNDLE_DIR="${RUNNER_TEMP}/codedeploy-bundle"
           ARCHIVE_PATH="${RUNNER_TEMP}/codedeploy-${GITHUB_SHA}.zip"

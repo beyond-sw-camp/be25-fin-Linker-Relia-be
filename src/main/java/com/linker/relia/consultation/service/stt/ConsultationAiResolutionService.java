@@ -124,11 +124,127 @@ public class ConsultationAiResolutionService {
     private final DiseaseCodeRepository diseaseCodeRepository;
     private final ConsultationAiDraftNormalizer draftNormalizer;
 
+    private static final List<ChoiceOption> CLAIM_TYPE_FRONT_OPTIONS = List.of(
+            choice("ACTUAL_MEDICAL", "실손", "실비", "실손청구"),
+            choice("HOSPITALIZATION", "입원", "입원치료"),
+            choice("OUTPATIENT", "통원", "외래", "외래치료"),
+            choice("SURGERY", "수술", "수술치료"),
+            choice("DIAGNOSIS", "진단", "진단금"),
+            choice("INJURY", "상해", "사고"),
+            choice("FRACTURE", "골절"),
+            choice("BURN", "화상"),
+            choice("DEATH", "사망"),
+            choice("DISABILITY", "장해", "후유장해"),
+            choice("OTHER", "기타")
+    );
+    private static final List<ChoiceOption> CLAIM_REVIEW_ITEM_FRONT_OPTIONS = List.of(
+            choice("COVERAGE_ELIGIBLE", "보장대상 확인", "보장 가능"),
+            choice("EXEMPTION_PERIOD", "면책기간 확인", "면책기간"),
+            choice("EXCLUSION_POSSIBILITY", "면책사유 확인", "보상 제외"),
+            choice("PREVIOUS_CLAIM_HISTORY", "청구이력 확인", "청구이력", "사고이력")
+    );
+    private static final List<ChoiceOption> CLAIM_HOSPITALIZATION_FRONT_OPTIONS = List.of(
+            choice("OUTPATIENT", "외래", "통원"),
+            choice("HOSPITALIZED", "입원", "입원중"),
+            choice("DISCHARGED", "퇴원", "퇴원함")
+    );
+    private static final List<ChoiceOption> CLAIM_SURGERY_FRONT_OPTIONS = List.of(
+            choice("NONE", "없음", "미수술"),
+            choice("COMPLETED", "완료", "수술완료")
+    );
+    private static final List<ChoiceOption> CLAIM_RESULT_FRONT_OPTIONS = List.of(
+            choice("GUIDED", "안내완료", "절차안내"),
+            choice("RECEIVED", "접수완료", "접수"),
+            choice("IN_REVIEW", "심사중", "심사"),
+            choice("SUPPLEMENT_REQUIRED", "서류보완", "보완요청", "추가서류"),
+            choice("PAID", "지급완료", "지급")
+    );
+    private static final List<ChoiceOption> CLAIM_NEXT_ACTION_FRONT_OPTIONS = List.of(
+            choice("보험사 접수", "보험사 접수", "접수 진행"),
+            choice("추가 서류 안내", "추가 서류 안내", "서류 보완 안내"),
+            choice("추가 심사 안내", "추가 심사 안내", "심사 대기"),
+            choice("지급 결과 안내", "지급 결과 안내", "결과 안내")
+    );
+    private static final List<ChoiceOption> RENEWAL_CHANGE_TYPE_FRONT_OPTIONS = List.of(
+            choice("NONE", "변경 없음", "유지", "same"),
+            choice("EXPAND", "보장 확대", "확대", "increase"),
+            choice("REDUCE", "보장 축소", "축소", "decrease"),
+            choice("NEW", "신규 추가", "추가")
+    );
+    private static final List<ChoiceOption> RENEWAL_PREMIUM_REASON_FRONT_OPTIONS = List.of(
+            choice("AGE_INCREASE", "연령 증가", "연령", "나이"),
+            choice("RISK_CHANGE", "위험률 변동", "위험률"),
+            choice("LOSS_RATIO_CHANGE", "손해율 변동", "손해율"),
+            choice("COVERAGE_CHANGE", "보장 변경", "담보 변경"),
+            choice("OTHER", "기타")
+    );
+    private static final List<ChoiceOption> RENEWAL_CUSTOMER_RESPONSE_FRONT_OPTIONS = List.of(
+            choice("POSITIVE", "긍정", "수용", "좋음"),
+            choice("NEUTRAL", "보통", "중립", "검토"),
+            choice("NEGATIVE", "부정", "거절", "부담")
+    );
+    private static final List<ChoiceOption> RENEWAL_INTEREST_FRONT_OPTIONS = List.of(
+            choice("PREMIUM", "보험료", "프리미엄"),
+            choice("COVERAGE", "보장", "담보"),
+            choice("MATURITY", "만기"),
+            choice("REFUND", "환급"),
+            choice("ALTERNATIVE_PRODUCT", "대체 상품", "비교 상품")
+    );
+    private static final List<ChoiceOption> RENEWAL_RESULT_FRONT_OPTIONS = List.of(
+            choice("RENEWAL_ACCEPTED", "갱신 확정", "승인", "수락"),
+            choice("FOLLOW_UP_REQUIRED", "추가 상담 필요", "후속 상담"),
+            choice("COMPARING_PRODUCTS", "상품 비교 중", "비교 중"),
+            choice("DECISION_PENDING", "결정 보류", "보류")
+    );
+    private static final List<ChoiceOption> RENEWAL_NEXT_ACTION_FRONT_OPTIONS = List.of(
+            choice("추가 상담 예약", "추가 상담 예약", "후속 상담 예약"),
+            choice("보험료 재안내", "보험료 재안내", "보험료 안내"),
+            choice("보장 조정안 제안", "보장 조정안 제안", "조정안 제안"),
+            choice("비교안 발송", "비교안 발송", "비교 자료 발송")
+    );
+    private static final List<ChoiceOption> CANCELLATION_REVIEW_REASON_FRONT_OPTIONS = List.of(
+            choice("PREMIUM_BURDEN", "보험료 부담", "보험료", "납입 부담"),
+            choice("RENEWAL_PREMIUM_BURDEN", "갱신 보험료 부담", "갱신 부담"),
+            choice("PAYMENT_DIFFICULTY", "납입 어려움", "납부 어려움"),
+            choice("COVERAGE_DISSATISFACTION", "보장 불만", "보장 불만족"),
+            choice("DUPLICATE_COVERAGE", "중복 보장", "중복"),
+            choice("PRODUCT_REMODELING_REVIEW", "상품 리모델링 검토", "리모델링"),
+            choice("COMPARING_OTHER_COMPANY", "타사 비교", "타사 비교중"),
+            choice("MOVING_TO_OTHER_COMPANY", "타사 이동 검토", "타사 이동"),
+            choice("PLANNER_CONTACT_DISSATISFACTION", "설계사 응대 불만", "설계사 불만"),
+            choice("MANAGEMENT_DISSATISFACTION", "관리 불만", "사후관리 불만"),
+            choice("OTHER", "기타")
+    );
+    private static final List<ChoiceOption> CANCELLATION_RETENTION_PLAN_FRONT_OPTIONS = List.of(
+            choice("PREMIUM_ADJUSTMENT", "보험료 조정", "보험료 조정안"),
+            choice("RIDER_ADJUSTMENT", "특약 조정", "담보 조정", "보장 조정"),
+            choice("COVERAGE_EXPLANATION", "보장 설명", "보장 재설명"),
+            choice("FOLLOW_UP_CONSULTATION", "추가 상담 예약", "후속 상담")
+    );
+    private static final List<ChoiceOption> CANCELLATION_CUSTOMER_INTENT_FRONT_OPTIONS = List.of(
+            choice("IMMEDIATE_TERMINATION", "즉시 해지", "바로 해지"),
+            choice("REVIEW_BEFORE_TERMINATION", "검토 후 해지", "해지 전 검토"),
+            choice("UNDECIDED", "미정", "고민 중", "추후 결정")
+    );
+    private static final List<ChoiceOption> CANCELLATION_RESULT_FRONT_OPTIONS = List.of(
+            choice("FOLLOW_UP_REQUIRED", "후속 상담 필요", "추가 상담 필요"),
+            choice("TERMINATION_CONFIRMED", "해지 확정", "해지 진행"),
+            choice("RETAINED", "유지", "유지하기로 함"),
+            choice("PENDING", "보류", "결정 보류")
+    );
+    private static final List<ChoiceOption> CANCELLATION_NEXT_ACTION_FRONT_OPTIONS = List.of(
+            choice("추가 상담 예약", "추가 상담 예약", "후속 상담 예약"),
+            choice("보험료 조정안 제안", "보험료 조정안 제안", "조정안 제안"),
+            choice("보장 분석 안내", "보장 분석 안내", "보장 재설명"),
+            choice("해지 접수 안내", "해지 접수 안내", "해지 절차 안내")
+    );
+
     public ConsultationAiDraftResolutionResult resolveMappings(ConsultationSttSession session, ConsultationAiStructuredDraft draft) {
         if (draft == null) {
             return new ConsultationAiDraftResolutionResult(null, ConsultationAiResolutionResponse.empty());
         }
 
+        RawChoiceSnapshot rawSnapshot = RawChoiceSnapshot.from(draft);
         List<ConsultationAiResolutionResponse.FieldResolution> fields = new ArrayList<>();
 
         if (draft.getAiHints() != null) {
@@ -140,6 +256,7 @@ public class ConsultationAiResolutionService {
 
         ensureContractSelectionCandidates(session, draft, fields);
         resolveStructuredFieldChoices(draft, fields);
+        resolveFrontendChoiceFields(draft, rawSnapshot, fields);
 
         return new ConsultationAiDraftResolutionResult(
                 draft,
@@ -160,6 +277,69 @@ public class ConsultationAiResolutionService {
         resolveClaimDetailChoices(draft, fields);
         resolveRenewalDetailChoices(draft, fields);
         resolveCancelDetailChoices(draft, fields);
+    }
+
+    private void resolveFrontendChoiceFields(
+            ConsultationAiStructuredDraft draft,
+            RawChoiceSnapshot rawSnapshot,
+            List<ConsultationAiResolutionResponse.FieldResolution> fields
+    ) {
+        resolveClaimFrontendChoices(draft, rawSnapshot.claimDetail(), fields);
+        resolveRenewalFrontendChoices(draft, rawSnapshot.renewalDetail(), fields);
+        resolveCancelFrontendChoices(draft, rawSnapshot.cancelDetail(), fields);
+    }
+
+    private void resolveClaimFrontendChoices(
+            ConsultationAiStructuredDraft draft,
+            RawClaimDetail rawClaimDetail,
+            List<ConsultationAiResolutionResponse.FieldResolution> fields
+    ) {
+        if (draft.getClaimDetail() == null || rawClaimDetail == null) {
+            return;
+        }
+        ConsultationAiStructuredDraft.ClaimDetail claimDetail = draft.getClaimDetail();
+        claimDetail.setClaimType(resolveSingleChoiceField("claimDetail.claimType", rawClaimDetail.claimType(), CLAIM_TYPE_FRONT_OPTIONS, true, fields));
+        claimDetail.setHospitalizationStatus(resolveSingleChoiceField("claimDetail.hospitalizationStatus", rawClaimDetail.hospitalizationStatus(), CLAIM_HOSPITALIZATION_FRONT_OPTIONS, true, fields));
+        claimDetail.setSurgeryStatus(resolveSingleChoiceField("claimDetail.surgeryStatus", rawClaimDetail.surgeryStatus(), CLAIM_SURGERY_FRONT_OPTIONS, true, fields));
+        claimDetail.setReviewItems(resolveMultiChoiceField("claimDetail.reviewItems", splitSelectableValues(rawClaimDetail.reviewItems()), CLAIM_REVIEW_ITEM_FRONT_OPTIONS, true, fields));
+        claimDetail.setResult(resolveSingleChoiceField("claimDetail.result", rawClaimDetail.result(), CLAIM_RESULT_FRONT_OPTIONS, true, fields));
+        claimDetail.setNextActions(resolveMultiChoiceField("claimDetail.nextActions", splitSelectableValues(rawClaimDetail.nextActions()), CLAIM_NEXT_ACTION_FRONT_OPTIONS, false, fields));
+    }
+
+    private void resolveRenewalFrontendChoices(
+            ConsultationAiStructuredDraft draft,
+            RawRenewalDetail rawRenewalDetail,
+            List<ConsultationAiResolutionResponse.FieldResolution> fields
+    ) {
+        if (draft.getRenewalDetail() == null || rawRenewalDetail == null) {
+            return;
+        }
+        ConsultationAiStructuredDraft.RenewalDetail renewalDetail = draft.getRenewalDetail();
+        renewalDetail.setCoverageChangeType(resolveSingleChoiceField("renewalDetail.coverageChangeType", rawRenewalDetail.coverageChangeType(), RENEWAL_CHANGE_TYPE_FRONT_OPTIONS, true, fields));
+        renewalDetail.setPremiumChangeReasonTypes(resolveMultiChoiceField("renewalDetail.premiumChangeReasonTypes", splitSelectableValues(rawRenewalDetail.premiumChangeReasonTypes()), RENEWAL_PREMIUM_REASON_FRONT_OPTIONS, true, fields));
+        renewalDetail.setCustomerReaction(resolveSingleChoiceField("renewalDetail.customerReaction", rawRenewalDetail.customerReaction(), RENEWAL_CUSTOMER_RESPONSE_FRONT_OPTIONS, true, fields));
+        renewalDetail.setInterestTypes(resolveMultiChoiceField("renewalDetail.interestTypes", splitSelectableValues(rawRenewalDetail.interestTypes()), RENEWAL_INTEREST_FRONT_OPTIONS, true, fields));
+        renewalDetail.setConsultationResult(resolveSingleChoiceField("renewalDetail.consultationResult", rawRenewalDetail.consultationResult(), RENEWAL_RESULT_FRONT_OPTIONS, true, fields));
+        renewalDetail.setNextActions(resolveMultiChoiceField("renewalDetail.nextActions", splitSelectableValues(rawRenewalDetail.nextActions()), RENEWAL_NEXT_ACTION_FRONT_OPTIONS, false, fields));
+    }
+
+    private void resolveCancelFrontendChoices(
+            ConsultationAiStructuredDraft draft,
+            RawCancelDetail rawCancelDetail,
+            List<ConsultationAiResolutionResponse.FieldResolution> fields
+    ) {
+        if (draft.getCancelDetail() == null || rawCancelDetail == null) {
+            return;
+        }
+        ConsultationAiStructuredDraft.CancelDetail cancelDetail = draft.getCancelDetail();
+        List<String> rawReviewReasons = buildRawCancelReviewReasons(rawCancelDetail);
+        cancelDetail.setReviewReasons(resolveMultiChoiceField("cancelDetail.reviewReasons", rawReviewReasons, CANCELLATION_REVIEW_REASON_FRONT_OPTIONS, true, fields));
+        cancelDetail.setRetentionPlans(resolveMultiChoiceField("cancelDetail.retentionPlans", splitSelectableValues(rawCancelDetail.retentionPlans()), CANCELLATION_RETENTION_PLAN_FRONT_OPTIONS, true, fields));
+        cancelDetail.setCustomerIntent(resolveSingleChoiceField("cancelDetail.customerIntent", rawCancelDetail.customerIntent(), CANCELLATION_CUSTOMER_INTENT_FRONT_OPTIONS, true, fields));
+        cancelDetail.setRetentionPossibility(resolveSingleChoiceField("cancelDetail.retentionPossibility", rawCancelDetail.retentionPossibility(), RETENTION_POSSIBILITY_OPTIONS, true, fields));
+        cancelDetail.setResult(resolveSingleChoiceField("cancelDetail.result", rawCancelDetail.result(), CANCELLATION_RESULT_FRONT_OPTIONS, true, fields));
+        cancelDetail.setNextActions(resolveMultiChoiceField("cancelDetail.nextActions", splitSelectableValues(rawCancelDetail.nextActions()), CANCELLATION_NEXT_ACTION_FRONT_OPTIONS, false, fields));
+        backfillCancelFlagsFromCodes(cancelDetail);
     }
 
     private void resolveCustomerInfoChoices(ConsultationAiStructuredDraft draft, List<ConsultationAiResolutionResponse.FieldResolution> fields) {
@@ -644,6 +824,80 @@ public class ConsultationAiResolutionService {
         return dp[left.length()][right.length()];
     }
 
+    private List<String> splitSelectableValues(List<String> values) {
+        if (values == null) {
+            return null;
+        }
+        List<String> result = new ArrayList<>();
+        for (String value : values) {
+            if (trimToNull(value) == null) {
+                continue;
+            }
+            for (String token : value.split("[,;/\\n]+")) {
+                String trimmed = trimToNull(token);
+                if (trimmed != null) {
+                    result.add(trimmed);
+                }
+            }
+        }
+        return result.isEmpty() ? null : result;
+    }
+
+    private List<String> buildRawCancelReviewReasons(RawCancelDetail rawCancelDetail) {
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        List<String> rawReviewReasons = splitSelectableValues(rawCancelDetail.reviewReasons());
+        if (rawReviewReasons != null) {
+            values.addAll(rawReviewReasons);
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.premiumBurden())) {
+            values.add("PREMIUM_BURDEN");
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.renewalPremiumBurden())) {
+            values.add("RENEWAL_PREMIUM_BURDEN");
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.paymentDifficulty())) {
+            values.add("PAYMENT_DIFFICULTY");
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.coverageDissatisfaction())) {
+            values.add("COVERAGE_DISSATISFACTION");
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.duplicateCoverage())) {
+            values.add("DUPLICATE_COVERAGE");
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.productRemodelingReview())) {
+            values.add("PRODUCT_REMODELING_REVIEW");
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.comparingOtherCompany())) {
+            values.add("COMPARING_OTHER_COMPANY");
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.movingToOtherCompany())) {
+            values.add("MOVING_TO_OTHER_COMPANY");
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.plannerContactDissatisfaction())) {
+            values.add("PLANNER_CONTACT_DISSATISFACTION");
+        }
+        if (Boolean.TRUE.equals(rawCancelDetail.managementDissatisfaction())) {
+            values.add("MANAGEMENT_DISSATISFACTION");
+        }
+        return values.isEmpty() ? null : new ArrayList<>(values);
+    }
+
+    private void backfillCancelFlagsFromCodes(ConsultationAiStructuredDraft.CancelDetail cancelDetail) {
+        Set<String> reasonCodes = cancelDetail.getReviewReasons() == null
+                ? Set.of()
+                : new LinkedHashSet<>(cancelDetail.getReviewReasons());
+        cancelDetail.setPremiumBurden(reasonCodes.contains("PREMIUM_BURDEN"));
+        cancelDetail.setRenewalPremiumBurden(reasonCodes.contains("RENEWAL_PREMIUM_BURDEN"));
+        cancelDetail.setPaymentDifficulty(reasonCodes.contains("PAYMENT_DIFFICULTY"));
+        cancelDetail.setCoverageDissatisfaction(reasonCodes.contains("COVERAGE_DISSATISFACTION"));
+        cancelDetail.setDuplicateCoverage(reasonCodes.contains("DUPLICATE_COVERAGE"));
+        cancelDetail.setProductRemodelingReview(reasonCodes.contains("PRODUCT_REMODELING_REVIEW"));
+        cancelDetail.setComparingOtherCompany(reasonCodes.contains("COMPARING_OTHER_COMPANY"));
+        cancelDetail.setMovingToOtherCompany(reasonCodes.contains("MOVING_TO_OTHER_COMPANY"));
+        cancelDetail.setPlannerContactDissatisfaction(reasonCodes.contains("PLANNER_CONTACT_DISSATISFACTION"));
+        cancelDetail.setManagementDissatisfaction(reasonCodes.contains("MANAGEMENT_DISSATISFACTION"));
+    }
+
     private static ChoiceOption choice(String code, String label, String... synonyms) {
         return new ChoiceOption(code, label, List.of(synonyms));
     }
@@ -666,5 +920,108 @@ public class ConsultationAiResolutionService {
     }
 
     private record ChoiceOption(String code, String label, List<String> synonyms) {
+    }
+
+    private record RawChoiceSnapshot(
+            RawClaimDetail claimDetail,
+            RawRenewalDetail renewalDetail,
+            RawCancelDetail cancelDetail
+    ) {
+        private static RawChoiceSnapshot from(ConsultationAiStructuredDraft draft) {
+            return new RawChoiceSnapshot(
+                    RawClaimDetail.from(draft.getClaimDetail()),
+                    RawRenewalDetail.from(draft.getRenewalDetail()),
+                    RawCancelDetail.from(draft.getCancelDetail())
+            );
+        }
+    }
+
+    private record RawClaimDetail(
+            String claimType,
+            String hospitalizationStatus,
+            String surgeryStatus,
+            List<String> reviewItems,
+            String result,
+            List<String> nextActions
+    ) {
+        private static RawClaimDetail from(ConsultationAiStructuredDraft.ClaimDetail detail) {
+            if (detail == null) {
+                return null;
+            }
+            return new RawClaimDetail(
+                    detail.getClaimType(),
+                    detail.getHospitalizationStatus(),
+                    detail.getSurgeryStatus(),
+                    detail.getReviewItems() == null ? null : List.copyOf(detail.getReviewItems()),
+                    detail.getResult(),
+                    detail.getNextActions() == null ? null : List.copyOf(detail.getNextActions())
+            );
+        }
+    }
+
+    private record RawRenewalDetail(
+            String coverageChangeType,
+            String customerReaction,
+            String consultationResult,
+            List<String> premiumChangeReasonTypes,
+            List<String> interestTypes,
+            List<String> nextActions
+    ) {
+        private static RawRenewalDetail from(ConsultationAiStructuredDraft.RenewalDetail detail) {
+            if (detail == null) {
+                return null;
+            }
+            return new RawRenewalDetail(
+                    detail.getCoverageChangeType(),
+                    detail.getCustomerReaction(),
+                    detail.getConsultationResult(),
+                    detail.getPremiumChangeReasonTypes() == null ? null : List.copyOf(detail.getPremiumChangeReasonTypes()),
+                    detail.getInterestTypes() == null ? null : List.copyOf(detail.getInterestTypes()),
+                    detail.getNextActions() == null ? null : List.copyOf(detail.getNextActions())
+            );
+        }
+    }
+
+    private record RawCancelDetail(
+            List<String> reviewReasons,
+            List<String> retentionPlans,
+            String customerIntent,
+            String retentionPossibility,
+            String result,
+            List<String> nextActions,
+            Boolean premiumBurden,
+            Boolean renewalPremiumBurden,
+            Boolean paymentDifficulty,
+            Boolean coverageDissatisfaction,
+            Boolean duplicateCoverage,
+            Boolean productRemodelingReview,
+            Boolean comparingOtherCompany,
+            Boolean movingToOtherCompany,
+            Boolean plannerContactDissatisfaction,
+            Boolean managementDissatisfaction
+    ) {
+        private static RawCancelDetail from(ConsultationAiStructuredDraft.CancelDetail detail) {
+            if (detail == null) {
+                return null;
+            }
+            return new RawCancelDetail(
+                    detail.getReviewReasons() == null ? null : List.copyOf(detail.getReviewReasons()),
+                    detail.getRetentionPlans() == null ? null : List.copyOf(detail.getRetentionPlans()),
+                    detail.getCustomerIntent(),
+                    detail.getRetentionPossibility(),
+                    detail.getResult(),
+                    detail.getNextActions() == null ? null : List.copyOf(detail.getNextActions()),
+                    detail.getPremiumBurden(),
+                    detail.getRenewalPremiumBurden(),
+                    detail.getPaymentDifficulty(),
+                    detail.getCoverageDissatisfaction(),
+                    detail.getDuplicateCoverage(),
+                    detail.getProductRemodelingReview(),
+                    detail.getComparingOtherCompany(),
+                    detail.getMovingToOtherCompany(),
+                    detail.getPlannerContactDissatisfaction(),
+                    detail.getManagementDissatisfaction()
+            );
+        }
     }
 }

@@ -6,13 +6,8 @@ import com.linker.relia.common.access.AccessScopeResolver;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.customer.repository.CustomerRepository;
-import com.linker.relia.handover.domain.HandoverRecommendation;
 import com.linker.relia.handover.domain.HandoverRequest;
-import com.linker.relia.handover.domain.RequestStatus;
-import com.linker.relia.handover.domain.RequestType;
-import com.linker.relia.handover.repository.HandoverRecommendationRepository;
-import com.linker.relia.handover.repository.HandoverRequestRepository;
-import com.linker.relia.handover.service.RecommendationService;
+import com.linker.relia.handover.service.HandoverService;
 import com.linker.relia.organization.domain.Organization;
 import com.linker.relia.organization.dto.BranchOrganizationResponse;
 import com.linker.relia.organization.dto.FpContractListRequest;
@@ -45,6 +40,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -59,9 +55,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final AccessScopeResolver accessScopeResolver;
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
-    private final HandoverRequestRepository handoverRequestRepository;
-    private final HandoverRecommendationRepository handoverRecommendationRepository;
-    private final RecommendationService recommendationService;
+    private final HandoverService handoverService;
 
     @Override
     @Transactional(readOnly = true)
@@ -178,22 +172,15 @@ public class OrganizationServiceImpl implements OrganizationService {
             throw new BusinessException(OrganizationErrorCode.FP_ALREADY_RESIGNED);
         }
 
-        List<RequestStatus> blockingStatuses = List.of(RequestStatus.MANAGER_PENDING);
-        List<HandoverRequest> handoverRequests = customerRepository.findAllByCustomerFpIdAndDeletedAtIsNull(fpId)
+        // 해촉은 담당 고객 리스트 기준으로 처리한다.
+        // 실제 인수인계 요청 생성은 고객 1명씩 HandoverService의 단건 로직을 재사용한다.
+        List<HandoverRequest> savedHandoverRequests = customerRepository.findAllByCustomerFpIdAndDeletedAtIsNull(fpId)
                 .stream()
-                .filter(customer -> !handoverRequestRepository.existsByCustomerAndRequestStatusIn(
-                        customer,
-                        blockingStatuses
-                ))
-                .map(customer -> HandoverRequest.create(customer, RequestType.RESIGNATION))
+                .map(handoverService::createResignationHandoverIfAbsent)
+                .flatMap(Optional::stream)
                 .toList();
 
         fp.resign(request.getResignedAt());
-        List<HandoverRequest> savedHandoverRequests = handoverRequestRepository.saveAll(handoverRequests);
-        List<HandoverRecommendation> recommendations = savedHandoverRequests.stream()
-                .map(recommendationService::recommend)
-                .toList();
-        handoverRecommendationRepository.saveAll(recommendations);
 
         return FpResignResponse.builder()
                 .id(fp.getId())

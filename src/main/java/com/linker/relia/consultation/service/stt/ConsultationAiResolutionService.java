@@ -144,10 +144,14 @@ public class ConsultationAiResolutionService {
         return new ConsultationAiDraftResolutionResult(
                 draft,
                 ConsultationAiResolutionResponse.builder()
-                        .hasPendingResolution(fields.stream().anyMatch(field -> STATUS_NEEDS_USER_CONFIRMATION.equals(field.getStatus())))
+                        .hasPendingResolution(fields.stream().anyMatch(field -> isUnresolvedStatus(field.getStatus())))
                         .fields(List.copyOf(fields))
                         .build()
         );
+    }
+
+    private boolean isUnresolvedStatus(String status) {
+        return STATUS_NEEDS_USER_CONFIRMATION.equals(status) || STATUS_NO_CANDIDATE.equals(status);
     }
 
     private void resolveStructuredFieldChoices(ConsultationAiStructuredDraft draft, List<ConsultationAiResolutionResponse.FieldResolution> fields) {

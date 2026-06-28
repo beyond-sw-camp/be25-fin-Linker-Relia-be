@@ -90,7 +90,7 @@ public class ConsultationAiDraftNormalizer {
         List<String> warnings = new ArrayList<>();
         boolean handled = true;
         if (handled) {
-            normalizeCommonFields(draft, warnings);
+            normalizeCommonFields(draft, warnings, referenceText);
             if (draft.getConsultationType() == ConsultationType.NEW_CONTRACT && draft.getNewDetail() != null) {
                 normalizeNewDetail(draft.getNewDetail(), warnings, referenceText, draft);
                 draft.setClaimDetail(null);
@@ -431,15 +431,19 @@ public class ConsultationAiDraftNormalizer {
         return normalized;
     }
 
-    private void normalizeCommonFields(ConsultationAiStructuredDraft draft, List<String> warnings) {
+    private void normalizeCommonFields(
+            ConsultationAiStructuredDraft draft,
+            List<String> warnings,
+            String referenceText
+    ) {
         draft.setConsultationContent(blankToNull(draft.getConsultationContent()));
         draft.setSpecialNote(blankToNull(draft.getSpecialNote()));
-        if (draft.getConsultationContent() == null && draft.getSpecialNote() != null) {
-            draft.setConsultationContent(draft.getSpecialNote());
-        }
-        if (draft.getSpecialNote() == null && draft.getConsultationContent() != null) {
-            draft.setSpecialNote(draft.getConsultationContent());
-        }
+        draft.setSpecialNote(sanitizeSpecialNote(
+                draft.getSpecialNote(),
+                draft.getConsultationContent(),
+                referenceText,
+                warnings
+        ));
 
         if (draft.getConsultationType() == ConsultationType.NEW_CONTRACT
                 && draft.getCustomerId() != null
@@ -688,5 +692,69 @@ public class ConsultationAiDraftNormalizer {
 
     String normalizeText(String value) {
         return value == null ? null : value.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+    }
+
+    private String sanitizeSpecialNote(
+            String specialNote,
+            String consultationContent,
+            String referenceText,
+            List<String> warnings
+    ) {
+        String normalizedSpecialNote = normalizeText(specialNote);
+        if (normalizedSpecialNote == null || normalizedSpecialNote.isBlank()) {
+            return null;
+        }
+
+        if (isSubstantiallySameText(normalizedSpecialNote, normalizeText(consultationContent))) {
+            warnings.add("specialNote가 consultationContent와 동일하거나 대부분 겹쳐 null로 정리했습니다.");
+            return null;
+        }
+
+        if (isSubstantiallySameText(normalizedSpecialNote, normalizeText(referenceText))) {
+            warnings.add("specialNote가 STT 원문과 동일하거나 대부분 겹쳐 null로 정리했습니다.");
+            return null;
+        }
+
+        if (looksLikeVerboseNarrative(specialNote)) {
+            warnings.add("specialNote가 특이사항보다는 장문 자유서술에 가까워 null로 정리했습니다.");
+            return null;
+        }
+
+        return specialNote;
+    }
+
+    private boolean isSubstantiallySameText(String left, String right) {
+        if (left == null || right == null || left.isBlank() || right.isBlank()) {
+            return false;
+        }
+        if (left.equals(right)) {
+            return true;
+        }
+
+        String longer = left.length() >= right.length() ? left : right;
+        String shorter = left.length() >= right.length() ? right : left;
+        if (!longer.contains(shorter)) {
+            return false;
+        }
+
+        double overlapRatio = (double) shorter.length() / (double) longer.length();
+        return overlapRatio >= 0.8d;
+    }
+
+    private boolean looksLikeVerboseNarrative(String specialNote) {
+        if (specialNote == null) {
+            return false;
+        }
+
+        String trimmed = specialNote.trim();
+        if (trimmed.length() < 120) {
+            return false;
+        }
+
+        long sentenceSeparators = trimmed.chars()
+                .filter(ch -> ch == '.' || ch == '!' || ch == '?' || ch == '\n')
+                .count();
+
+        return sentenceSeparators >= 2;
     }
 }

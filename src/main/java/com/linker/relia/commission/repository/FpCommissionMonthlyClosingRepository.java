@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface FpCommissionMonthlyClosingRepository extends JpaRepository<FpCommissionMonthlyClosing, UUID> {
@@ -80,4 +81,50 @@ public interface FpCommissionMonthlyClosingRepository extends JpaRepository<FpCo
             """)
     Page<FpCommissionListQueryResult> findHqFpCommissionList(@Param("closingMonth") String closingMonth,
                                                              Pageable pageable);
+
+    @Query("""
+            select new com.linker.relia.commission.dto.FpCommissionListQueryResult(
+                fp.id,
+                fp.userName,
+                fcmc.totalInitialPaymentAmount,
+                fcmc.totalMaintenancePaymentAmount,
+                fcmc.totalRecoveryCollectionAmount,
+                fcmc.totalPaymentAmount,
+                fcmc.netCommissionAmount,
+                fcmc.contractCount,
+                fcmc.recoveryContractCount
+            )
+            from FpCommissionMonthlyClosing fcmc
+            join fcmc.fp fp
+            join fcmc.organization org
+            where fcmc.closingMonth = :closingMonth
+              and fp.deletedAt is null
+              and org.deletedAt is null
+            order by org.organizationName asc, fp.userName asc, fp.id asc
+            """)
+    List<FpCommissionListQueryResult> findHqFpCommissionStatementRows(@Param("closingMonth") String closingMonth);
+
+    @Query("""
+            select new com.linker.relia.commission.dto.FpCommissionListQueryResult(
+                fp.id,
+                fp.userName,
+                fcmc.totalInitialPaymentAmount,
+                fcmc.totalMaintenancePaymentAmount,
+                fcmc.totalRecoveryCollectionAmount,
+                fcmc.totalPaymentAmount,
+                fcmc.netCommissionAmount,
+                fcmc.contractCount,
+                fcmc.recoveryContractCount
+            )
+            from FpCommissionMonthlyClosing fcmc
+            join fcmc.fp fp
+            join fcmc.organization org
+            where fcmc.closingMonth = :closingMonth
+              and org.id = :organizationId
+              and fp.deletedAt is null
+              and org.deletedAt is null
+            order by fp.userName asc, fp.id asc
+            """)
+    List<FpCommissionListQueryResult> findBranchFpCommissionStatementRows(@Param("closingMonth") String closingMonth,
+                                                                          @Param("organizationId") UUID organizationId);
 }

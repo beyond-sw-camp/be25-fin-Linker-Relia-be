@@ -71,6 +71,9 @@ dependencies {
 
     // SOLAPI(SMS)
     implementation 'com.solapi:sdk:1.1.0'
+
+    // PDF
+    implementation 'org.apache.pdfbox:pdfbox:2.0.31'
 }
 
 tasks.named('test') {

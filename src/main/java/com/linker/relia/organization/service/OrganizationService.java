@@ -11,7 +11,10 @@ import com.linker.relia.organization.dto.FpResignRequest;
 import com.linker.relia.organization.dto.FpResignResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
+import com.linker.relia.organization.dto.OrganizationMemberItemResponse;
+import com.linker.relia.organization.dto.OrganizationMemberListRequest;
 import com.linker.relia.security.principal.PrincipalDetails;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 import java.util.UUID;
@@ -20,6 +23,9 @@ public interface OrganizationService {
     OrganizationChartResponse getOrganizationChart(OrganizationChartRequest request);
 
     List<BranchOrganizationResponse> getBranchOrganizations();
+
+    Page<OrganizationMemberItemResponse> getOrganizationMembers(PrincipalDetails principalDetails,
+                                                                OrganizationMemberListRequest request);
 
     FpListResponse getFps(PrincipalDetails principalDetails, FpListRequest request);
 

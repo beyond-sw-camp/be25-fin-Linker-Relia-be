@@ -98,18 +98,21 @@ public class ConsultationAiDraftNormalizer {
                 draft.setCancelDetail(null);
             } else if (draft.getConsultationType() == ConsultationType.CLAIM && draft.getClaimDetail() != null) {
                 normalizeClaimDetail(draft.getClaimDetail(), warnings);
+                postNormalizeClaimDetail(draft.getClaimDetail());
                 draft.setCustomerInfo(null);
                 draft.setNewDetail(null);
                 draft.setRenewalDetail(null);
                 draft.setCancelDetail(null);
             } else if (draft.getConsultationType() == ConsultationType.RENEWAL && draft.getRenewalDetail() != null) {
                 normalizeRenewalDetail(draft.getRenewalDetail(), warnings);
+                postNormalizeRenewalDetail(draft.getRenewalDetail());
                 draft.setCustomerInfo(null);
                 draft.setNewDetail(null);
                 draft.setClaimDetail(null);
                 draft.setCancelDetail(null);
             } else if (draft.getConsultationType() == ConsultationType.TERMINATION && draft.getCancelDetail() != null) {
                 normalizeCancelDetail(draft.getCancelDetail(), warnings);
+                postNormalizeCancelDetail(draft.getCancelDetail());
                 draft.setCustomerInfo(null);
                 draft.setNewDetail(null);
                 draft.setClaimDetail(null);
@@ -461,16 +464,8 @@ public class ConsultationAiDraftNormalizer {
         claimDetail.setClaimReason(blankToNull(claimDetail.getClaimReason()));
         claimDetail.setHospitalName(blankToNull(claimDetail.getHospitalName()));
         claimDetail.setDiagnosisOrTreatment(blankToNull(claimDetail.getDiagnosisOrTreatment()));
-        claimDetail.setHospitalizationStatus(normalizeYnValue(
-                claimDetail.getHospitalizationStatus(),
-                warnings,
-                "claimDetail.hospitalizationStatus"
-        ));
-        claimDetail.setSurgeryStatus(normalizeYnValue(
-                claimDetail.getSurgeryStatus(),
-                warnings,
-                "claimDetail.surgeryStatus"
-        ));
+        claimDetail.setHospitalizationStatus(blankToNull(claimDetail.getHospitalizationStatus()));
+        claimDetail.setSurgeryStatus(blankToNull(claimDetail.getSurgeryStatus()));
         claimDetail.setReviewItems(normalizeStringList(claimDetail.getReviewItems()));
         claimDetail.setResult(blankToNull(claimDetail.getResult()));
         claimDetail.setNextActions(normalizeStringList(claimDetail.getNextActions()));
@@ -486,9 +481,9 @@ public class ConsultationAiDraftNormalizer {
         renewalDetail.setCustomerReaction(blankToNull(renewalDetail.getCustomerReaction()));
         renewalDetail.setConsultationResult(blankToNull(renewalDetail.getConsultationResult()));
         renewalDetail.setOtherReason(blankToNull(renewalDetail.getOtherReason()));
-        renewalDetail.setInterestTypes(normalizeStringList(renewalDetail.getInterestTypes()));
-        renewalDetail.setPremiumChangeReasonTypes(normalizeStringList(renewalDetail.getPremiumChangeReasonTypes()));
-        renewalDetail.setNextActions(normalizeStringList(renewalDetail.getNextActions()));
+        renewalDetail.setInterestTypes(normalizeSelectableList(renewalDetail.getInterestTypes()));
+        renewalDetail.setPremiumChangeReasonTypes(normalizeSelectableList(renewalDetail.getPremiumChangeReasonTypes()));
+        renewalDetail.setNextActions(normalizeSelectableList(renewalDetail.getNextActions()));
 
         if (renewalDetail.getCurrentPremium() != null
                 && renewalDetail.getRenewalPremium() != null
@@ -510,12 +505,12 @@ public class ConsultationAiDraftNormalizer {
             ConsultationAiStructuredDraft.CancelDetail cancelDetail,
             List<String> warnings
     ) {
-        cancelDetail.setReviewReasons(normalizeStringList(cancelDetail.getReviewReasons()));
+        cancelDetail.setReviewReasons(normalizeSelectableList(cancelDetail.getReviewReasons()));
         cancelDetail.setReasonDetail(blankToNull(cancelDetail.getReasonDetail()));
-        cancelDetail.setRetentionPlans(normalizeStringList(cancelDetail.getRetentionPlans()));
+        cancelDetail.setRetentionPlans(normalizeSelectableList(cancelDetail.getRetentionPlans()));
         cancelDetail.setCustomerIntent(blankToNull(cancelDetail.getCustomerIntent()));
         cancelDetail.setResult(blankToNull(cancelDetail.getResult()));
-        cancelDetail.setNextActions(normalizeStringList(cancelDetail.getNextActions()));
+        cancelDetail.setNextActions(normalizeSelectableList(cancelDetail.getNextActions()));
         cancelDetail.setRetentionPossibility(normalizeRetentionPossibility(cancelDetail.getRetentionPossibility(), warnings));
 
         Set<String> normalizedReasons = new LinkedHashSet<>();
@@ -678,6 +673,27 @@ public class ConsultationAiDraftNormalizer {
         return normalized.isEmpty() ? null : normalized;
     }
 
+    private List<String> normalizeSelectableList(List<String> values) {
+        if (values == null) {
+            return null;
+        }
+
+        List<String> expanded = new ArrayList<>();
+        for (String value : values) {
+            if (value == null) {
+                continue;
+            }
+            for (String token : value.split("[,;/\\n]+")) {
+                String trimmed = token.trim();
+                if (!trimmed.isBlank()) {
+                    expanded.add(trimmed);
+                }
+            }
+        }
+
+        return normalizeStringList(expanded);
+    }
+
     private List<String> normalizeHintValues(List<String> values) {
         return normalizeStringList(values);
     }
@@ -756,5 +772,90 @@ public class ConsultationAiDraftNormalizer {
                 .count();
 
         return sentenceSeparators >= 2;
+    }
+
+    private void postNormalizeClaimDetail(ConsultationAiStructuredDraft.ClaimDetail claimDetail) {
+        claimDetail.setReviewItems(normalizeSelectableList(claimDetail.getReviewItems()));
+        claimDetail.setNextActions(normalizeSelectableList(claimDetail.getNextActions()));
+    }
+
+    private void postNormalizeRenewalDetail(ConsultationAiStructuredDraft.RenewalDetail renewalDetail) {
+        renewalDetail.setInterestTypes(normalizeSelectableList(renewalDetail.getInterestTypes()));
+        renewalDetail.setPremiumChangeReasonTypes(normalizeSelectableList(renewalDetail.getPremiumChangeReasonTypes()));
+        renewalDetail.setNextActions(normalizeSelectableList(renewalDetail.getNextActions()));
+    }
+
+    private void postNormalizeCancelDetail(ConsultationAiStructuredDraft.CancelDetail cancelDetail) {
+        cancelDetail.setReviewReasons(normalizeSelectableList(cancelDetail.getReviewReasons()));
+        cancelDetail.setRetentionPlans(normalizeSelectableList(cancelDetail.getRetentionPlans()));
+        cancelDetail.setNextActions(normalizeSelectableList(cancelDetail.getNextActions()));
+
+        LinkedHashSet<String> reviewReasons = new LinkedHashSet<>();
+        if (cancelDetail.getReviewReasons() != null) {
+            reviewReasons.addAll(cancelDetail.getReviewReasons());
+        }
+        appendReviewReasonFromFlags(cancelDetail, reviewReasons);
+
+        String reasonDetail = normalizeText(cancelDetail.getReasonDetail());
+        if (reasonDetail != null) {
+            if (containsAny(reasonDetail, "보험료", "보험료부담", "월납입", "납입부담")) {
+                reviewReasons.add("PREMIUM_BURDEN");
+            }
+            if (containsAny(reasonDetail, "갱신보험료", "갱신부담")) {
+                reviewReasons.add("RENEWAL_PREMIUM_BURDEN");
+            }
+            if (containsAny(reasonDetail, "납입어려움", "납부어려움", "소득감소")) {
+                reviewReasons.add("PAYMENT_DIFFICULTY");
+            }
+            if (reasonDetail.contains("중복")) {
+                reviewReasons.add("DUPLICATE_COVERAGE");
+            }
+            if (reasonDetail.contains("보장") && reasonDetail.contains("불만")) {
+                reviewReasons.add("COVERAGE_DISSATISFACTION");
+            }
+        }
+
+        cancelDetail.setReviewReasons(reviewReasons.isEmpty() ? null : new ArrayList<>(reviewReasons));
+        cancelDetail.setPremiumBurden(fillFlag(cancelDetail.getPremiumBurden(), reviewReasons, "PREMIUM_BURDEN"));
+        cancelDetail.setRenewalPremiumBurden(fillFlag(cancelDetail.getRenewalPremiumBurden(), reviewReasons, "RENEWAL_PREMIUM_BURDEN"));
+        cancelDetail.setPaymentDifficulty(fillFlag(cancelDetail.getPaymentDifficulty(), reviewReasons, "PAYMENT_DIFFICULTY"));
+        cancelDetail.setCoverageDissatisfaction(fillFlag(cancelDetail.getCoverageDissatisfaction(), reviewReasons, "COVERAGE_DISSATISFACTION"));
+        cancelDetail.setDuplicateCoverage(fillFlag(cancelDetail.getDuplicateCoverage(), reviewReasons, "DUPLICATE_COVERAGE"));
+    }
+
+    private void appendReviewReasonFromFlags(
+            ConsultationAiStructuredDraft.CancelDetail cancelDetail,
+            Set<String> reviewReasons
+    ) {
+        if (Boolean.TRUE.equals(cancelDetail.getPremiumBurden())) {
+            reviewReasons.add("PREMIUM_BURDEN");
+        }
+        if (Boolean.TRUE.equals(cancelDetail.getRenewalPremiumBurden())) {
+            reviewReasons.add("RENEWAL_PREMIUM_BURDEN");
+        }
+        if (Boolean.TRUE.equals(cancelDetail.getPaymentDifficulty())) {
+            reviewReasons.add("PAYMENT_DIFFICULTY");
+        }
+        if (Boolean.TRUE.equals(cancelDetail.getCoverageDissatisfaction())) {
+            reviewReasons.add("COVERAGE_DISSATISFACTION");
+        }
+        if (Boolean.TRUE.equals(cancelDetail.getDuplicateCoverage())) {
+            reviewReasons.add("DUPLICATE_COVERAGE");
+        }
+        if (Boolean.TRUE.equals(cancelDetail.getProductRemodelingReview())) {
+            reviewReasons.add("PRODUCT_REMODELING_REVIEW");
+        }
+        if (Boolean.TRUE.equals(cancelDetail.getComparingOtherCompany())) {
+            reviewReasons.add("COMPARING_OTHER_COMPANY");
+        }
+        if (Boolean.TRUE.equals(cancelDetail.getMovingToOtherCompany())) {
+            reviewReasons.add("MOVING_TO_OTHER_COMPANY");
+        }
+        if (Boolean.TRUE.equals(cancelDetail.getPlannerContactDissatisfaction())) {
+            reviewReasons.add("PLANNER_CONTACT_DISSATISFACTION");
+        }
+        if (Boolean.TRUE.equals(cancelDetail.getManagementDissatisfaction())) {
+            reviewReasons.add("MANAGEMENT_DISSATISFACTION");
+        }
     }
 }

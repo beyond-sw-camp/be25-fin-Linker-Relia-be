@@ -10,6 +10,7 @@ import com.linker.relia.consultation.domain.stt.ConsultationSttSession;
 import com.linker.relia.consultation.dto.response.ConsultationAiDraftResponse;
 import com.linker.relia.consultation.dto.response.ConsultationAiGenerationResult;
 import com.linker.relia.consultation.dto.response.ConsultationAiStructuredDraft;
+import com.linker.relia.consultation.dto.response.ConsultationAiStructuredDraftViewMapper;
 import com.linker.relia.consultation.exception.ConsultationErrorCode;
 import com.linker.relia.consultation.repository.stt.ConsultationAiNoteRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
     private final ConsultationAiDraftGenerator consultationAiDraftGenerator;
     private final ConsultationAiDraftNormalizer draftNormalizer;
     private final ConsultationAiResolutionService resolutionService;
+    private final ConsultationAiStructuredDraftViewMapper draftViewMapper;
     private final ObjectMapper objectMapper;
     private final TransactionOperations transactionOperations;
 
@@ -111,7 +113,7 @@ public class ConsultationAiNoteServiceImpl implements ConsultationAiNoteService 
                 .draftStatus(aiNote.getDraftStatus())
                 .sttRawText(aiNote.getSttRawText())
                 .summaryText(aiNote.getGptSummaryText())
-                .structuredData(resolved.draft())
+                .structuredData(draftViewMapper.toView(resolved.draft()))
                 .resolutions(resolved.resolution())
                 .errorMessage(aiNote.getErrorMessage())
                 .build();

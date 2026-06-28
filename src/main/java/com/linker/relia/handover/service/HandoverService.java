@@ -83,28 +83,53 @@ public class HandoverService {
 
         validateHandoverCreateAccess(principal.getUser(), customer);
 
-        boolean exists = handoverRequestRepository.existsByCustomerAndRequestStatusIn(customer, List.of(RequestStatus.MANAGER_PENDING));
-        if (exists) {
+        if (existsPendingHandover(customer)) {
             throw new BusinessException(HandoverErrorCode.HANDOVER_REQUEST_ALREADY_EXISTS);
         }
 
-        HandoverRequest handoverRequest = HandoverRequest.create(customer, request.requestType());
+        HandoverRequest handoverRequest = createHandoverRequest(customer, request.requestType(), true);
+
+        return HandoverCreateResponse.from(handoverRequest);
+    }
+
+    // 해촉은 고객 리스트를 돌지만, 고객 1명당 인수인계 요청은 이 단건 로직으로 생성한다.
+    public Optional<HandoverRequest> createResignationHandoverIfAbsent(Customer customer) {
+        // 기존 해촉 정책 유지: 이미 대기 중인 요청이 있는 고객은 전체 해촉을 실패시키지 않고 스킵한다.
+        if (existsPendingHandover(customer)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(createHandoverRequest(customer, RequestType.RESIGNATION, false));
+    }
+
+    private HandoverRequest createHandoverRequest(Customer customer, RequestType requestType, boolean publishNotification) {
+        HandoverRequest handoverRequest = HandoverRequest.create(customer, requestType);
         handoverRequestRepository.save(handoverRequest);
 
+        // 추천 계산과 추천 사유 생성까지 포함한 실제 인수인계 생성 공통 로직이다.
         HandoverRecommendation recommendation = recommendationService.recommend(handoverRequest);
         handoverRecommendationRepository.save(recommendation);
 
-        User branchManager = findBranchManager(recommendation.getRecommendedFp());
+        if (publishNotification) {
+            User branchManager = findBranchManager(recommendation.getRecommendedFp());
 
-        // SSE 알림
-        notificationPublisher.publish(NotificationEvent.builder()
-                .receiverUserId(branchManager.getId())
-                .type(NotificationType.HANDOVER_REQUEST)
-                .message(customer.getCustomerName() + " 고객 건의 인수인계 결재 요청이 있습니다.")
-                .referenceId(handoverRequest.getId())
-                .build());
+            // 단건 API 생성은 기존처럼 지점장에게 결재 요청 알림을 보낸다.
+            notificationPublisher.publish(NotificationEvent.builder()
+                    .receiverUserId(branchManager.getId())
+                    .type(NotificationType.HANDOVER_REQUEST)
+                    .message(customer.getCustomerName() + " 고객 건의 인수인계 결재 요청이 있습니다.")
+                    .referenceId(handoverRequest.getId())
+                    .build());
+        }
 
-        return HandoverCreateResponse.from(handoverRequest);
+        return handoverRequest;
+    }
+
+    private boolean existsPendingHandover(Customer customer) {
+        return handoverRequestRepository.existsByCustomerAndRequestStatusIn(
+                customer,
+                List.of(RequestStatus.MANAGER_PENDING)
+        );
     }
 
     // 인수인계 요청 조회

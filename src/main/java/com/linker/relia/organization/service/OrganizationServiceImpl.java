@@ -21,14 +21,18 @@ import com.linker.relia.organization.dto.FpResignResponse;
 import com.linker.relia.organization.dto.OrganizationChartItemResponse;
 import com.linker.relia.organization.dto.OrganizationChartRequest;
 import com.linker.relia.organization.dto.OrganizationChartResponse;
+import com.linker.relia.organization.dto.OrganizationMemberItemResponse;
+import com.linker.relia.organization.dto.OrganizationMemberListRequest;
 import com.linker.relia.organization.exception.OrganizationErrorCode;
 import com.linker.relia.organization.repository.OrganizationFpRepository;
+import com.linker.relia.organization.repository.OrganizationMemberRepository;
 import com.linker.relia.organization.repository.OrganizationRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
 import com.linker.relia.user.domain.UserStatus;
 import com.linker.relia.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -52,6 +56,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationFpRepository organizationFpRepository;
+    private final OrganizationMemberRepository organizationMemberRepository;
     private final AccessScopeResolver accessScopeResolver;
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
@@ -61,6 +66,24 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Transactional(readOnly = true)
     public List<BranchOrganizationResponse> getBranchOrganizations() {
         return organizationRepository.findBranchOrganizationsWithAdvisorCount();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrganizationMemberItemResponse> getOrganizationMembers(PrincipalDetails principalDetails,
+                                                                       OrganizationMemberListRequest request) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+
+        return organizationMemberRepository.searchMembers(
+                accessScope,
+                normalizeNullable(request.getKeyword()),
+                normalizeNullable(request.getBranchKeyword()),
+                request.getOrganizationId(),
+                request.getRole(),
+                request.getStatus(),
+                request.getSort(),
+                request.toPageable()
+        );
     }
 
     @Override

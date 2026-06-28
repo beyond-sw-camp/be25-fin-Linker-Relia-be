@@ -5,6 +5,7 @@ import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeType;
 import com.linker.relia.common.dto.response.PageResponse;
 import com.linker.relia.common.exception.BusinessException;
+import com.linker.relia.common.exception.CommonErrorCode;
 import com.linker.relia.consultation.domain.ConsultationChannel;
 import com.linker.relia.customer.domain.Customer;
 import com.linker.relia.customer.domain.CustomerFpHistory;
@@ -22,6 +23,7 @@ import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
+import com.linker.relia.handover.dto.response.HandoverMonthlyTrendResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedItemResponse;
 import com.linker.relia.handover.dto.response.HandoverReceivedSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
@@ -51,9 +53,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -78,28 +83,53 @@ public class HandoverService {
 
         validateHandoverCreateAccess(principal.getUser(), customer);
 
-        boolean exists = handoverRequestRepository.existsByCustomerAndRequestStatusIn(customer, List.of(RequestStatus.MANAGER_PENDING));
-        if (exists) {
+        if (existsPendingHandover(customer)) {
             throw new BusinessException(HandoverErrorCode.HANDOVER_REQUEST_ALREADY_EXISTS);
         }
 
-        HandoverRequest handoverRequest = HandoverRequest.create(customer, request.requestType());
+        HandoverRequest handoverRequest = createHandoverRequest(customer, request.requestType(), true);
+
+        return HandoverCreateResponse.from(handoverRequest);
+    }
+
+    // 해촉은 고객 리스트를 돌지만, 고객 1명당 인수인계 요청은 이 단건 로직으로 생성한다.
+    public Optional<HandoverRequest> createResignationHandoverIfAbsent(Customer customer) {
+        // 기존 해촉 정책 유지: 이미 대기 중인 요청이 있는 고객은 전체 해촉을 실패시키지 않고 스킵한다.
+        if (existsPendingHandover(customer)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(createHandoverRequest(customer, RequestType.RESIGNATION, false));
+    }
+
+    private HandoverRequest createHandoverRequest(Customer customer, RequestType requestType, boolean publishNotification) {
+        HandoverRequest handoverRequest = HandoverRequest.create(customer, requestType);
         handoverRequestRepository.save(handoverRequest);
 
+        // 추천 계산과 추천 사유 생성까지 포함한 실제 인수인계 생성 공통 로직이다.
         HandoverRecommendation recommendation = recommendationService.recommend(handoverRequest);
         handoverRecommendationRepository.save(recommendation);
 
-        User branchManager = findBranchManager(recommendation.getRecommendedFp());
+        if (publishNotification) {
+            User branchManager = findBranchManager(recommendation.getRecommendedFp());
 
-        // SSE 알림
-        notificationPublisher.publish(NotificationEvent.builder()
-                .receiverUserId(branchManager.getId())
-                .type(NotificationType.HANDOVER_REQUEST)
-                .message(customer.getCustomerName() + " 고객 건의 인수인계 결재 요청이 있습니다.")
-                .referenceId(handoverRequest.getId())
-                .build());
+            // 단건 API 생성은 기존처럼 지점장에게 결재 요청 알림을 보낸다.
+            notificationPublisher.publish(NotificationEvent.builder()
+                    .receiverUserId(branchManager.getId())
+                    .type(NotificationType.HANDOVER_REQUEST)
+                    .message(customer.getCustomerName() + " 고객 건의 인수인계 결재 요청이 있습니다.")
+                    .referenceId(handoverRequest.getId())
+                    .build());
+        }
 
-        return HandoverCreateResponse.from(handoverRequest);
+        return handoverRequest;
+    }
+
+    private boolean existsPendingHandover(Customer customer) {
+        return handoverRequestRepository.existsByCustomerAndRequestStatusIn(
+                customer,
+                List.of(RequestStatus.MANAGER_PENDING)
+        );
     }
 
     // 인수인계 요청 조회
@@ -451,6 +481,47 @@ public class HandoverService {
                 assignedFp.getUserName()
         ));
     }
+
+    // 월별 인수인계 추이
+    @Transactional(readOnly = true)
+    public List<HandoverMonthlyTrendResponse> getMonthlyTrend(PrincipalDetails principal, int trendMonths, String organizationCode) {
+        if (trendMonths < 1 || trendMonths > 24) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "trendMonths는 1부터 24 사이여야 합니다.");
+        }
+
+        User user = principal.getUser();
+        AccessScope accessScope = switch (user.getUserRole()) {
+            case BRANCH_MANAGER -> {
+                if (user.getOrganization() == null) {
+                    throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "지점장 사용자에 조직 정보가 없습니다.");
+                }
+                yield new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            }
+            default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
+        };
+
+        LocalDate fromDate = LocalDate.now().minusMonths(trendMonths - 1L).withDayOfMonth(1);
+        LocalDate toDate = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+        String normalizedOrganizationCode = normalizeNullable(organizationCode);
+
+        Map<String, Long> countByYearMonth = handoverDetailQueryRepository.findMonthlyTrend(
+                        accessScope, normalizedOrganizationCode, fromDate, toDate)
+                .stream()
+                .collect(Collectors.toMap(
+                        HandoverMonthlyTrendResponse::yearMonth,
+                        HandoverMonthlyTrendResponse::requestCount
+                ));
+
+        YearMonth startMonth = YearMonth.from(fromDate);
+        return java.util.stream.IntStream.range(0, trendMonths)
+                .mapToObj(startMonth::plusMonths)
+                .map(yearMonth -> {
+                    String key = yearMonth.toString();
+                    return new HandoverMonthlyTrendResponse(key, countByYearMonth.getOrDefault(key, 0L));
+                })
+                .toList();
+    }
+
 
     // 인수인계 상세 조회 접근
     private void validateApprovalProcessTarget(HandoverRequest handoverRequest) {

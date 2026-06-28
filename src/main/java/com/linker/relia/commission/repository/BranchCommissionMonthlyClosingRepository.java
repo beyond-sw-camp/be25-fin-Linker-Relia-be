@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface BranchCommissionMonthlyClosingRepository extends JpaRepository<BranchCommissionMonthlyClosing, UUID> {
@@ -74,4 +75,27 @@ public interface BranchCommissionMonthlyClosingRepository extends JpaRepository<
             """)
     Page<OrganizationCommissionListQueryResult> findHqOrganizationCommissionList(@Param("closingMonth") String closingMonth,
                                                                                  Pageable pageable);
+
+    @Query("""
+            select new com.linker.relia.commission.dto.OrganizationCommissionListQueryResult(
+                org.id,
+                org.organizationName,
+                bcmc.totalInitialPaymentAmount,
+                bcmc.totalMaintenancePaymentAmount,
+                bcmc.totalRecoveryCollectionAmount,
+                bcmc.totalPaymentAmount,
+                bcmc.netCommissionAmount,
+                bcmc.fpCount,
+                bcmc.contractCount,
+                bcmc.recoveryContractCount
+            )
+            from BranchCommissionMonthlyClosing bcmc
+            join bcmc.organization org
+            where bcmc.closingMonth = :closingMonth
+              and org.deletedAt is null
+            order by org.organizationName asc, org.id asc
+            """)
+    List<OrganizationCommissionListQueryResult> findHqOrganizationCommissionStatementRows(
+            @Param("closingMonth") String closingMonth
+    );
 }

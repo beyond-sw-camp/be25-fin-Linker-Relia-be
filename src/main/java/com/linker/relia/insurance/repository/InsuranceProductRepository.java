@@ -1,6 +1,7 @@
 package com.linker.relia.insurance.repository;
 
 import com.linker.relia.insurance.domain.InsuranceProduct;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -51,10 +52,13 @@ public interface InsuranceProductRepository extends JpaRepository<InsuranceProdu
 
     List<InsuranceProduct> findAllByInsuranceProductCodeInAndDeletedAtIsNull(Set<String> insuranceProductCodes);
 
+    @EntityGraph(attributePaths = {"insuranceCompany"})
     Optional<InsuranceProduct> findByInsuranceProductCodeAndDeletedAtIsNull(String insuranceProductCode);
 
+    @EntityGraph(attributePaths = {"insuranceCompany"})
     Optional<InsuranceProduct> findByInsuranceProductNameAndDeletedAtIsNull(String insuranceProductName);
 
+    @EntityGraph(attributePaths = {"insuranceCompany"})
     List<InsuranceProduct> findTop10ByInsuranceProductNameContainingAndDeletedAtIsNullOrderByInsuranceProductNameAsc(
             String insuranceProductName
     );

@@ -147,6 +147,7 @@ public class OrganizationMemberRepositoryImpl implements OrganizationMemberRepos
     private OrganizationMemberItemResponse toOrganizationMemberItemResponse(Object[] row) {
         return OrganizationMemberItemResponse.builder()
                 .id(toUuid(row[0]))
+                .fpId(toFpId(row))
                 .empCode((String) row[1])
                 .userName((String) row[2])
                 .organizationId(toUuid(row[3]))
@@ -156,6 +157,15 @@ public class OrganizationMemberRepositoryImpl implements OrganizationMemberRepos
                 .phone((String) row[7])
                 .userStatus(toUserStatus(row[8]))
                 .build();
+    }
+
+    private UUID toFpId(Object[] row) {
+        UserRole userRole = toUserRole(row[5]);
+        if (userRole != UserRole.FP) {
+            return null;
+        }
+
+        return toUuid(row[0]);
     }
 
     private UUID toUuid(Object value) {

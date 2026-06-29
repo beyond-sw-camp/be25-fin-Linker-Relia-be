@@ -29,11 +29,16 @@ public interface OrganizationService {
 
     FpListResponse getFps(PrincipalDetails principalDetails, FpListRequest request);
 
+    FpDetailResponse getMyFpDetail(PrincipalDetails principalDetails, String closingMonth);
+
     FpDetailResponse getFpDetail(PrincipalDetails principalDetails, UUID fpId, String closingMonth);
 
     FpContractListResponse getFpContracts(PrincipalDetails principalDetails,
                                           UUID fpId,
                                           FpContractListRequest request);
+
+    FpContractListResponse getMyFpContracts(PrincipalDetails principalDetails,
+                                            FpContractListRequest request);
 
     FpMonthlyPerformanceResponse getFpMonthlyPerformances(PrincipalDetails principalDetails,
                                                           UUID fpId,

@@ -59,8 +59,7 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
                 FROM HandoverRequest h
                 JOIN h.customer c
                 LEFT JOIN h.currentFp fp
-                JOIN c.customerFp cfp
-                JOIN cfp.organization org
+                LEFT JOIN fp.organization org
                 """ + buildWhereClause(accessScope) + """
                 ORDER BY h.createdAt DESC
                 """;
@@ -78,8 +77,7 @@ public class HandoverRequestSearchRepositoryImpl implements HandoverRequestSearc
                 FROM HandoverRequest h
                 JOIN h.customer c
                 LEFT JOIN h.currentFp fp
-                JOIN c.customerFp cfp
-                JOIN cfp.organization org
+                LEFT JOIN fp.organization org
                 """ + buildWhereClause(accessScope);
 
         TypedQuery<Long> countQuery =

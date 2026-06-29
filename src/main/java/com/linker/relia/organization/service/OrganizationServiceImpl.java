@@ -134,6 +134,13 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     @Override
     @Transactional(readOnly = true)
+    public FpDetailResponse getMyFpDetail(PrincipalDetails principalDetails, String closingMonth) {
+        UUID fpId = principalDetails.getUser().getId();
+        return getFpDetail(principalDetails, fpId, closingMonth);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public FpDetailResponse getFpDetail(PrincipalDetails principalDetails, UUID fpId, String closingMonth) {
         String normalizedClosingMonth = normalizeClosingMonth(closingMonth);
         AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
@@ -156,6 +163,14 @@ public class OrganizationServiceImpl implements OrganizationService {
                 fpId,
                 request.toPageable()
         ));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FpContractListResponse getMyFpContracts(PrincipalDetails principalDetails,
+                                                   FpContractListRequest request) {
+        UUID fpId = principalDetails.getUser().getId();
+        return getFpContracts(principalDetails, fpId, request);
     }
 
     @Override

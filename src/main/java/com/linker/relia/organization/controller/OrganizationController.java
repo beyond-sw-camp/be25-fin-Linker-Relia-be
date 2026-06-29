@@ -60,7 +60,7 @@ public class OrganizationController {
     }
 
     @GetMapping("/fps")
-    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<FpListResponse>> getFps(
             @AuthenticationPrincipal PrincipalDetails principalDetails,
             @RequestParam(required = false) Integer page,
@@ -80,8 +80,18 @@ public class OrganizationController {
         return ApiResponse.success(HttpStatus.OK, "설계사 목록 조회 성공", responseDto);
     }
 
+    @GetMapping("/fps/me")
+    @PreAuthorize("hasRole('FP')")
+    public ResponseEntity<ApiResponse<FpDetailResponse>> getMyFpDetail(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @RequestParam(required = false) String closingMonth
+    ) {
+        FpDetailResponse responseDto = organizationService.getMyFpDetail(principalDetails, closingMonth);
+        return ApiResponse.success(HttpStatus.OK, "내 설계사 상세 정보 조회 성공", responseDto);
+    }
+
     @GetMapping("/fps/{fpId}")
-    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<FpDetailResponse>> getFpDetail(
             @AuthenticationPrincipal PrincipalDetails principalDetails,
             @PathVariable UUID fpId,
@@ -91,8 +101,18 @@ public class OrganizationController {
         return ApiResponse.success(HttpStatus.OK, "설계사 상세 정보 조회 성공", responseDto);
     }
 
+    @GetMapping("/fps/me/contracts")
+    @PreAuthorize("hasRole('FP')")
+    public ResponseEntity<ApiResponse<FpContractListResponse>> getMyFpContracts(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute FpContractListRequest request
+    ) {
+        FpContractListResponse responseDto = organizationService.getMyFpContracts(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "내 설계사 계약 목록 조회 성공", responseDto);
+    }
+
     @GetMapping("/fps/{fpId}/contracts")
-    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<FpContractListResponse>> getFpContracts(
             @AuthenticationPrincipal PrincipalDetails principalDetails,
             @PathVariable UUID fpId,
@@ -103,7 +123,7 @@ public class OrganizationController {
     }
 
     @GetMapping("/fps/{fpId}/performance-monthly")
-    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<FpMonthlyPerformanceResponse>> getFpMonthlyPerformances(
             @AuthenticationPrincipal PrincipalDetails principalDetails,
             @PathVariable UUID fpId,

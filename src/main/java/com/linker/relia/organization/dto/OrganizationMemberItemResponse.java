@@ -13,6 +13,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class OrganizationMemberItemResponse {
     private final UUID id;
+    private final UUID fpId;
     private final String empCode;
     private final String userName;
     private final UUID organizationId;

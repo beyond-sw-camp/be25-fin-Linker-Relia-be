@@ -20,6 +20,7 @@ import com.linker.relia.handover.dto.request.HandoverApprovalRequest;
 import com.linker.relia.handover.dto.request.HandoverAssignRequest;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
+import com.linker.relia.handover.dto.response.HandoverBranchSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
@@ -99,7 +100,7 @@ public class HandoverService {
             return Optional.empty();
         }
 
-        return Optional.of(createHandoverRequest(customer, RequestType.RESIGNATION, false));
+        return Optional.of(createHandoverRequest(customer, RequestType.RESIGNATION, true));
     }
 
     private HandoverRequest createHandoverRequest(Customer customer, RequestType requestType, boolean publishNotification) {
@@ -362,7 +363,12 @@ public class HandoverService {
     public HandoverSummaryResponse getSummary(PrincipalDetails principal, String organizationCode) {
         User user = principal.getUser();
         AccessScope accessScope = switch (user.getUserRole()) {
-            case BRANCH_MANAGER -> new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            case BRANCH_MANAGER -> {
+                if (user.getOrganization() == null) {
+                    throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "지점장 사용자에 조직 정보가 없습니다.");
+                }
+                yield new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            }
             default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
         };
         return handoverDetailQueryRepository.findSummary(accessScope, normalizeNullable(organizationCode));
@@ -521,6 +527,26 @@ public class HandoverService {
                 })
                 .toList();
     }
+
+    // 지점별 현황 조회
+    @Transactional(readOnly = true)
+    public List<HandoverBranchSummaryResponse> getBranchSummary(PrincipalDetails principal) {
+        User user = principal.getUser();
+        AccessScope accessScope = switch (user.getUserRole()) {
+            case BRANCH_MANAGER -> {
+                if (user.getOrganization() == null) {
+                    throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "지점장 사용자에 조직 정보가 없습니다.");
+                }
+                yield new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            }
+            default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
+        };
+
+        LocalDate fromDate = LocalDate.now().withDayOfMonth(1);
+        LocalDate toDate = fromDate.plusMonths(1);
+        return handoverDetailQueryRepository.findBranchSummary(accessScope, fromDate, toDate);
+    }
+
 
 
     // 인수인계 상세 조회 접근

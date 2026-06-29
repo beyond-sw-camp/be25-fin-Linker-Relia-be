@@ -55,6 +55,7 @@
 7. [API 명세서](#7--api-명세서)
 8. [화면설계서](#8--화면설계서)
 9. [테스트 보고서](#9--테스트-보고서)
+10. [CI/CD 계획서](#10--CI/CD-계획서)
 
 <br>
 
@@ -95,8 +96,7 @@
 ---
 
 # 6.  시스템 아키텍처
-![](docs/images/시스템_아키텍처.png)<br/>
-🔗[ 시스템 아키텍처 ](https://github.com/beyond-sw-camp/be25-fin-Linker-Norphan-be/blob/main/docs/images/%EC%8B%9C%EC%8A%A4%ED%85%9C_%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98.png)
+![](https://github.com/user-attachments/assets/af481406-5e74-4641-8870-b15af3605d8f)<br/>
 <br/><br/><br/>
 
 ---
@@ -118,3 +118,12 @@
 <br/>
 
 🔗[ 백엔드 테스트 보고서 ](https://docs.google.com/spreadsheets/d/1_25LySE-rzxbZtjh1W5OwWTwqWKSgGlhcC5KLCODOp4/edit?gid=362152457#gid=362152457)
+
+<br/><br/>
+
+---
+
+# 10.  CI/CD 계획서
+📥[CI/CD_계획서.pdf](https://github.com/user-attachments/files/29447151/Relia_CICD_.pdf)
+
+

@@ -1,5 +1,7 @@
 package com.linker.relia.handover.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeType;
@@ -76,6 +78,7 @@ public class HandoverService {
     private final UserRepository userRepository;
     private final NotificationPublisher notificationPublisher;
     private final ApplicationEventPublisher eventPublisher;
+    private final ObjectMapper objectMapper;
 
     // 인수인계 요청 생성
     public HandoverCreateResponse createHandover(PrincipalDetails principal, HandoverCreateRequest request) {
@@ -218,6 +221,7 @@ public class HandoverService {
                 fpInfo.map(FpMonthlyInfo::getPreferredCustomerAge).orElse(null),
                 fpInfo.map(FpMonthlyInfo::getConsultationChannel).orElse(null),
                 recommendation.getRecommendationReason(),
+                parseMatchingReasons(recommendation.getMatchingReasonsJson()),
                 recommendation.getApprovalStatus(),
                 rejectedFpName
         );
@@ -651,6 +655,21 @@ public class HandoverService {
 
         int age = Period.between(birthDate, LocalDate.now()).getYears();
         return age >= 0 ? age : null;
+    }
+
+    private List<HandoverDetailResponse.MatchingReason> parseMatchingReasons(String matchingReasonsJson) {
+        if (matchingReasonsJson == null || matchingReasonsJson.isBlank()) {
+            return List.of();
+        }
+
+        try {
+            return objectMapper.readValue(
+                    matchingReasonsJson,
+                    new TypeReference<List<HandoverDetailResponse.MatchingReason>>() {}
+            );
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private String normalizeNullable(String value) {

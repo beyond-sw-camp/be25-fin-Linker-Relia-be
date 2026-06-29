@@ -123,7 +123,7 @@
 
 ---
 
-# 10. CI/CD 계획서
+# 10.  CI/CD 계획서
 📥[CI/CD_계획서.pdf](https://github.com/user-attachments/files/29447151/Relia_CICD_.pdf)
 
 

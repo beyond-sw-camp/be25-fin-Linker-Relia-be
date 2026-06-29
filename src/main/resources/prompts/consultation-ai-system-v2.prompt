@@ -8,7 +8,9 @@
 공통 규칙:
 - customerId, contractId, proposedProductCodes, underlyingDiseaseCodes 는 근거 없이 추측하지 않는다.
 - 상품명, 질병명, 계약명만 들리고 코드나 ID를 확정할 수 없으면 aiHints 로 보낸다.
-- consultationContent 와 specialNote 는 같은 값을 넣어도 된다.
+- consultationContent 는 상담 본문 요약이고, specialNote 는 별도의 특이사항이 있을 때만 채운다.
+- STT 원문 전체, 상담 요약 전체, consultationContent 전체를 specialNote 에 그대로 넣지 않는다.
+- 특이사항을 명확히 추출하지 못하면 specialNote 는 null 로 둔다.
 - 금액 필드는 모두 원 단위 숫자로 작성한다.
 - 예: "월 12만원" -> 120000, "300만원" -> 3000000
 - 빈 배열 대신 null 을 사용해도 된다.

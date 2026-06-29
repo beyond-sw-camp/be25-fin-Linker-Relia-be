@@ -16,6 +16,7 @@ import jakarta.persistence.TypedQuery;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Date;
@@ -140,9 +141,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                 from Customer c
                 join c.customerFp fp
                 join fp.organization org
-                """ + buildWhereClause(accessScope) + """
-                order by c.customerName asc, c.id asc
-                """;
+                """ + buildWhereClause(accessScope) + buildCustomerOrderByJpql(pageable);
 
         TypedQuery<CustomerListItemResponse> contentQuery =
                 entityManager.createQuery(contentJpql, CustomerListItemResponse.class);
@@ -303,9 +302,7 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
                     org.id,
                     org.organization_code,
                     org.organization_name
-                """ + fromWhereSql + """
-                order by c.customer_name asc, c.id asc
-                """;
+                """ + fromWhereSql + buildInterestCustomerOrderBySql(pageable);
 
         Query contentQuery = entityManager.createNativeQuery(contentSql);
         bindInterestSearchParameters(contentQuery, accessScope, customerName, organizationCode, interestReason);
@@ -594,6 +591,80 @@ public class CustomerRepositoryImpl implements CustomerRepositoryCustom {
         }
 
         return "\n";
+    }
+
+    String buildCustomerOrderByJpql(Pageable pageable) {
+        Sort.Order order = resolveSupportedOrder(pageable);
+        if (order == null || "customerName".equals(order.getProperty())) {
+            return """
+                    
+                    order by c.customerName asc, c.id asc
+                    """;
+        }
+
+        return order.isAscending()
+                ? """
+                    
+                    order by
+                        case when (select max(cs.consultedAt) from Consultation cs where cs.customer = c and cs.deletedAt is null) is null then 1 else 0 end asc,
+                        (select max(cs.consultedAt) from Consultation cs where cs.customer = c and cs.deletedAt is null) asc,
+                        c.customerName asc,
+                        c.id asc
+                    """
+                : """
+                    
+                    order by
+                        case when (select max(cs.consultedAt) from Consultation cs where cs.customer = c and cs.deletedAt is null) is null then 1 else 0 end asc,
+                        (select max(cs.consultedAt) from Consultation cs where cs.customer = c and cs.deletedAt is null) desc,
+                        c.customerName asc,
+                        c.id asc
+                    """;
+    }
+
+    String buildInterestCustomerOrderBySql(Pageable pageable) {
+        Sort.Order order = resolveSupportedOrder(pageable);
+        if (order == null || "customerName".equals(order.getProperty())) {
+            return """
+                    
+                    order by c.customer_name asc, c.id asc
+                    """;
+        }
+
+        return order.isAscending()
+                ? """
+                    
+                    order by
+                        case when last_consulted_at is null then 1 else 0 end asc,
+                        last_consulted_at asc,
+                        c.customer_name asc,
+                        c.id asc
+                    """
+                : """
+                    
+                    order by
+                        case when last_consulted_at is null then 1 else 0 end asc,
+                        last_consulted_at desc,
+                        c.customer_name asc,
+                        c.id asc
+                    """;
+    }
+
+    private Sort.Order resolveSupportedOrder(Pageable pageable) {
+        if (pageable == null || pageable.getSort().isUnsorted()) {
+            return null;
+        }
+
+        Sort.Order order = pageable.getSort().stream().findFirst().orElse(null);
+        if (order == null) {
+            return null;
+        }
+
+        String property = order.getProperty();
+        if (!"customerName".equals(property) && !"lastConsultedAt".equals(property)) {
+            return null;
+        }
+
+        return order;
     }
 
     private CustomerInterestItemResponse toCustomerInterestItemResponse(Object[] row) {

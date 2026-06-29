@@ -120,9 +120,10 @@ jobs:
 
           SHORT_SHA="${GITHUB_SHA::7}"
           IMAGE_TAG="${SHORT_SHA}"
+          REVISION_SUFFIX="${GITHUB_RUN_NUMBER}"
 
           BUNDLE_DIR="${RUNNER_TEMP}/codedeploy-bundle"
-          ARCHIVE_PATH="${RUNNER_TEMP}/codedeploy-${GITHUB_SHA}.zip"
+          ARCHIVE_PATH="${RUNNER_TEMP}/codedeploy-${GITHUB_SHA}-${REVISION_SUFFIX}.zip"
 
           rm -rf "${BUNDLE_DIR}" "${ARCHIVE_PATH}"
           mkdir -p "${BUNDLE_DIR}/deployment"
@@ -156,8 +157,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          S3_KEY="${CODEDEPLOY_S3_KEY_PREFIX:-codedeploy}/releases/${GITHUB_SHA}.zip"
-          aws s3 cp "${RUNNER_TEMP}/codedeploy-${GITHUB_SHA}.zip" "s3://${CODEDEPLOY_S3_BUCKET}/${S3_KEY}" --region "${AWS_REGION}"
+          REVISION_SUFFIX="${GITHUB_RUN_NUMBER}"
+          S3_KEY="${CODEDEPLOY_S3_KEY_PREFIX:-codedeploy}/releases/${GITHUB_SHA}-${REVISION_SUFFIX}.zip"
+          aws s3 cp "${RUNNER_TEMP}/codedeploy-${GITHUB_SHA}-${REVISION_SUFFIX}.zip" "s3://${CODEDEPLOY_S3_BUCKET}/${S3_KEY}" --region "${AWS_REGION}"
           echo "S3_KEY=${S3_KEY}" >> "${GITHUB_ENV}"
 
       - name: Create CodeDeploy deployment

@@ -9,7 +9,9 @@
 - 전사본을 상담일지 작성용 structured draft 로 변환한다.
 - 최종 출력은 JSON 하나만 반환한다.
 - 코드나 ID를 확정할 수 없으면 해당 필드는 null 로 두고 aiHints 에 남긴다.
-- consultationContent 와 specialNote 는 현재 같은 값을 넣어도 된다.
+- consultationContent 는 상담 본문 요약만 넣는다.
+- specialNote 는 별도의 특이사항이 명확할 때만 넣고, 없으면 null 로 둔다.
+- STT transcript 전체나 일반 상담 본문을 specialNote 로 복사하지 않는다.
 
 STT transcript:
 %s

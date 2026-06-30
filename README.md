@@ -1,4 +1,4 @@
-# Relia ver.1
+# Relia
 
 # 팀원 소개
 

@@ -18,6 +18,8 @@ import com.linker.relia.dashboard.dto.DashboardContractDistributionQueryResult;
 import com.linker.relia.dashboard.dto.DashboardFpRankingItemResponse;
 import com.linker.relia.dashboard.dto.DashboardFpRankingRequest;
 import com.linker.relia.dashboard.dto.DashboardFpRankingResponse;
+import com.linker.relia.dashboard.dto.DashboardInsuranceProductRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardInsuranceProductRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardRankOrder;
 import com.linker.relia.dashboard.dto.DashboardContractStatusQueryResult;
 import com.linker.relia.dashboard.dto.DashboardKpiQueryResult;
@@ -35,6 +37,7 @@ import com.linker.relia.dashboard.dto.OrganizationDashboardKpiResponse;
 import com.linker.relia.dashboard.repository.DashboardContractDistributionQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardBranchRankingQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardFpRankingQueryRepository;
+import com.linker.relia.dashboard.repository.DashboardInsuranceProductRankingQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardContractStatusQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardKpiQueryRepository;
 import com.linker.relia.dashboard.repository.DashboardMonthlyContractCustomerTrendQueryRepository;
@@ -68,6 +71,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final DashboardContractDistributionQueryRepository dashboardContractDistributionQueryRepository;
     private final DashboardBranchRankingQueryRepository dashboardBranchRankingQueryRepository;
     private final DashboardFpRankingQueryRepository dashboardFpRankingQueryRepository;
+    private final DashboardInsuranceProductRankingQueryRepository dashboardInsuranceProductRankingQueryRepository;
     private final DashboardKpiQueryRepository dashboardKpiQueryRepository;
     private final DashboardMonthlyContractCustomerTrendQueryRepository dashboardMonthlyContractCustomerTrendQueryRepository;
     private final FpCommissionTrendQueryRepository fpCommissionTrendQueryRepository;
@@ -239,6 +243,54 @@ public class DashboardServiceImpl implements DashboardService {
                 .rankOrder(rankOrder)
                 .rankings(rankings)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardInsuranceProductRankingResponse getInsuranceProductRankings(
+            PrincipalDetails principalDetails,
+            DashboardInsuranceProductRankingRequest request
+    ) {
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        String closingMonth = normalizeRequiredClosingMonth(request.getClosingMonth());
+        int limit = request.getLimit() == null ? 10 : request.getLimit();
+        validateInsuranceProductRankingLimit(limit);
+
+        Organization targetOrganization = null;
+        java.util.UUID fpId = null;
+
+        if (accessScope.isOwnScope()) {
+            if (request.getOrganizationCode() != null && !request.getOrganizationCode().isBlank()) {
+                throw new BusinessException(AuthErrorCode.USER_FORBIDDEN);
+            }
+            fpId = accessScope.userId();
+        } else {
+            targetOrganization = resolveTargetOrganization(
+                    accessScope,
+                    principalDetails,
+                    request.getOrganizationCode()
+            );
+        }
+
+        return DashboardInsuranceProductRankingResponse.builder()
+                .closingMonth(closingMonth)
+                .scopeType(accessScope.scopeType())
+                .organizationCode(targetOrganization == null ? null : targetOrganization.getOrganizationCode())
+                .organizationName(targetOrganization == null ? null : targetOrganization.getOrganizationName())
+                .limit(limit)
+                .rankings(dashboardInsuranceProductRankingQueryRepository.findProductRankings(
+                        closingMonth,
+                        targetOrganization == null ? null : targetOrganization.getId(),
+                        fpId,
+                        limit
+                ))
+                .build();
+    }
+
+    private void validateInsuranceProductRankingLimit(int limit) {
+        if (limit < 1 || limit > 100) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "limit must be between 1 and 100.");
+        }
     }
 
     @Override

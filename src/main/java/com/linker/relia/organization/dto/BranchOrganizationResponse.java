@@ -16,6 +16,7 @@ public class BranchOrganizationResponse {
     private final String organizationAddress;
     private final String organizationPhone;
     private final OrganizationStatus organizationStatus;
+    private final String branchManagerName;
     private final long advisorCount;
 
     public BranchOrganizationResponse(UUID organizationId,
@@ -24,6 +25,7 @@ public class BranchOrganizationResponse {
                                       String organizationAddress,
                                       String organizationPhone,
                                       OrganizationStatus organizationStatus,
+                                      String branchManagerName,
                                       long advisorCount) {
         this.organizationId = organizationId;
         this.organizationCode = organizationCode;
@@ -31,6 +33,7 @@ public class BranchOrganizationResponse {
         this.organizationAddress = organizationAddress;
         this.organizationPhone = organizationPhone;
         this.organizationStatus = organizationStatus;
+        this.branchManagerName = branchManagerName;
         this.advisorCount = advisorCount;
     }
 
@@ -42,6 +45,7 @@ public class BranchOrganizationResponse {
                 .organizationAddress(organization.getOrganizationAddress())
                 .organizationPhone(organization.getOrganizationPhone())
                 .organizationStatus(organization.getOrganizationStatus())
+                .branchManagerName(null)
                 .advisorCount(0)
                 .build();
     }

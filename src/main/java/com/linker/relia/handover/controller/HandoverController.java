@@ -9,6 +9,7 @@ import com.linker.relia.handover.dto.request.HandoverApprovalRequest;
 import com.linker.relia.handover.dto.request.HandoverAssignRequest;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
+import com.linker.relia.handover.dto.response.HandoverBranchSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
@@ -171,6 +172,14 @@ public class HandoverController {
         return ApiResponse.success(HttpStatus.OK, "월별 인수인계 요청 추이 조회 성공", response);
     }
 
+    // 지점별 현황 조회
+    @GetMapping("/branch-summary")
+    @PreAuthorize("hasAnyRole('BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<List<HandoverBranchSummaryResponse>>> getBranchSummary(
+            @AuthenticationPrincipal PrincipalDetails principal) {
 
+        List<HandoverBranchSummaryResponse> response = handoverService.getBranchSummary(principal);
+        return ApiResponse.success(HttpStatus.OK, "지점별 현황 요약 조회 성공", response);
+    }
 
 }

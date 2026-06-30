@@ -1,5 +1,7 @@
 package com.linker.relia.handover.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linker.relia.auth.exception.AuthErrorCode;
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.common.access.AccessScopeType;
@@ -20,6 +22,7 @@ import com.linker.relia.handover.dto.request.HandoverApprovalRequest;
 import com.linker.relia.handover.dto.request.HandoverAssignRequest;
 import com.linker.relia.handover.dto.request.HandoverCreateRequest;
 import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
+import com.linker.relia.handover.dto.response.HandoverBranchSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverCreateResponse;
 import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.dto.response.HandoverListItemResponse;
@@ -75,6 +78,7 @@ public class HandoverService {
     private final UserRepository userRepository;
     private final NotificationPublisher notificationPublisher;
     private final ApplicationEventPublisher eventPublisher;
+    private final ObjectMapper objectMapper;
 
     // 인수인계 요청 생성
     public HandoverCreateResponse createHandover(PrincipalDetails principal, HandoverCreateRequest request) {
@@ -99,7 +103,7 @@ public class HandoverService {
             return Optional.empty();
         }
 
-        return Optional.of(createHandoverRequest(customer, RequestType.RESIGNATION, false));
+        return Optional.of(createHandoverRequest(customer, RequestType.RESIGNATION, true));
     }
 
     private HandoverRequest createHandoverRequest(Customer customer, RequestType requestType, boolean publishNotification) {
@@ -217,6 +221,7 @@ public class HandoverService {
                 fpInfo.map(FpMonthlyInfo::getPreferredCustomerAge).orElse(null),
                 fpInfo.map(FpMonthlyInfo::getConsultationChannel).orElse(null),
                 recommendation.getRecommendationReason(),
+                parseMatchingReasons(recommendation.getMatchingReasonsJson()),
                 recommendation.getApprovalStatus(),
                 rejectedFpName
         );
@@ -362,7 +367,12 @@ public class HandoverService {
     public HandoverSummaryResponse getSummary(PrincipalDetails principal, String organizationCode) {
         User user = principal.getUser();
         AccessScope accessScope = switch (user.getUserRole()) {
-            case BRANCH_MANAGER -> new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            case BRANCH_MANAGER -> {
+                if (user.getOrganization() == null) {
+                    throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "지점장 사용자에 조직 정보가 없습니다.");
+                }
+                yield new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            }
             default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
         };
         return handoverDetailQueryRepository.findSummary(accessScope, normalizeNullable(organizationCode));
@@ -522,6 +532,26 @@ public class HandoverService {
                 .toList();
     }
 
+    // 지점별 현황 조회
+    @Transactional(readOnly = true)
+    public List<HandoverBranchSummaryResponse> getBranchSummary(PrincipalDetails principal) {
+        User user = principal.getUser();
+        AccessScope accessScope = switch (user.getUserRole()) {
+            case BRANCH_MANAGER -> {
+                if (user.getOrganization() == null) {
+                    throw new BusinessException(AuthErrorCode.INVALID_USER_STATE, "지점장 사용자에 조직 정보가 없습니다.");
+                }
+                yield new AccessScope(AccessScopeType.BRANCH, user.getId(), user.getOrganization().getId());
+            }
+            default -> new AccessScope(AccessScopeType.ALL, user.getId(), null);
+        };
+
+        LocalDate fromDate = LocalDate.now().withDayOfMonth(1);
+        LocalDate toDate = fromDate.plusMonths(1);
+        return handoverDetailQueryRepository.findBranchSummary(accessScope, fromDate, toDate);
+    }
+
+
 
     // 인수인계 상세 조회 접근
     private void validateApprovalProcessTarget(HandoverRequest handoverRequest) {
@@ -625,6 +655,21 @@ public class HandoverService {
 
         int age = Period.between(birthDate, LocalDate.now()).getYears();
         return age >= 0 ? age : null;
+    }
+
+    private List<HandoverDetailResponse.MatchingReason> parseMatchingReasons(String matchingReasonsJson) {
+        if (matchingReasonsJson == null || matchingReasonsJson.isBlank()) {
+            return List.of();
+        }
+
+        try {
+            return objectMapper.readValue(
+                    matchingReasonsJson,
+                    new TypeReference<List<HandoverDetailResponse.MatchingReason>>() {}
+            );
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private String normalizeNullable(String value) {

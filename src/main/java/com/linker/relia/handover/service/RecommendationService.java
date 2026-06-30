@@ -1,10 +1,13 @@
 package com.linker.relia.handover.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.customer.domain.Customer;
 import com.linker.relia.handover.domain.ApprovalStatus;
 import com.linker.relia.handover.domain.HandoverRecommendation;
 import com.linker.relia.handover.domain.HandoverRequest;
+import com.linker.relia.handover.dto.response.HandoverDetailResponse;
 import com.linker.relia.handover.exception.HandoverErrorCode;
 import com.linker.relia.handover.repository.HandoverRecommendationQueryRepository;
 import com.linker.relia.handover.repository.HandoverRecommendationRepository;
@@ -53,6 +56,7 @@ public class RecommendationService {
     private final HandoverRecommendationRepository handoverRecommendationRepository;
     private final HandoverRecommendationQueryRepository handoverRecommendationQueryRepository;
     private final RecommendationCommentService recommendationCommentService;
+    private final ObjectMapper objectMapper;
 
     public HandoverRecommendation recommend(HandoverRequest handoverRequest) {
         Customer customer = handoverRequest.getCustomer();
@@ -121,7 +125,8 @@ public class RecommendationService {
 
         // 6. 추천 사유 생성
         String reason = generateReason(best, profile);
-        return HandoverRecommendation.create(handoverRequest, best.user(), reason);
+        String matchingReasonsJson = serializeMatchingReasons(buildMatchingReasons(best, profile));
+        return HandoverRecommendation.create(handoverRequest, best.user(), reason, matchingReasonsJson);
     }
 
     private int calculateScore(FpRecommendationCandidate candidate,
@@ -194,6 +199,112 @@ public class RecommendationService {
             log.warn("LLM recommendation comment generation failed. empCode={}", candidate.user().getEmpCode(), e);
             return buildReason(candidate, profile);
         }
+    }
+
+    private List<HandoverDetailResponse.MatchingReason> buildMatchingReasons(
+            FpRecommendationCandidate candidate,
+            CustomerProfile profile
+    ) {
+        FpMonthlyInfo fp = candidate.monthlyInfo();
+        if (fp == null) {
+            return List.of();
+        }
+
+        List<ScoredMatchingReason> reasons = new ArrayList<>();
+
+        String matchedCategory = findMatchedCategory(profile, fp);
+        if (matchedCategory != null) {
+            reasons.add(new ScoredMatchingReason(
+                    40,
+                    new HandoverDetailResponse.MatchingReason(
+                            "CATEGORY",
+                            "보종 경험 일치",
+                            matchedCategory + " 상품 상담 경험"
+                    )
+            ));
+        }
+
+        BigDecimal retentionRate = getRetentionRate(fp);
+        int retentionPoints = retentionRate.multiply(BigDecimal.valueOf(0.3)).intValue();
+        if (retentionPoints > 0) {
+            reasons.add(new ScoredMatchingReason(
+                    retentionPoints,
+                    new HandoverDetailResponse.MatchingReason(
+                            "RETENTION",
+                            "고객 관리 안정성",
+                            "유지율 " + retentionRate.stripTrailingZeros().toPlainString() + "%"
+                    )
+            ));
+        }
+
+        if (fp.getPreferredCustomerAge() != null
+                && fp.getPreferredCustomerAge() == profile.ageGroup()) {
+            reasons.add(new ScoredMatchingReason(
+                    20,
+                    new HandoverDetailResponse.MatchingReason(
+                            "AGE_GROUP",
+                            "고객 연령대 일치",
+                            profile.ageGroup() + "대 고객 관리에 적합"
+                    )
+            ));
+        }
+
+        if (fp.getConsultationChannel() != null
+                && fp.getConsultationChannel().equals(profile.mainChannel())) {
+            reasons.add(new ScoredMatchingReason(
+                    10,
+                    new HandoverDetailResponse.MatchingReason(
+                            "CHANNEL",
+                            "상담 채널 일치",
+                            toChannelLabel(profile.mainChannel()) + " 선호 고객과 일치"
+                    )
+            ));
+        }
+
+        return reasons.stream()
+                .sorted(Comparator.comparingInt(ScoredMatchingReason::points).reversed())
+                .limit(4)
+                .map(ScoredMatchingReason::reason)
+                .toList();
+    }
+
+    private String serializeMatchingReasons(List<HandoverDetailResponse.MatchingReason> matchingReasons) {
+        if (matchingReasons.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return objectMapper.writeValueAsString(matchingReasons);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize handover matching reasons.", e);
+            return null;
+        }
+    }
+
+    private String findMatchedCategory(CustomerProfile profile, FpMonthlyInfo fp) {
+        if (fp.getSpecialtyCategory() == null) {
+            return null;
+        }
+
+        return List.of(fp.getSpecialtyCategory().split(","))
+                .stream()
+                .map(String::trim)
+                .filter(profile.categoryList()::contains)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String toChannelLabel(String channel) {
+        if ("VISIT".equals(channel)) {
+            return "방문";
+        }
+        if ("PHONE".equals(channel)) {
+            return "전화";
+        }
+        if ("MESSAGE".equals(channel)) {
+            return "메시지";
+        }
+        return channel;
     }
 
     private CustomerCommentContext toCustomerContext(CustomerProfile profile) {
@@ -305,5 +416,10 @@ public class RecommendationService {
     private record FpRecommendationCandidate(
             User user,
             FpMonthlyInfo monthlyInfo
+    ) {}
+
+    private record ScoredMatchingReason(
+            int points,
+            HandoverDetailResponse.MatchingReason reason
     ) {}
 }

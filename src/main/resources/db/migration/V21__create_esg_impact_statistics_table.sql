@@ -12,8 +12,8 @@ CREATE TABLE esg_impact_statistics (
                                        paper_saved_count INT NOT NULL,
                                        co2_saved_kg DECIMAL(10,3) NOT NULL,
 
-                                       environmental_contribution_index DECIMAL(10,2) NOT NULL,
-                                       ocean_recovery_index DECIMAL(10,2) NOT NULL,
+                                       sea_level_contribution DECIMAL(10,5) NOT NULL,
+                                       earth_temperature_reduction DECIMAL(10,6) NOT NULL,
 
                                        level INT NOT NULL,
                                        recovery_rate DECIMAL(5,2) NOT NULL,

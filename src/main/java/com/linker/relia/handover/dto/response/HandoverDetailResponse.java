@@ -47,7 +47,14 @@ public record HandoverDetailResponse(
             Integer preferredCustomerAge,
             String consultationChannel,
             String recommendationReason,
+            List<MatchingReason> matchingReasons,
             ApprovalStatus approvalStatus,
             String rejectedFpName           // null이면 첫 추천, 있으면 재추천
+    ) {}
+
+    public record MatchingReason(
+            String type,
+            String title,
+            String description
     ) {}
 }

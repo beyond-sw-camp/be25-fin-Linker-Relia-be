@@ -32,6 +32,12 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         try {
+            String requestUri = request.getRequestURI();
+            if (requestUri.startsWith("/api/actuator/health")) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
             if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {

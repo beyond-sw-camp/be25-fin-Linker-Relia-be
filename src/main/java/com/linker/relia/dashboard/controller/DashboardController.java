@@ -6,6 +6,8 @@ import com.linker.relia.dashboard.dto.DashboardBranchRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardClosingMonthOptionResponse;
 import com.linker.relia.dashboard.dto.DashboardFpRankingRequest;
 import com.linker.relia.dashboard.dto.DashboardFpRankingResponse;
+import com.linker.relia.dashboard.dto.DashboardInsuranceProductRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardInsuranceProductRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardKpiRequest;
 import com.linker.relia.dashboard.dto.DashboardOrganizationContractDistributionRequest;
 import com.linker.relia.dashboard.dto.FpDashboardContractDistributionResponse;
@@ -83,6 +85,17 @@ public class DashboardController {
         DashboardBranchRankingResponse response =
                 dashboardService.getOrganizationBranchRankings(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "지점 수입수수료 순위 조회에 성공했습니다.", response);
+    }
+
+    @GetMapping("/insurance-products/rankings")
+    @PreAuthorize("hasAnyRole('FP', 'BRANCH_MANAGER', 'HQ_MANAGER', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<DashboardInsuranceProductRankingResponse>> getInsuranceProductRankings(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @Valid @ModelAttribute DashboardInsuranceProductRankingRequest request
+    ) {
+        DashboardInsuranceProductRankingResponse response =
+                dashboardService.getInsuranceProductRankings(principalDetails, request);
+        return ApiResponse.success(HttpStatus.OK, "보험상품 판매 순위 조회에 성공했습니다.", response);
     }
 
     @GetMapping("/filters/closing-months")

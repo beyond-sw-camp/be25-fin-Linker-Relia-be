@@ -40,24 +40,30 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
     @Override
     public CustomerContractSummaryResponse summarizeCustomerContracts(UUID customerId) {
         String jpql = """
-                select new com.linker.relia.contract.dto.CustomerContractSummaryRow(
+                select
                     count(ct),
                     coalesce(sum(ct.monthlyPremium), 0),
                     coalesce(sum(case when ct.contractStatus = 'MAINTENANCE' then 1L else 0L end), 0L),
                     coalesce(sum(case when ct.contractStatus = 'COMPLETED' then 1L else 0L end), 0L),
                     coalesce(sum(case when ct.contractStatus = 'TERMINATED' then 1L else 0L end), 0L),
                     coalesce(sum(case when ct.contractStatus = 'LAPSED' then 1L else 0L end), 0L)
-                )
                 from Contract ct
                 where ct.customer.id = :customerId
                   and ct.deletedAt is null
                 """;
 
-        TypedQuery<CustomerContractSummaryRow> query =
-                entityManager.createQuery(jpql, CustomerContractSummaryRow.class);
+        Query query = entityManager.createQuery(jpql);
         query.setParameter("customerId", customerId);
 
-        CustomerContractSummaryRow summaryRow = query.getSingleResult();
+        Object[] row = (Object[]) query.getSingleResult();
+        CustomerContractSummaryRow summaryRow = new CustomerContractSummaryRow(
+                toLong(row[0]),
+                toBigDecimal(row[1]),
+                toLong(row[2]),
+                toLong(row[3]),
+                toLong(row[4]),
+                toLong(row[5])
+        );
         Map<String, Long> contractStatusCounts = CustomerContractSummaryResponse.defaultContractStatusCounts();
         contractStatusCounts.put("MAINTENANCE", summaryRow.maintenanceCount());
         contractStatusCounts.put("COMPLETED", summaryRow.completedCount());
@@ -131,6 +137,27 @@ public class ContractRepositoryImpl implements ContractRepositoryCustom {
                 .expiringSoonCount(toLong(row[4]))
                 .renewalSoonCount(toLong(row[5]))
                 .build();
+    }
+
+    @Override
+    public long countHoldingContracts(AccessScope accessScope,
+                                      String organizationCode) {
+        String sql = """
+                select count(*)
+                from contracts ct
+                join users fp on fp.id = ct.fp_id
+                join organizations org on org.id = fp.organization_id
+                where ct.deleted_at is null
+                  and fp.deleted_at is null
+                  and org.deleted_at is null
+                  and (:organizationCode is null or org.organization_code = :organizationCode)
+                """ + buildAccessScopeWhereClause(accessScope);
+
+        Query countQuery = entityManager.createNativeQuery(sql);
+        countQuery.setParameter("organizationCode", organizationCode);
+        bindAccessScope(countQuery, accessScope);
+
+        return toLong(countQuery.getSingleResult());
     }
 
     @Override

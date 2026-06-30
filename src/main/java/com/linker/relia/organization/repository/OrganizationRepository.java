@@ -31,9 +31,14 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
                 organization.organizationAddress,
                 organization.organizationPhone,
                 organization.organizationStatus,
+                branchManager.userName,
                 count(advisor.id)
             )
             from Organization organization
+            left join User branchManager
+                on branchManager.organization = organization
+                and branchManager.userRole = com.linker.relia.user.domain.UserRole.BRANCH_MANAGER
+                and branchManager.deletedAt is null
             left join User advisor
                 on advisor.organization = organization
                 and advisor.userRole = com.linker.relia.user.domain.UserRole.FP
@@ -47,6 +52,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
                 organization.organizationAddress,
                 organization.organizationPhone,
                 organization.organizationStatus,
+                branchManager.userName,
                 organization.createdAt
             order by organization.createdAt asc
             """)

@@ -37,6 +37,9 @@ public class HandoverRecommendation {
     @Column(name = "recommendation_reason", columnDefinition = "TEXT")
     private String recommendationReason;
 
+    @Column(name = "matching_reasons_json", columnDefinition = "TEXT")
+    private String matchingReasonsJson;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "approval_status", length = 30, nullable = false)
     private ApprovalStatus approvalStatus;
@@ -60,12 +63,19 @@ public class HandoverRecommendation {
     //  정적 팩토리 메서드
     public static HandoverRecommendation create(HandoverRequest handoverRequest, User recommendedFp,
                                                 String recommendationReason) {
+        return create(handoverRequest, recommendedFp, recommendationReason, null);
+    }
+
+    public static HandoverRecommendation create(HandoverRequest handoverRequest, User recommendedFp,
+                                                String recommendationReason,
+                                                String matchingReasonsJson) {
         HandoverRecommendation rec = new HandoverRecommendation();
         rec.id = UUID.randomUUID();
         rec.handoverRequest = handoverRequest;
         rec.recommendedFp = recommendedFp;
         rec.recommendedFpName = recommendedFp.getUserName();
         rec.recommendationReason = recommendationReason;
+        rec.matchingReasonsJson = matchingReasonsJson;
         rec.approvalStatus = ApprovalStatus.PENDING;
         rec.createdAt = LocalDateTime.now();
         return rec;

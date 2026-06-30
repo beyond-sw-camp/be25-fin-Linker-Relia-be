@@ -14,6 +14,7 @@ import com.linker.relia.customer.repository.CustomerRepository;
 import com.linker.relia.customer.service.CustomerAccessService;
 import com.linker.relia.security.principal.PrincipalDetails;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -24,7 +25,9 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ConsultationAiBriefingServiceImpl implements ConsultationAiBriefingService {
+    private static final int AI_BRIEFING_PROMPT_CONSULTATION_LIMIT = 20;
 
 
     private final CustomerRepository customerRepository;
@@ -61,8 +64,26 @@ public class ConsultationAiBriefingServiceImpl implements ConsultationAiBriefing
                 .map(ConsultationAiBriefing::getUpdateSequence)
                 .orElse(0);
 
-        String prompt = buildUserPrompt(customer, consultations);
-        String briefingContent = consultationAiBriefingGenerator.generate(prompt);
+        List<ConsultationAiBriefingSourceResponse> promptConsultations =
+                consultations.stream()
+                        .limit(AI_BRIEFING_PROMPT_CONSULTATION_LIMIT)
+                        .toList();
+
+        if (consultations.size() > promptConsultations.size()) {
+            log.info(
+                    "AI briefing prompt consultation history limited customerId={} totalConsultationCount={} promptConsultationCount={}",
+                    customerId,
+                    consultations.size(),
+                    promptConsultations.size()
+            );
+        }
+
+        String prompt = buildUserPrompt(customer, promptConsultations);
+        String briefingContent = consultationAiBriefingGenerator.generate(
+                prompt,
+                customerId,
+                promptConsultations.size()
+        );
 
         return consultationAiBriefingPersistenceService.save(
                 customerId,

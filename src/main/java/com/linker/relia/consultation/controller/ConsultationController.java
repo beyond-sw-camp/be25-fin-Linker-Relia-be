@@ -4,7 +4,7 @@ import com.linker.relia.common.dto.response.ApiResponse;
 import com.linker.relia.consultation.dto.request.ConsultationCreateRequest;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
 import com.linker.relia.consultation.dto.response.ConsultationDetailResponse;
-import com.linker.relia.consultation.dto.response.ConsultationListResponse;
+import com.linker.relia.consultation.dto.response.ConsultationListPageResponse;
 import com.linker.relia.consultation.service.ConsultationService;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -26,6 +25,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -172,13 +172,14 @@ public class ConsultationController {
 
     @Operation(summary = "상담일지 목록조회")
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<ConsultationListResponse>>> getConsultations(
+    public ResponseEntity<ApiResponse<ConsultationListPageResponse>> getConsultations(
             @ParameterObject
             @PageableDefault(size = 10) Pageable pageable,
+            @RequestParam(required = false) String organizationCode,
             @AuthenticationPrincipal PrincipalDetails principalDetails
     ) {
-        Page<ConsultationListResponse> response =
-                consultationService.getConsultations(pageable, principalDetails.getUser());
+        ConsultationListPageResponse response =
+                consultationService.getConsultations(pageable, principalDetails, organizationCode);
 
         return ApiResponse.success(
                 HttpStatus.OK,

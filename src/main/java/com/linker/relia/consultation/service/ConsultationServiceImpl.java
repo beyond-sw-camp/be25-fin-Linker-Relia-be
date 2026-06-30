@@ -1,5 +1,8 @@
 package com.linker.relia.consultation.service;
 
+import com.linker.relia.auth.exception.AuthErrorCode;
+import com.linker.relia.common.access.AccessScope;
+import com.linker.relia.common.access.AccessScopeResolver;
 import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.consultation.domain.Consultation;
 import com.linker.relia.consultation.domain.ConsultationCancelDetail;
@@ -19,6 +22,7 @@ import com.linker.relia.consultation.dto.response.CancelDetailResponse;
 import com.linker.relia.consultation.dto.response.ClaimDetailResponse;
 import com.linker.relia.consultation.dto.response.ConsultationCreateResponse;
 import com.linker.relia.consultation.dto.response.ConsultationDetailResponse;
+import com.linker.relia.consultation.dto.response.ConsultationListPageResponse;
 import com.linker.relia.consultation.dto.response.ConsultationListResponse;
 import com.linker.relia.consultation.dto.response.NewDetailResponse;
 import com.linker.relia.consultation.dto.response.RenewalDetailResponse;
@@ -46,6 +50,7 @@ import com.linker.relia.customer.repository.CustomerUnderlyingDiseaseRepository;
 import com.linker.relia.customer.repository.DiseaseCodeRepository;
 import com.linker.relia.insurance.domain.InsuranceProduct;
 import com.linker.relia.insurance.repository.InsuranceProductRepository;
+import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
 import com.linker.relia.user.exception.UserErrorCode;
 import com.linker.relia.user.repository.UserRepository;
@@ -74,6 +79,7 @@ public class ConsultationServiceImpl implements ConsultationService {
     private final ConsultationRepository consultationRepository;
     private final CustomerRepository customerRepository;
     private final ContractRepository contractRepository;
+    private final AccessScopeResolver accessScopeResolver;
     private final DiseaseCodeRepository diseaseCodeRepository;
     private final CustomerUnderlyingDiseaseRepository customerUnderlyingDiseaseRepository;
 
@@ -125,7 +131,10 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ConsultationListResponse> getConsultations(Pageable pageable, User user) {
+    public ConsultationListPageResponse getConsultations(Pageable pageable,
+                                                        PrincipalDetails principalDetails,
+                                                        String organizationCode) {
+        User user = principalDetails.getUser();
         Page<Consultation> consultations = switch (user.getUserRole()) {
             case HQ_MANAGER -> consultationRepository.findAllByDeletedAtIsNull(pageable);
             case BRANCH_MANAGER -> consultationRepository.findAllByAuthorOrganizationId(
@@ -136,7 +145,15 @@ public class ConsultationServiceImpl implements ConsultationService {
             default -> throw new BusinessException(ConsultationErrorCode.CONSULTATION_ACCESS_DENIED);
         };
 
-        return consultations.map(ConsultationListResponse::from);
+        AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
+        String normalizedOrganizationCode = normalizeNullable(organizationCode);
+        validateOrganizationCodeFilter(accessScope, normalizedOrganizationCode);
+        long contractCount = contractRepository.countHoldingContracts(accessScope, normalizedOrganizationCode);
+
+        return new ConsultationListPageResponse(
+                consultations.map(ConsultationListResponse::from),
+                contractCount
+        );
     }
 
     @Override
@@ -319,6 +336,25 @@ public class ConsultationServiceImpl implements ConsultationService {
             current = current.getCause();
         }
         return false;
+    }
+
+    private void validateOrganizationCodeFilter(AccessScope accessScope, String organizationCode) {
+        if (organizationCode == null) {
+            return;
+        }
+
+        if (!accessScope.isAllScope()) {
+            throw new BusinessException(AuthErrorCode.USER_FORBIDDEN, "조직 코드로 계약을 조회할 수 있는 권한이 없습니다.");
+        }
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private NewDetailResponse getNewDetailResponse(UUID consultationId) {

@@ -1,29 +1,117 @@
 package com.linker.relia.consultation.service.ai;
 
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.ResponseErrorHandler;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
 
 @Service
+@Slf4j
 public class ConsultationAiBriefingGenerator {
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(25);
 
     private final ChatClient chatClient;
 
-    public ConsultationAiBriefingGenerator(ChatModel chatModel) {
+    public ConsultationAiBriefingGenerator(
+            @Value("${spring.ai.openai.api-key}") String apiKey,
+            @Value("${spring.ai.openai.chat.model}") String model,
+            @Value("${spring.ai.openai.base-url:https://api.openai.com}") String baseUrl,
+            ToolCallingManager toolCallingManager,
+            RetryTemplate retryTemplate,
+            ResponseErrorHandler responseErrorHandler
+    ) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
+        requestFactory.setReadTimeout(READ_TIMEOUT);
+
+        OpenAiApi openAiApi = OpenAiApi.builder()
+                .baseUrl(baseUrl)
+                .apiKey(apiKey)
+                .restClientBuilder(RestClient.builder().requestFactory(requestFactory))
+                .webClientBuilder(WebClient.builder())
+                .responseErrorHandler(responseErrorHandler)
+                .build();
+
+        OpenAiChatModel chatModel = OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(OpenAiChatOptions.builder().model(model).build())
+                .toolCallingManager(toolCallingManager)
+                .retryTemplate(retryTemplate)
+                .build();
+
         this.chatClient = ChatClient.create(chatModel);
     }
 
-    public String generate(String prompt) {
-        String content = chatClient.prompt()
-                .system(buildSystemPrompt())
-                .user(prompt)
-                .call()
-                .content();
+    public String generate(String prompt, UUID customerId, int consultationCount) {
+        Instant startedAt = Instant.now();
+        long startedNanos = System.nanoTime();
 
-        if (!StringUtils.hasText(content)) {
-            throw new IllegalStateException("AI briefing response must not be blank");
+        log.info(
+                "AI briefing OpenAI API call started customerId={} consultationCount={} promptLength={} startedAt={} readTimeoutSeconds={} connectTimeoutSeconds={}",
+                customerId,
+                consultationCount,
+                prompt.length(),
+                startedAt,
+                READ_TIMEOUT.toSeconds(),
+                CONNECT_TIMEOUT.toSeconds()
+        );
+
+        String content;
+        try {
+            content = chatClient.prompt()
+                    .system(buildSystemPrompt())
+                    .user(prompt)
+                    .call()
+                    .content();
+
+            if (!StringUtils.hasText(content)) {
+                throw new IllegalStateException("AI briefing response must not be blank");
+            }
+        } catch (RuntimeException exception) {
+            Instant endedAt = Instant.now();
+            long durationMillis = Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
+            log.warn(
+                    "AI briefing OpenAI API call failed customerId={} consultationCount={} promptLength={} startedAt={} endedAt={} durationMs={} exceptionType={} exceptionMessage={}",
+                    customerId,
+                    consultationCount,
+                    prompt.length(),
+                    startedAt,
+                    endedAt,
+                    durationMillis,
+                    exception.getClass().getName(),
+                    exception.getMessage(),
+                    exception
+            );
+            throw exception;
         }
+
+        Instant endedAt = Instant.now();
+        long durationMillis = Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
+        log.info(
+                "AI briefing OpenAI API call completed customerId={} consultationCount={} promptLength={} startedAt={} endedAt={} durationMs={}",
+                customerId,
+                consultationCount,
+                prompt.length(),
+                startedAt,
+                endedAt,
+                durationMillis
+        );
 
         return content;
     }

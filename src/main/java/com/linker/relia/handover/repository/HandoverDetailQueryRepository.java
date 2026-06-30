@@ -2,7 +2,9 @@ package com.linker.relia.handover.repository;
 
 import com.linker.relia.common.access.AccessScope;
 import com.linker.relia.consultation.domain.ConsultationChannel;
+import com.linker.relia.handover.domain.RequestStatus;
 import com.linker.relia.handover.dto.response.HandoverAssignableFpResponse;
+import com.linker.relia.handover.dto.response.HandoverBranchSummaryResponse;
 import com.linker.relia.handover.dto.response.HandoverMonthlyTrendResponse;
 import com.linker.relia.handover.dto.response.HandoverSummaryResponse;
 import com.linker.relia.user.domain.FpMonthlyInfo;
@@ -142,17 +144,16 @@ public class HandoverDetailQueryRepository {
     public HandoverSummaryResponse findSummary(AccessScope accessScope, String organizationCode) {
         String jpql = """
             SELECT new com.linker.relia.handover.dto.response.HandoverSummaryResponse(
-                COALESCE(SUM(CASE WHEN h.requestStatus = 'MANAGER_PENDING' THEN 1 ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN h.requestStatus = 'COMPLETED'
+                COALESCE(SUM(CASE WHEN h.requestStatus = :pendingStatus THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN h.requestStatus = :completedStatus
                     AND YEAR(h.updatedAt) = YEAR(CURRENT_DATE)
                     AND MONTH(h.updatedAt) = MONTH(CURRENT_DATE) THEN 1 ELSE 0 END), 0),
                 COALESCE(SUM(CASE WHEN YEAR(h.createdAt) = YEAR(CURRENT_DATE)
                     AND MONTH(h.createdAt) = MONTH(CURRENT_DATE) THEN 1 ELSE 0 END), 0)
             )
             FROM HandoverRequest h
-            JOIN h.customer c
-            JOIN c.customerFp cfp
-            JOIN cfp.organization org
+            LEFT JOIN h.currentFp cfp
+            LEFT JOIN cfp.organization org
             WHERE h.deletedAt IS NULL
             AND (:organizationCode IS NULL OR org.organizationCode = :organizationCode)
             """;
@@ -165,6 +166,8 @@ public class HandoverDetailQueryRepository {
                 entityManager.createQuery(jpql, HandoverSummaryResponse.class);
 
         query.setParameter("organizationCode", organizationCode);
+        query.setParameter("pendingStatus", RequestStatus.MANAGER_PENDING);
+        query.setParameter("completedStatus", RequestStatus.COMPLETED);
 
         if (accessScope.isBranchScope()) {
             query.setParameter("organizationId", accessScope.organizationId());
@@ -238,8 +241,8 @@ public class HandoverDetailQueryRepository {
         StringBuilder sql = new StringBuilder("""
             SELECT DATE_FORMAT(h.created_at, '%Y-%m') AS ym, COUNT(*) AS request_count
             FROM handover_requests h
-            JOIN users cfp ON cfp.id = h.current_fp_id
-            JOIN organizations org ON org.id = cfp.organization_id
+            LEFT JOIN users cfp ON cfp.id = h.current_fp_id
+            LEFT JOIN organizations org ON org.id = cfp.organization_id
             WHERE h.deleted_at IS NULL
               AND h.created_at >= :fromDate
               AND h.created_at < :toDate
@@ -268,5 +271,70 @@ public class HandoverDetailQueryRepository {
         return rows.stream()
                 .map(row -> new HandoverMonthlyTrendResponse((String) row[0], ((Number) row[1]).longValue()))
                 .toList();
+    }
+
+    // 지점별 현황
+    @SuppressWarnings("unchecked")
+    public List<HandoverBranchSummaryResponse> findBranchSummary(
+            AccessScope accessScope,
+            LocalDate fromDate,
+            LocalDate toDate) {
+        StringBuilder sql = new StringBuilder("""
+            SELECT
+                org.id AS organization_id,
+                org.organization_name AS organization_name,
+                COUNT(h.id) AS total_count,
+                COALESCE(SUM(CASE WHEN h.request_status = 'COMPLETED' THEN 1 ELSE 0 END), 0) AS completed_count,
+                CASE WHEN COUNT(h.id) = 0 THEN 0.0
+                     ELSE (COALESCE(SUM(CASE WHEN h.request_status = 'COMPLETED' THEN 1 ELSE 0 END), 0) * 100.0) / COUNT(h.id)
+                END AS completion_rate,
+                COALESCE(SUM(CASE WHEN h.request_status = 'MANAGER_PENDING' THEN 1 ELSE 0 END), 0) AS pending_count,
+                CASE WHEN COUNT(h.id) = 0 THEN 0.0
+                     ELSE (COALESCE(SUM(CASE WHEN h.request_status = 'MANAGER_PENDING' THEN 1 ELSE 0 END), 0) * 100.0) / COUNT(h.id)
+                END AS pending_rate
+            FROM organizations org
+            LEFT JOIN users cfp
+                ON cfp.organization_id = org.id
+            LEFT JOIN handover_requests h
+                ON h.current_fp_id = cfp.id
+                AND h.deleted_at IS NULL
+                AND h.created_at >= :fromDate
+                AND h.created_at < :toDate
+            WHERE org.deleted_at IS NULL
+              AND org.organization_code LIKE 'BR%'
+            """);
+
+        if (accessScope.isBranchScope()) {
+            sql.append(" AND org.id = :organizationId");
+        }
+        sql.append(" GROUP BY org.id, org.organization_name ORDER BY total_count DESC, org.organization_name ASC");
+
+        Query query = entityManager.createNativeQuery(sql.toString());
+        query.setParameter("fromDate", fromDate);
+        query.setParameter("toDate", toDate);
+        if (accessScope.isBranchScope()) {
+            query.setParameter("organizationId", accessScope.organizationId().toString());
+        }
+
+        List<Object[]> rows = query.getResultList();
+        return rows.stream()
+                .map(row -> new HandoverBranchSummaryResponse(
+                        toUuid(row[0]),
+                        (String) row[1],
+                        ((Number) row[2]).longValue(),
+                        ((Number) row[3]).longValue(),
+                        ((Number) row[4]).doubleValue(),
+                        ((Number) row[5]).longValue(),
+                        ((Number) row[6]).doubleValue()
+                ))
+                .map(HandoverBranchSummaryResponse::rounded)
+                .toList();
+    }
+
+    private UUID toUuid(Object value) {
+        if (value instanceof UUID uuid) {
+            return uuid;
+        }
+        return UUID.fromString(value.toString());
     }
 }

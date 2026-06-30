@@ -5,6 +5,8 @@ import com.linker.relia.dashboard.dto.DashboardBranchRankingRequest;
 import com.linker.relia.dashboard.dto.DashboardBranchRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardFpRankingRequest;
 import com.linker.relia.dashboard.dto.DashboardFpRankingResponse;
+import com.linker.relia.dashboard.dto.DashboardInsuranceProductRankingRequest;
+import com.linker.relia.dashboard.dto.DashboardInsuranceProductRankingResponse;
 import com.linker.relia.dashboard.dto.DashboardKpiRequest;
 import com.linker.relia.dashboard.dto.DashboardOrganizationContractDistributionRequest;
 import com.linker.relia.dashboard.dto.FpDashboardContractStatusResponse;
@@ -40,6 +42,11 @@ public interface DashboardService {
     DashboardBranchRankingResponse getOrganizationBranchRankings(
             PrincipalDetails principalDetails,
             DashboardBranchRankingRequest request
+    );
+
+    DashboardInsuranceProductRankingResponse getInsuranceProductRankings(
+            PrincipalDetails principalDetails,
+            DashboardInsuranceProductRankingRequest request
     );
 
     FpDashboardSummaryResponse getFpSummary(PrincipalDetails principalDetails, LocalDate referenceDate);

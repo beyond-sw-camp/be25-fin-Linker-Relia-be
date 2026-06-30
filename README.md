@@ -1,4 +1,4 @@
-# Relia ver.1
+# Relia
 
 # 팀원 소개
 
@@ -113,17 +113,27 @@
 
 ---
 
-# 9.  테스트 보고서
-🔗[ 프론트 테스트 보고서 ](https://docs.google.com/spreadsheets/d/1_25LySE-rzxbZtjh1W5OwWTwqWKSgGlhcC5KLCODOp4/edit?gid=372616974#gid=372616974)
-<br/>
+---
 
-🔗[ 백엔드 테스트 보고서 ](https://docs.google.com/spreadsheets/d/1_25LySE-rzxbZtjh1W5OwWTwqWKSgGlhcC5KLCODOp4/edit?gid=362152457#gid=362152457)
+# 9.  CI/CD 계획서
+📥[CI/CD_계획서.pdf](https://github.com/beyond-sw-camp/be25-fin-Linker-Relia-be/blob/dev/docs/pdf/Relia_CICD_.pdf)
 
 <br/><br/>
 
 ---
 
-# 10.  CI/CD 계획서
-📥[CI/CD_계획서.pdf](https://github.com/user-attachments/files/29447151/Relia_CICD_.pdf)
+# 10.  테스트 보고서
+🔗[ 프론트 테스트 보고서 ](https://docs.google.com/spreadsheets/d/1_25LySE-rzxbZtjh1W5OwWTwqWKSgGlhcC5KLCODOp4/edit?gid=372616974#gid=372616974)
+<br/>
+
+🔗[ 백엔드 테스트 보고서 ](https://docs.google.com/spreadsheets/d/1_25LySE-rzxbZtjh1W5OwWTwqWKSgGlhcC5KLCODOp4/edit?gid=362152457#gid=362152457)
+<br/>
+
+🔗[ 통합 테스트 결과서 ](https://github.com/beyond-sw-camp/be25-fin-Linker-Relia-be/blob/dev/docs/pdf/Relia_%ED%86%B5%ED%95%A9%20%ED%85%8C%EC%8A%A4%ED%8A%B8%20%EA%B2%B0%EA%B3%BC%EC%84%9C.pdf)
+
+<br/><br/>
+
+---
+
 
 

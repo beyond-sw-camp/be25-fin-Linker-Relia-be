@@ -29,6 +29,9 @@ public interface ContractRepositoryCustom {
                                                       LocalDate referenceDate,
                                                       LocalDate dueDateLimit);
 
+    long countHoldingContracts(AccessScope accessScope,
+                               String organizationCode);
+
     Page<ContractListItemResponse> searchHoldingContracts(AccessScope accessScope,
                                                           String organizationCode,
                                                           UUID insuranceCompanyId,

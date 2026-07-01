@@ -11,4 +11,10 @@ import java.time.LocalDate;
 public class FpResignRequest {
     @NotNull(message = "resignedAt은 필수입니다.")
     private LocalDate resignedAt;
+
+    private Boolean handoverRequired = true;
+
+    public boolean isHandoverRequired() {
+        return handoverRequired == null || handoverRequired;
+    }
 }

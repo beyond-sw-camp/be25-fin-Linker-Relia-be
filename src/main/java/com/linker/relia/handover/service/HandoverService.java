@@ -448,6 +448,10 @@ public class HandoverService {
         User assignedFp = userRepository.findById(request.assignedFpId())
                 .orElseThrow(() -> new BusinessException(HandoverErrorCode.FP_NOT_FOUND));
 
+        if (assignedFp.getUserRole() != UserRole.FP || !assignedFp.isActive()) {
+            throw new BusinessException(HandoverErrorCode.FP_NOT_FOUND);
+        }
+
         if (assignedFp.getOrganization() == null || !assignedFp.getOrganization().getId().equals(user.getOrganization().getId())) {
                         throw new BusinessException(AuthErrorCode.USER_FORBIDDEN, "동일 지점 소속 설계사만 지정할 수 있습니다.");
         }

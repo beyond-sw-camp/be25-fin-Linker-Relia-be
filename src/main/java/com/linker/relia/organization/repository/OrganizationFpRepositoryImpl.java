@@ -32,6 +32,7 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                                               String keyword,
                                               UUID organizationId,
                                               String closingMonth,
+                                              boolean includeResigned,
                                               Pageable pageable) {
         String fromWhereSql = buildFromWhereSql(accessScope);
         String rankColumn = resolveRankColumn(accessScope, organizationId);
@@ -116,7 +117,7 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 + rankColumn + " asc, fp.user_name asc, fp.id asc\n";
 
         Query contentQuery = entityManager.createNativeQuery(contentSql);
-        bindParameters(contentQuery, accessScope, keyword, organizationId, closingMonth);
+        bindParameters(contentQuery, accessScope, keyword, organizationId, closingMonth, includeResigned);
         if (pageable.isPaged()) {
             contentQuery.setFirstResult((int) pageable.getOffset());
             contentQuery.setMaxResults(pageable.getPageSize());
@@ -129,7 +130,7 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 .toList();
 
         Query countQuery = entityManager.createNativeQuery("select count(*) " + fromWhereSql);
-        bindParameters(countQuery, accessScope, keyword, organizationId, closingMonth);
+        bindParameters(countQuery, accessScope, keyword, organizationId, closingMonth, includeResigned);
 
         return new PageImpl<>(content, pageable, toLong(countQuery.getSingleResult()));
     }
@@ -344,6 +345,7 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                 where fp.user_role = 'FP'
                   and fp.deleted_at is null
                   and org.deleted_at is null
+                  and (:includeResigned = true or fp.user_status = 'ACTIVE')
                   and (:keyword is null or fp.user_name like concat('%', :keyword, '%'))
                   and (:organizationId is null or org.id = :organizationId)
                 """ + buildAccessScopeWhereClause(accessScope);
@@ -373,10 +375,12 @@ public class OrganizationFpRepositoryImpl implements OrganizationFpRepository {
                                 AccessScope accessScope,
                                 String keyword,
                                 UUID organizationId,
-                                String closingMonth) {
+                                String closingMonth,
+                                boolean includeResigned) {
         query.setParameter("keyword", keyword);
         query.setParameter("organizationId", organizationId == null ? null : organizationId.toString());
         query.setParameter("closingMonth", closingMonth);
+        query.setParameter("includeResigned", includeResigned);
 
         if (accessScope.isOwnScope()) {
             query.setParameter("userId", accessScope.userId().toString());

@@ -42,6 +42,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
             left join User advisor
                 on advisor.organization = organization
                 and advisor.userRole = com.linker.relia.user.domain.UserRole.FP
+                and advisor.userStatus = com.linker.relia.user.domain.UserStatus.ACTIVE
                 and advisor.deletedAt is null
             where organization.organizationType = com.linker.relia.organization.domain.OrganizationType.BRANCH
                 and organization.deletedAt is null

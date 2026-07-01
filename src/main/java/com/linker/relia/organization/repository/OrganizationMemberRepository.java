@@ -18,5 +18,6 @@ public interface OrganizationMemberRepository {
                                                        UserRole role,
                                                        UserStatus status,
                                                        OrganizationMemberSort sort,
+                                                       boolean includeResigned,
                                                        Pageable pageable);
 }

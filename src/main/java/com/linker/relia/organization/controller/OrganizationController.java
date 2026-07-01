@@ -67,7 +67,8 @@ public class OrganizationController {
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) UUID organizationId,
-            @RequestParam(required = false) String closingMonth
+            @RequestParam(required = false) String closingMonth,
+            @RequestParam(required = false, defaultValue = "false") Boolean includeResigned
     ) {
         FpListRequest request = new FpListRequest();
         request.setPage(page);
@@ -75,6 +76,7 @@ public class OrganizationController {
         request.setKeyword(keyword);
         request.setOrganizationId(organizationId);
         request.setClosingMonth(closingMonth);
+        request.setIncludeResigned(includeResigned);
 
         FpListResponse responseDto = organizationService.getFps(principalDetails, request);
         return ApiResponse.success(HttpStatus.OK, "설계사 목록 조회 성공", responseDto);

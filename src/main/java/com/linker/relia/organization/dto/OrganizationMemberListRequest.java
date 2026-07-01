@@ -17,4 +17,9 @@ public class OrganizationMemberListRequest extends PageQueryRequest {
     private UserRole role;
     private UserStatus status;
     private OrganizationMemberSort sort = OrganizationMemberSort.NAME_ASC;
+    private Boolean includeResigned = false;
+
+    public boolean isIncludeResigned() {
+        return Boolean.TRUE.equals(includeResigned);
+    }
 }

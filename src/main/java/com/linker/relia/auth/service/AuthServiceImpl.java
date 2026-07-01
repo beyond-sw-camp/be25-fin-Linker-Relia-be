@@ -6,6 +6,9 @@ import com.linker.relia.common.exception.BusinessException;
 import com.linker.relia.common.util.CookieUtil;
 import com.linker.relia.infra.redis.AuthTokenRepository;
 import com.linker.relia.security.jwt.JwtUtil;
+import com.linker.relia.user.domain.User;
+import com.linker.relia.user.exception.UserErrorCode;
+import com.linker.relia.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final AuthTokenRepository authTokenRepository;
     private final CookieUtil cookieUtil;
+    private final UserRepository userRepository;
 
     @Override
     public ReissueResponse reissueToken(String refreshToken, HttpServletResponse response) {
@@ -41,6 +45,14 @@ public class AuthServiceImpl implements AuthService {
         String loginId = jwtUtil.getLoginId(refreshToken);
         String role = jwtUtil.getRole(refreshToken);
         String redisKey = jwtUtil.getTokenId(refreshToken);
+
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.USER_UNAUTHORIZED));
+        if (!user.isActive()) {
+            response.addCookie(cookieUtil.deleteCookie("RefreshToken"));
+            authTokenRepository.deleteRefreshToken(redisKey);
+            throw new BusinessException(UserErrorCode.USER_RESIGNED);
+        }
 
         if (!authTokenRepository.hasRefreshToken(redisKey)) {
             response.addCookie(cookieUtil.deleteCookie("RefreshToken"));

@@ -30,6 +30,7 @@ public class OrganizationMemberRepositoryImpl implements OrganizationMemberRepos
                                                               UserRole role,
                                                               UserStatus status,
                                                               OrganizationMemberSort sort,
+                                                              boolean includeResigned,
                                                               Pageable pageable) {
         String fromWhereSql = buildFromWhereSql(accessScope);
         String orderBySql = buildOrderBySql(sort);
@@ -55,7 +56,8 @@ public class OrganizationMemberRepositoryImpl implements OrganizationMemberRepos
                 branchKeyword,
                 organizationId,
                 role,
-                status
+                status,
+                includeResigned
         );
         contentQuery.setFirstResult((int) pageable.getOffset());
         contentQuery.setMaxResults(pageable.getPageSize());
@@ -74,7 +76,8 @@ public class OrganizationMemberRepositoryImpl implements OrganizationMemberRepos
                 branchKeyword,
                 organizationId,
                 role,
-                status
+                status,
+                includeResigned
         );
 
         return new PageImpl<>(content, pageable, toLong(countQuery.getSingleResult()));
@@ -87,6 +90,7 @@ public class OrganizationMemberRepositoryImpl implements OrganizationMemberRepos
                 where u.deleted_at is null
                   and org.deleted_at is null
                   and u.user_role in ('HQ_MANAGER', 'BRANCH_MANAGER', 'FP')
+                  and (:includeResigned = true or u.user_status = 'ACTIVE')
                   and (:keyword is null or u.user_name like concat('%', :keyword, '%'))
                   and (:branchKeyword is null or org.organization_name like concat('%', :branchKeyword, '%'))
                   and (:organizationId is null or org.id = :organizationId)
@@ -132,12 +136,14 @@ public class OrganizationMemberRepositoryImpl implements OrganizationMemberRepos
                                 String branchKeyword,
                                 UUID organizationId,
                                 UserRole role,
-                                UserStatus status) {
+                                UserStatus status,
+                                boolean includeResigned) {
         query.setParameter("keyword", keyword);
         query.setParameter("branchKeyword", branchKeyword);
         query.setParameter("organizationId", organizationId == null ? null : organizationId.toString());
         query.setParameter("role", role == null ? null : role.name());
         query.setParameter("status", status == null ? null : status.name());
+        query.setParameter("includeResigned", includeResigned);
 
         if (accessScope.isOwnScope() || accessScope.isBranchScope()) {
             query.setParameter("accessOrganizationId", accessScope.organizationId().toString());

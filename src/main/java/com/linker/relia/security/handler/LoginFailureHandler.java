@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationServiceException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
@@ -30,7 +31,7 @@ public class LoginFailureHandler implements AuthenticationFailureHandler {
                 && exception.getCause() instanceof IOException) {
             message = AuthErrorCode.INVALID_LOGIN_REQUEST.getMessage();
             errorCode = AuthErrorCode.INVALID_LOGIN_REQUEST;
-        } else if (exception instanceof LockedException) {
+        } else if (exception instanceof LockedException || exception instanceof DisabledException) {
             message = UserErrorCode.USER_RESIGNED.getMessage();
             errorCode = UserErrorCode.USER_RESIGNED;
         } else {

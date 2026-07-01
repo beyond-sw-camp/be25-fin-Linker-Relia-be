@@ -12,4 +12,9 @@ public class FpListRequest extends PageQueryRequest {
     private String keyword;
     private UUID organizationId;
     private String closingMonth;
+    private Boolean includeResigned = false;
+
+    public boolean isIncludeResigned() {
+        return Boolean.TRUE.equals(includeResigned);
+    }
 }

@@ -7,6 +7,7 @@ import com.linker.relia.security.handler.CustomAuthenticationEntryPoint;
 import com.linker.relia.security.jwt.JwtUtil;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.security.principal.PrincipalDetailsService;
+import com.linker.relia.user.exception.UserErrorCode;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,6 +67,9 @@ public class JwtFilter extends OncePerRequestFilter {
 
             String loginId = jwtUtil.getLoginId(accessToken);
             PrincipalDetails principal = (PrincipalDetails) principalDetailsService.loadUserByUsername(loginId);
+            if (!principal.isEnabled()) {
+                throw new BusinessException(UserErrorCode.USER_RESIGNED);
+            }
 
             Authentication authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);

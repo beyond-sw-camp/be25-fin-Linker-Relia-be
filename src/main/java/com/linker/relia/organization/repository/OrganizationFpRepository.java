@@ -17,6 +17,7 @@ public interface OrganizationFpRepository {
                                        String keyword,
                                        UUID organizationId,
                                        String closingMonth,
+                                       boolean includeResigned,
                                        Pageable pageable);
 
     Optional<FpDetailResponse> findFpDetail(AccessScope accessScope,

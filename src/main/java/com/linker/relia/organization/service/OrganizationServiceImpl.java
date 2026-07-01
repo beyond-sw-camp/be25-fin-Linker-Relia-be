@@ -29,6 +29,7 @@ import com.linker.relia.organization.repository.OrganizationMemberRepository;
 import com.linker.relia.organization.repository.OrganizationRepository;
 import com.linker.relia.security.principal.PrincipalDetails;
 import com.linker.relia.user.domain.User;
+import com.linker.relia.user.domain.UserRole;
 import com.linker.relia.user.domain.UserStatus;
 import com.linker.relia.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -82,6 +83,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                 request.getRole(),
                 request.getStatus(),
                 request.getSort(),
+                request.isIncludeResigned(),
                 request.toPageable()
         );
     }
@@ -128,6 +130,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                 keyword,
                 request.getOrganizationId(),
                 closingMonth,
+                request.isIncludeResigned(),
                 pageable
         ));
     }
@@ -203,6 +206,10 @@ public class OrganizationServiceImpl implements OrganizationService {
         User fp = userRepository.findByIdForUpdate(fpId)
                 .orElseThrow(() -> new BusinessException(OrganizationErrorCode.FP_NOT_FOUND));
 
+        if (fp.getUserRole() != UserRole.FP) {
+            throw new BusinessException(CommonErrorCode.INVALID_REQUEST, "FP 역할 사용자만 퇴사 처리할 수 있습니다.");
+        }
+
         AccessScope accessScope = accessScopeResolver.resolve(principalDetails);
         validateFpAccessible(accessScope, fpId);
 
@@ -212,16 +219,21 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         // 해촉은 담당 고객 리스트 기준으로 처리한다.
         // 실제 인수인계 요청 생성은 고객 1명씩 HandoverService의 단건 로직을 재사용한다.
-        List<HandoverRequest> savedHandoverRequests = customerRepository.findAllByCustomerFpIdAndDeletedAtIsNull(fpId)
-                .stream()
-                .map(handoverService::createResignationHandoverIfAbsent)
-                .flatMap(Optional::stream)
-                .toList();
+        List<HandoverRequest> savedHandoverRequests = request.isHandoverRequired()
+                ? customerRepository.findAllByCustomerFpIdAndDeletedAtIsNull(fpId)
+                        .stream()
+                        .map(handoverService::createResignationHandoverIfAbsent)
+                        .flatMap(Optional::stream)
+                        .toList()
+                : List.of();
 
         fp.resign(request.getResignedAt());
 
         return FpResignResponse.builder()
+                .fpId(fp.getId())
+                .userId(fp.getId())
                 .id(fp.getId())
+                .userName(fp.getUserName())
                 .userStatus(fp.getUserStatus())
                 .resignedAt(fp.getResignedAt())
                 .handoverRequestCount(savedHandoverRequests.size())

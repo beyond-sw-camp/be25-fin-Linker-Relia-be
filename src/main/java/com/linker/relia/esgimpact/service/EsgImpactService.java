@@ -90,15 +90,18 @@ public class EsgImpactService {
 
     private String calculateStage(BigDecimal recoveryRate) {
         if (recoveryRate.compareTo(BigDecimal.valueOf(25)) <= 0) {
-            return "시작 단계";
+            return "Lv.1 시작 단계";
         }
         if (recoveryRate.compareTo(BigDecimal.valueOf(50)) <= 0) {
-            return "안정 단계";
+            return "Lv.2 안정 단계";
         }
         if (recoveryRate.compareTo(BigDecimal.valueOf(75)) <= 0) {
-            return "회복 단계";
+            return "Lv.3 회복 단계";
         }
-        return "고도 회복 단계";
+        if (recoveryRate.compareTo(BigDecimal.valueOf(100)) < 0) {
+            return "Lv.4 고도 회복 단계";
+        }
+        return "Lv.5 완전 회복 단계";
     }
 
     private List<EsgImpactResponse.Activity> toActivities(List<EsgImpactActivityRow> activityRows) {
@@ -107,7 +110,7 @@ public class EsgImpactService {
                         .time(row.occurredAt().format(ACTIVITY_TIME_FORMATTER))
                         .type(row.type())
                         .title(row.title())
-                        .description("종이 " + row.paperSaved() + "장 절감")
+                        .description("종이 사용 " + row.paperSaved() + "장 절감으로 예상 해수면 상승을 낮췄습니다.")
                         .seaLevelDelta(BigDecimal.valueOf(row.paperSaved())
                                 .multiply(SEA_LEVEL_CONTRIBUTION_PER_PAPER)
                                 .negate()

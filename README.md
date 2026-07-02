@@ -83,7 +83,7 @@
 ---
 
 # 4.  ERD
-🔗[ ERD ](https://www.erdcloud.com/d/bT8LAgzBFbTcFFipj)
+🔗[ ERD ](https://www.erdcloud.com/d/fFEyjcWqQRK9B678J)
 
 <br/><br/><br/>
 
